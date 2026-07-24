@@ -59,7 +59,10 @@ export default function VerticalCapsuleSwitch({
   }, [isEnabled]);
 
   // Interpolated opacity values for smooth 350ms color transitions
-  const activeOpacity = animVal;
+  const activeOpacity = animVal.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1]
+  });
   const inactiveOpacity = animVal.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 0]
