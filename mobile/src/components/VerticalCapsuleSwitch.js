@@ -97,8 +97,8 @@ export default function VerticalCapsuleSwitch({
             width,
             height,
             borderRadius: radius,
-            borderColor: isEnabled ? "#22C55E" : "rgba(255,255,255,0.08)",
-            borderWidth: isEnabled ? 1.5 : 1,
+            borderColor: isEnabled ? "#16a34a" : "rgba(255,255,255,0.08)",
+            borderWidth: 1,
             flexDirection: isHorizontal ? "row" : "column"
           },
           isEnabled && styles.outerGlowOn
@@ -113,7 +113,7 @@ export default function VerticalCapsuleSwitch({
           {/* Active Gradient (ON = True) */}
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: activeOpacity }]}>
             <LinearGradient
-              colors={["#16a34a", "#22C55E", "#15803d"]}
+              colors={["#14532d", "#166534", "#0f3e21"]}
               start={gradStart}
               end={gradEnd}
               style={StyleSheet.absoluteFill}
@@ -226,13 +226,13 @@ const styles = StyleSheet.create({
   outerGlowOn: {
     ...Platform.select({
       ios: {
-        shadowColor: "#22C55E",
+        shadowColor: "#16a34a",
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.85,
-        shadowRadius: 20
+        shadowOpacity: 0.35,
+        shadowRadius: 8
       },
       android: {
-        elevation: 10
+        elevation: 4
       }
     })
   },
@@ -260,9 +260,9 @@ const styles = StyleSheet.create({
   },
   textOnActive: {
     color: "#FFFFFF",
-    textShadowColor: "#22C55E",
+    textShadowColor: "rgba(34, 197, 94, 0.4)",
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10
+    textShadowRadius: 4
   },
   textOffActive: {
     color: "#FFFFFF"
