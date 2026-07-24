@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function VerticalCapsuleSwitch({
   isEnabled = false,
@@ -82,7 +83,8 @@ export default function VerticalCapsuleSwitch({
     }
   };
 
-  const fontSize = isHorizontal ? 11 : (size === "normal" ? 11 : width * 0.15);
+  const fontSize = isHorizontal ? 10 : (size === "normal" ? 10 : width * 0.13);
+  const iconSize = isHorizontal ? 14 : (size === "normal" ? 16 : 22);
 
   const gradStart = isHorizontal ? { x: 0, y: 0.5 } : { x: 0.5, y: 0 };
   const gradEnd = isHorizontal ? { x: 1, y: 0.5 } : { x: 0.5, y: 1 };
@@ -133,15 +135,22 @@ export default function VerticalCapsuleSwitch({
             />
           </Animated.View>
 
-          <Text
-            style={[
-              styles.labelText,
-              { fontSize },
-              isEnabled ? styles.textOnActive : styles.textInactive
-            ]}
-          >
-            ON
-          </Text>
+          <View style={{ alignItems: "center", justifyContent: "center", gap: isHorizontal ? 2 : 3 }}>
+            <MaterialCommunityIcons
+              name="power"
+              size={iconSize}
+              color={isEnabled ? "#FFFFFF" : "rgba(255, 255, 255, 0.2)"}
+            />
+            <Text
+              style={[
+                styles.labelText,
+                { fontSize },
+                isEnabled ? styles.textOnActive : styles.textInactive
+              ]}
+            >
+              ON
+            </Text>
+          </View>
         </TouchableOpacity>
 
         {/* THIN DIVIDER LINE */}
@@ -201,15 +210,22 @@ export default function VerticalCapsuleSwitch({
             />
           </Animated.View>
 
-          <Text
-            style={[
-              styles.labelText,
-              { fontSize },
-              !isEnabled ? styles.textOffActive : styles.textInactive
-            ]}
-          >
-            OFF
-          </Text>
+          <View style={{ alignItems: "center", justifyContent: "center", gap: isHorizontal ? 2 : 3 }}>
+            <MaterialCommunityIcons
+              name="power"
+              size={iconSize}
+              color={!isEnabled ? "#FFFFFF" : "rgba(255, 255, 255, 0.18)"}
+            />
+            <Text
+              style={[
+                styles.labelText,
+                { fontSize },
+                !isEnabled ? styles.textOffActive : styles.textInactive
+              ]}
+            >
+              OFF
+            </Text>
+          </View>
         </TouchableOpacity>
       </Animated.View>
     </View>
