@@ -139,7 +139,7 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
               <View style={styles.modalControlGroup}>
                 <View style={styles.levelHeaderRow}>
                   <Text style={styles.subLabelCaps}>Speed Level</Text>
-                  <Text style={styles.speedValueText}>{device?.value || 3} / 5</Text>
+                  <Text style={styles.speedValueText}>{(typeof device?.value === 'number' ? device.value : 3)} / 5</Text>
                 </View>
 
                 <View style={styles.dimmerAdjusterRow}>
@@ -151,7 +151,7 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
                     <View
                       style={[
                         styles.dimmerProgressFill,
-                        { width: `${((device?.value || 3) / 5) * 100}%` },
+                        { width: `${((typeof device?.value === 'number' ? device.value : 3) / 5) * 100}%` },
                         isEnabled ? styles.fillActive : styles.fillInactive
                       ]}
                     />
@@ -169,7 +169,7 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
               <View style={styles.modalControlGroup}>
                 <View style={styles.levelHeaderRow}>
                   <Text style={styles.subLabelCaps}>Brightness</Text>
-                  <Text style={styles.brightnessValueText}>{device?.value || 65}%</Text>
+                  <Text style={styles.brightnessValueText}>{(typeof device?.value === 'number' ? device.value : 65)}%</Text>
                 </View>
 
                 <View style={styles.dimmerAdjusterRow}>
@@ -181,7 +181,7 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
                     <View
                       style={[
                         styles.dimmerProgressFill,
-                        { width: `${device?.value || 65}%` },
+                        { width: `${(typeof device?.value === 'number' ? device.value : 65)}%` },
                         isEnabled ? styles.fillActive : styles.fillInactive
                       ]}
                     />

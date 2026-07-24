@@ -243,17 +243,26 @@ export default function DashboardScreen({ navigation }) {
   const handleAdjustValue = async (id, step) => {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
-    const maxVal = target.type === "thermostat" ? 90 : 100;
-    const minVal = target.type === "thermostat" ? 60 : 0;
-    const nextVal = Math.max(minVal, Math.min(maxVal, target.value + step));
-    
+
+    const isFan = target.type === 'fan' || target.node_id?.endsWith('_5') || target.name?.toLowerCase().includes('fan');
+    const isDimmer = target.type === 'light' || target.node_id?.endsWith('_6') || target.name?.toLowerCase().includes('dim') || target.name?.toLowerCase().includes('strip');
+
+    const defaultVal = isFan ? 3 : 65;
+    const currentVal = (typeof target.value === 'number' && !isNaN(target.value)) ? target.value : defaultVal;
+
+    const minVal = isFan ? 1 : 10;
+    const maxVal = isFan ? 5 : 100;
+
+    const nextVal = Math.max(minVal, Math.min(maxVal, currentVal + step));
+    if (nextVal === currentVal) return;
+
     // 1. Optimistic UI update
     setDevices((prev) => prev.map((d) => d.id === id ? { ...d, value: nextVal } : d));
-    
+
     // 2. Direct MQTT publish
     let baseNodeId = target.node_id;
     let channel = 1;
-    if (target.node_id.includes('_')) {
+    if (target.node_id && target.node_id.includes('_')) {
       const parts = target.node_id.split('_');
       baseNodeId = parts[0];
       channel = parseInt(parts[parts.length - 1], 10);
@@ -261,12 +270,11 @@ export default function DashboardScreen({ navigation }) {
     const topic = `home/device/${baseNodeId}/control`;
     const payload = {
       channel,
-      status: target.status ? 'ON' : 'OFF'
+      status: target.status ? 'ON' : 'OFF',
+      value: nextVal
     };
-    if (target.type === 'fan') {
+    if (isFan) {
       payload.speed = nextVal;
-    } else {
-      payload.value = nextVal;
     }
     publishMessage(topic, payload);
 
@@ -275,12 +283,13 @@ export default function DashboardScreen({ navigation }) {
       await apiClient.post(`/api/devices/${id}/control`, {
         state: { 
           status: target.status ? 'ON' : 'OFF',
-          value: nextVal 
+          value: nextVal,
+          ...(isFan ? { speed: nextVal } : {})
         }
       });
     } catch (err) {
       console.warn("Failed to sync adjusted value with server:", err);
-      setDevices((prev) => prev.map((d) => d.id === id ? { ...d, value: target.value } : d));
+      setDevices((prev) => prev.map((d) => d.id === id ? { ...d, value: currentVal } : d));
     }
   };
 
