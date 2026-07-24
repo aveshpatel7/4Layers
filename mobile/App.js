@@ -1,6 +1,9 @@
-import React from 'react';
+import 'react-native-gesture-handler';
+import React, { Component } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MD3DarkTheme, PaperProvider } from 'react-native-paper';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
 
 // Polyfill global window and localStorage for paho-mqtt and native runtime stability
@@ -13,6 +16,35 @@ if (!global.window.localStorage) {
     setItem: () => {},
     removeItem: () => {},
   };
+}
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('GLOBAL APP CRASH:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Application Error</Text>
+          <Text style={styles.errorText}>
+            {this.state.error ? this.state.error.toString() : 'An unexpected error occurred.'}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 // Custom Material Design 3 Dark Theme for a premium modern Black + Green aesthetic
@@ -41,10 +73,35 @@ const theme = {
 
 export default function App() {
   return (
-    <PaperProvider theme={theme}>
-      {/* Light status bar icons for dark background */}
-      <StatusBar style="light" backgroundColor="#0D0D0D" />
-      <AppNavigator />
-    </PaperProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <PaperProvider theme={theme}>
+          {/* Light status bar icons for dark background */}
+          <StatusBar style="light" backgroundColor="#0D0D0D" />
+          <AppNavigator />
+        </PaperProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  errorContainer: {
+    flex: 1,
+    backgroundColor: '#0E0E0E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    color: '#EF4444',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  errorText: {
+    color: '#E5E2E1',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+});
