@@ -459,7 +459,7 @@ export default function DashboardScreen({ navigation }) {
                   onDecrease={() => handleAdjustValue(device.id, device.type === 'fan' ? -1 : -10)}
                 />
               ))}
-          </View>}}
+          </View>}
 
       </ScrollView>
     </SafeAreaView>;

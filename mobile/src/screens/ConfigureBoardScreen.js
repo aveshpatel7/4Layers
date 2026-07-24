@@ -278,7 +278,7 @@ export default function ConfigureBoardScreen({ route, navigation }) {
                       color={device.isActive ? (device.status ? TOKENS.accent : TOKENS.textSecondary) : '#555555'} 
                     />
                     <Text style={[styles.channelLabel, !device.isActive && styles.channelLabelInactive]}>
-                      Channel {device.suffix} {!device.isActive && '(Inactive)'}
+                      Channel {device.suffix} {!device.isActive ? '(Inactive)' : ''}
                     </Text>
                   </View>
                   
