@@ -133,8 +133,15 @@ def trigger_schedule_manually(
         
     # Trigger MQTT command
     from backend import mqtt
+    import datetime
     requested_state = { "status": schedule.action }
     previous_state = device.current_state or {}
+    
+    # Update device current_state in DB
+    new_state = {**previous_state, **requested_state}
+    device.current_state = new_state
+    device.updated_at = datetime.datetime.utcnow()
+    db.add(device)
     
     history_entry = models.DeviceHistory(
         device_id=device.id,

@@ -45,22 +45,34 @@ scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
 def check_schedules():
     db = SessionLocal()
     try:
-        # User local time offset calculation (IST offset = UTC + 5:30)
-        utc_now = datetime.datetime.utcnow()
-        now_local = utc_now + datetime.timedelta(hours=5, minutes=30)
+        # Calculate current IST local time
+        try:
+            from zoneinfo import ZoneInfo
+            tz_ist = ZoneInfo("Asia/Kolkata")
+            now_local = datetime.datetime.now(tz_ist)
+        except Exception:
+            utc_now = datetime.datetime.utcnow()
+            now_local = utc_now + datetime.timedelta(hours=5, minutes=30)
+
         current_time_str = now_local.strftime("%H:%M")
         current_day_str = now_local.strftime("%a").lower()
-        
+
         enabled_schedules = db.query(models.Schedule).filter(models.Schedule.enabled == True).all()
         for schedule in enabled_schedules:
             if schedule.time == current_time_str:
-                days_list = [d.strip() for d in schedule.days.split(',')]
+                days_list = [d.strip().lower() for d in schedule.days.split(',')]
                 if "daily" in days_list or current_day_str in days_list:
                     device = db.query(models.Device).filter(models.Device.id == schedule.device_id).first()
                     if device:
                         requested_state = { "status": schedule.action }
                         previous_state = device.current_state or {}
-                        
+
+                        # Update device current_state in DB so API & UI sync
+                        new_state = {**previous_state, **requested_state}
+                        device.current_state = new_state
+                        device.updated_at = datetime.datetime.utcnow()
+                        db.add(device)
+
                         history_entry = models.DeviceHistory(
                             device_id=device.id,
                             change_type="command_sent",
@@ -77,7 +89,7 @@ def check_schedules():
                             is_read=False
                         )
                         db.add(alert_entry)
-                        
+
                         mqtt.publish_control_message(
                             node_id=device.node_id,
                             state=requested_state

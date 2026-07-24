@@ -262,6 +262,16 @@ const normalizeTimeInput = (raw) => {
     );
   };
 
+  const handleRunScheduleManually = async (scheduleId) => {
+    try {
+      await apiClient.post(`/api/schedules/${scheduleId}/run`);
+      Alert.alert('Success', 'Schedule rule executed immediately!');
+    } catch (error) {
+      console.error('Failed to trigger schedule:', error);
+      Alert.alert('Error', 'Failed to execute schedule rule.');
+    }
+  };
+
   const getDeviceName = (deviceId) => {
     const dev = devices.find(d => d.id === deviceId);
     if (!dev) return 'Unknown Device';
@@ -381,6 +391,9 @@ const normalizeTimeInput = (raw) => {
               <View style={styles.cardBottomRow}>
                 {renderDaysList(item.days)}
                 <View style={styles.cardActions}>
+                  <TouchableOpacity onPress={() => handleRunScheduleManually(item.id)} style={[styles.cardActionBtn, { marginRight: 10 }]} activeOpacity={0.7}>
+                    <MaterialCommunityIcons name="play-circle-outline" size={20} color={TOKENS.accent} />
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDeleteSchedule(item.id)} style={styles.cardActionBtn} activeOpacity={0.7}>
                     <MaterialCommunityIcons name="trash-can-outline" size={18} color={TOKENS.error} />
                   </TouchableOpacity>
