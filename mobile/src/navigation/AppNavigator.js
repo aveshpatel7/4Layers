@@ -244,7 +244,7 @@ export default function AppNavigator() {
             <Tab.Screen
               name="SchedulesTab"
               component={SchedulesScreen}
-              options={{ title: 'Schedules' }}
+              options={{ title: 'Schedules', headerShown: false }}
             />
             <Tab.Screen
               name="SettingsTab"

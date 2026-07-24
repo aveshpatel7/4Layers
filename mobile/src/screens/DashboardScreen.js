@@ -1181,12 +1181,15 @@ const styles = StyleSheet.create({
   statColumn: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "flex-start"
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 22,
+    lineHeight: 26,
+    height: 28,
     fontWeight: "bold",
     color: TOKENS.accent,
+    textAlign: "center",
     marginBottom: 4
   },
   statLabel: {
@@ -1194,7 +1197,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: TOKENS.textSecondary,
     textTransform: "uppercase",
-    letterSpacing: 0.5
+    letterSpacing: 0.5,
+    textAlign: "center"
   },
   masterGlassCard: {
     width: "100%",

@@ -532,7 +532,7 @@ const normalizeTimeInput = (raw) => {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>Time (Type 830, 8, 2200 or 08:30)</Text>
+              <Text style={styles.label}>Time</Text>
               <TextInput
                 style={styles.input}
                 value={scheduleTime}

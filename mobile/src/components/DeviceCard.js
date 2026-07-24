@@ -248,8 +248,8 @@ const styles = StyleSheet.create({
     marginRight: 12
   },
   masterTitleProminent: {
-    fontSize: 22,
-    fontWeight: "900",
+    fontSize: 17,
+    fontWeight: "800",
     color: TOKENS.accentGreen,
     letterSpacing: 0.5,
     marginBottom: 4
