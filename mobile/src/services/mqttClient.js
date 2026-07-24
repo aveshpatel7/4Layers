@@ -1,3 +1,15 @@
+// Polyfill global window and localStorage for paho-mqtt in React Native
+if (typeof window === 'undefined') {
+  global.window = global;
+}
+if (!global.window.localStorage) {
+  global.window.localStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+}
+
 import Paho from 'paho-mqtt';
 
 let pahoClient = null;

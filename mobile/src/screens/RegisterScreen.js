@@ -3,7 +3,7 @@ import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Touchable
 import { Text, TextInput, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
-import logoImg from '../assets/logo.jpg';
+import logoImg from '../../assets/icon.png';
 
 export default function RegisterScreen({ navigation }) {
   const theme = useTheme();

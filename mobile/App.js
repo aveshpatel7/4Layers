@@ -3,6 +3,18 @@ import { StatusBar } from 'expo-status-bar';
 import { MD3DarkTheme, PaperProvider } from 'react-native-paper';
 import AppNavigator from './src/navigation/AppNavigator';
 
+// Polyfill global window and localStorage for paho-mqtt and native runtime stability
+if (typeof window === 'undefined') {
+  global.window = global;
+}
+if (!global.window.localStorage) {
+  global.window.localStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+}
+
 // Custom Material Design 3 Dark Theme for a premium modern Black + Green aesthetic
 const theme = {
   ...MD3DarkTheme,

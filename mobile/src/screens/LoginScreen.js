@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
-import logoImg from '../assets/logo.jpg';
+import logoImg from '../../assets/icon.png';
 
 export default function LoginScreen({ navigation }) {
   const theme = useTheme();
