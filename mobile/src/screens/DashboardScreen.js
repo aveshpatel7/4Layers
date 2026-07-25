@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Platform
+  Platform,
+  Modal
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import apiClient from "../api/client";
 import DeviceCard, { LuminaRockerSwitch } from "../components/DeviceCard";
 import EnergyChart from "../components/EnergyChart";
 import BrandLogo from "../components/BrandLogo";
+import SideDrawer from "../components/SideDrawer";
 import { connectMqtt, disconnectMqtt, publishMessage } from "../services/mqttClient";
 const TOKENS = {
   bg: "#0E0E0E",
@@ -47,6 +49,8 @@ function CapsuleSwitch({ isEnabled, onToggle }) {
 
 export default function DashboardScreen({ navigation }) {
   const [selectedRoom, setSelectedRoom] = useState("");
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
   const [isArmed, setIsArmed] = useState(true);
   const [devices, setDevices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -335,82 +339,101 @@ export default function DashboardScreen({ navigation }) {
   const isSecurityArmed = !!isArmed;
   const ROOM_TABS = dbRooms.map((r) => ({ id: r.id, label: r.name }));
 
+  const currentRoomName = dbRooms.find(r => r.id === selectedRoom)?.name || 'Living Room';
+
   return <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor={TOKENS.bg} />
       
-      {/* Premium Custom Top Bar */}
-      <View style={styles.customHeader}>
-        <View style={styles.logoGroup}>
-          <BrandLogo size="medium" color={TOKENS.accent} bg={TOKENS.bg} />
-        </View>
-        <View style={styles.headerRightGroup}>
-          {/* Connection Status Badge */}
-          <View style={styles.connectionBadge}>
-            <View style={[
-              styles.connectionDot,
-              !hasError ? styles.connectionDotOnline : styles.connectionDotOffline
-            ]} />
-            <Text style={styles.connectionText}>
-              {!hasError ? "Connected" : "Offline"}
-            </Text>
+      {/* Side Navigation Drawer */}
+      <SideDrawer
+        visible={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        navigation={navigation}
+        activeRouteName="Home"
+        userProfile={{ name: username }}
+      />
+
+      {/* Compact Room Selector Modal */}
+      <Modal
+        visible={isRoomPickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsRoomPickerOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.roomModalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsRoomPickerOpen(false)}
+        >
+          <View style={styles.roomModalContainer}>
+            <Text style={styles.roomModalTitle}>Select Room View</Text>
+            {dbRooms.map((room) => {
+              const isSelected = selectedRoom === room.id;
+              return (
+                <TouchableOpacity
+                  key={room.id}
+                  style={[styles.roomModalItem, isSelected && styles.roomModalItemActive]}
+                  onPress={() => {
+                    setSelectedRoom(room.id);
+                    setIsRoomPickerOpen(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <MaterialCommunityIcons
+                      name="door-open"
+                      size={18}
+                      color={isSelected ? TOKENS.accent : TOKENS.textSecondary}
+                    />
+                    <Text style={[styles.roomModalText, isSelected && styles.roomModalTextActive]}>
+                      {room.name}
+                    </Text>
+                  </View>
+                  {isSelected && (
+                    <MaterialCommunityIcons name="check" size={18} color={TOKENS.accent} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          {/* Add Device Plus Icon instead of Bell */}
-          <TouchableOpacity 
-            style={styles.bellButton}
-            onPress={() => navigation.navigate("RoomSelection")}
-            accessibilityRole="button"
-            accessibilityLabel="Add New Device"
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Header Bar */}
+      <View style={styles.customHeader}>
+        <View style={styles.headerLeftGroup}>
+          <TouchableOpacity
+            style={styles.drawerMenuBtn}
+            onPress={() => setIsDrawerOpen(true)}
+            activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="plus" size={28} color={TOKENS.textPrimary} />
+            <MaterialCommunityIcons name="menu" size={24} color={TOKENS.textPrimary} />
           </TouchableOpacity>
+          <BrandLogo size="small" color={TOKENS.accent} bg={TOKENS.bg} />
+        </View>
+
+        {/* Ultra-Compact Room Dropdown Pill */}
+        <TouchableOpacity
+          style={styles.compactRoomDropdownBtn}
+          onPress={() => setIsRoomPickerOpen(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.compactRoomDropdownText} numberOfLines={1}>
+            {currentRoomName}
+          </Text>
+          <MaterialCommunityIcons name="chevron-down" size={14} color={TOKENS.accent} />
+        </TouchableOpacity>
+
+        {/* Status Indicator Dot Only (Blue = Connected, Red = Disconnected) */}
+        <View style={styles.statusDotWrapper}>
+          <View style={[
+            styles.statusDotOnly,
+            !hasError ? styles.statusDotConnected : styles.statusDotDisconnected
+          ]} />
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        
-        {/* Horizontal Room Scroll Selector Row */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          contentContainerStyle={styles.tabsScrollContainer}
-          style={styles.tabsScrollView}
-        >
-          {ROOM_TABS.map((tab) => {
-            const isActive = selectedRoom === tab.id;
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                activeOpacity={0.7}
-                onPress={() => setSelectedRoom(tab.id)}
-                style={[
-                  styles.tabChip,
-                  isActive ? styles.tabChipActive : styles.tabChipInactive
-                ]}
-                accessibilityRole="tab"
-                accessibilityState={isActive ? { selected: true } : void 0}
-                accessibilityLabel={`${tab.label} view filter`}
-              >
-                <Text 
-                  numberOfLines={1}
-                  style={[
-                    styles.tabChipText,
-                    isActive ? styles.tabChipTextActive : styles.tabChipTextInactive
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-                {isActive && (
-                  <MaterialCommunityIcons 
-                    name="menu-down" 
-                    size={16} 
-                    color="#002112" 
-                    style={{ marginLeft: 2 }}
-                  />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
 
         {/* Greeting section */}
         <View style={styles.greetingSection}>
@@ -488,61 +511,105 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.border,
     backgroundColor: TOKENS.bg
   },
-  logoGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8
-  },
-  logoText: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: TOKENS.accent,
-    letterSpacing: -0.5
-  },
-  headerRightGroup: {
+  headerLeftGroup: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12
   },
-  connectionBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    borderWidth: 1,
-    borderColor: TOKENS.border,
-    borderRadius: 20,
+  drawerMenuBtn: {
+    padding: 4
+  },
+  compactRoomDropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1B1B',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    gap: 6
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 4
   },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4
+  compactRoomDropdownText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: TOKENS.textPrimary,
+    maxWidth: 110
   },
-  connectionDotOnline: {
-    backgroundColor: TOKENS.accent,
-    shadowColor: TOKENS.accent,
+  statusDotWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 4
+  },
+  statusDotOnly: {
+    width: 10,
+    height: 10,
+    borderRadius: 5
+  },
+  statusDotConnected: {
+    backgroundColor: '#3B82F6', // Blue dot when connected
+    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 3
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    elevation: 4
   },
-  connectionDotOffline: {
-    backgroundColor: TOKENS.error
+  statusDotDisconnected: {
+    backgroundColor: '#EF4444', // Red dot when disconnected
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    elevation: 4
   },
-  connectionText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: TOKENS.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5
+  roomModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24
+  },
+  roomModalContainer: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#1C1B1B',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  roomModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: TOKENS.textPrimary,
+    marginBottom: 14
+  },
+  roomModalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 4
+  },
+  roomModalItemActive: {
+    backgroundColor: 'rgba(34, 197, 94, 0.12)'
+  },
+  roomModalText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: TOKENS.textSecondary
+  },
+  roomModalTextActive: {
+    color: TOKENS.accent,
+    fontWeight: '700'
   },
   greetingSection: {
     marginTop: 16,

@@ -24,7 +24,7 @@ const TOKENS = {
   error: '#EF4444'
 };
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }) {
   const { signOut } = useContext(AuthContext);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -147,6 +147,30 @@ export default function SettingsScreen() {
       <View style={styles.titleSection}>
         <Text style={styles.mainTitle}>Configuration</Text>
         <Text style={styles.mainSubtitle}>Manage connection profiles and application settings.</Text>
+      </View>
+
+      {/* Device Management Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="chip" size={20} color={TOKENS.accent} />
+          <Text style={styles.sectionTitle}>Device Management</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.addDeviceCard}
+          onPress={() => navigation && navigation.navigate("RoomSelection")}
+          activeOpacity={0.8}
+        >
+          <View style={styles.addDeviceLeftGroup}>
+            <View style={styles.addDeviceIconCircle}>
+              <MaterialCommunityIcons name="plus" size={22} color={TOKENS.accent} />
+            </View>
+            <View>
+              <Text style={styles.addDeviceTitle}>Add New Switchboard / Device</Text>
+              <Text style={styles.addDeviceSubtitle}>Configure hardware relays and channels</Text>
+            </View>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={TOKENS.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       {/* Account Settings Section */}
@@ -489,5 +513,38 @@ const styles = StyleSheet.create({
   appInfoText: {
     fontSize: 11,
     color: TOKENS.textSecondary
+  },
+  addDeviceCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: TOKENS.surface,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: TOKENS.border
+  },
+  addDeviceLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  addDeviceIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    justify: 'center',
+    alignItems: 'center'
+  },
+  addDeviceTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: TOKENS.textPrimary
+  },
+  addDeviceSubtitle: {
+    fontSize: 11,
+    color: TOKENS.textSecondary,
+    marginTop: 2
   }
 });
