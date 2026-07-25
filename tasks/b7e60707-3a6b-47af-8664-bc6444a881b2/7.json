@@ -1,0 +1,8 @@
+{
+  "id": "7",
+  "subject": "Phase 1: Add Device via QR/Barcode + manual",
+  "description": "Mobile mein Add Device screen ko upgrade karna: QR/Barcode scanner se UUID + password scan karke device connect ho. Manual fallback bhi rakhna. react-native-camera ya expo-barcode-scanner use karna.",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

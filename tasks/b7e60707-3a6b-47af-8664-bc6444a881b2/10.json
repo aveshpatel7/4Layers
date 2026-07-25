@@ -1,0 +1,8 @@
+{
+  "id": "10",
+  "subject": "Phase 3: Deploy (Dashboard Vercel + APK)",
+  "description": "Dashboard React app ko Vercel pe deploy karna. Env vars set karna (.env production values). APK build karna (EAS build ya expo build).",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

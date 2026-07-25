@@ -1,0 +1,8 @@
+{
+  "id": "4",
+  "subject": "Phase 1: Settings page (mobile + backend)",
+  "description": "Mobile mein Settings screen banana: user profile dikhana (/me), profile update, change password, logout. Backend mein profile-update aur change-password endpoints add karna.",
+  "status": "in_progress",
+  "blocks": [],
+  "blockedBy": []
+}

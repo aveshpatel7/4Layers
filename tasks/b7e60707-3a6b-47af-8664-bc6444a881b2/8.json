@@ -1,0 +1,8 @@
+{
+  "id": "8",
+  "subject": "Phase 2: Schedules (backend + mobile)",
+  "description": "Backend mein Schedules table + model + CRUD endpoints banana. APScheduler integrate karke scheduled time pe MQTT publish kare (app band ho tab bhi chale). Mobile mein Schedules screen banana (add/list/delete schedule).",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

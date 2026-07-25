@@ -1,0 +1,8 @@
+{
+  "id": "3",
+  "subject": "Phase 0: Dashboard mock-data fallback hatana",
+  "description": "Dashboard React app mein agar mock/sample device data fallback hai jo real API fail hone par dikhta hai, usse hatana taaki demo mein confusion na ho.",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

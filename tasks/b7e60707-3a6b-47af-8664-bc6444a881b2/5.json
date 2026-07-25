@@ -1,0 +1,8 @@
+{
+  "id": "5",
+  "subject": "Phase 1: Multi-room manage UI (mobile)",
+  "description": "Mobile mein multi-room management UI: room add/delete/select. Backend Rooms CRUD already ready hai.",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

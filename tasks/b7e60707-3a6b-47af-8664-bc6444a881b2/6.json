@@ -1,0 +1,8 @@
+{
+  "id": "6",
+  "subject": "Phase 1: Master Switch (all on/off)",
+  "description": "Mobile mein Master Switch: ek button se room ke sab devices ya puri home ke sab devices on/off kar sakte hain. Backend mein bulk control endpoint banana ya client-side loop.",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

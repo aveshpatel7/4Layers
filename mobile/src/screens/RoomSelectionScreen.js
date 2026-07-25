@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 15,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 36) : 50,
     paddingBottom: 10,
   },
   backBtn: {

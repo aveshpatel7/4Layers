@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&amp;family=JetBrains+Mono:wght@500;700&amp;family=Geist:wght@600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        try {
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        "colors": {
+                            "on-surface": "#e5e2e1",
+                            "secondary-container": "#5e3588",
+                            "surface-container-lowest": "#0e0e0e",
+                            "inverse-on-surface": "#313030",
+                            "on-primary-container": "#4c0f89",
+                            "tertiary": "#17deca",
+                            "surface-container-low": "#1c1b1b",
+                            "on-secondary-fixed-variant": "#5b3285",
+                            "on-tertiary-container": "#003d37",
+                            "on-secondary": "#44186d",
+                            "primary-fixed": "#eedbff",
+                            "on-background": "#e5e2e1",
+                            "primary": "#dab9ff",
+                            "on-secondary-fixed": "#2c0051",
+                            "surface-container-high": "#2a2a2a",
+                            "secondary": "#dcb8ff",
+                            "on-error": "#690005",
+                            "on-tertiary": "#003731",
+                            "secondary-fixed-dim": "#dcb8ff",
+                            "inverse-primary": "#7743b5",
+                            "surface-dim": "#131313",
+                            "on-primary-fixed-variant": "#5e289b",
+                            "primary-fixed-dim": "#dab9ff",
+                            "surface-bright": "#3a3939",
+                            "tertiary-fixed": "#4ffbe6",
+                            "on-surface-variant": "#cdc3d4",
+                            "background": "#131313",
+                            "tertiary-fixed-dim": "#17deca",
+                            "on-tertiary-fixed-variant": "#005048",
+                            "surface": "#131313",
+                            "on-secondary-container": "#d2a5ff",
+                            "on-primary": "#460283",
+                            "outline": "#978d9d",
+                            "on-tertiary-fixed": "#00201c",
+                            "on-error-container": "#ffdad6",
+                            "error-container": "#93000a",
+                            "outline-variant": "#4b4452",
+                            "error": "#ffb4ab",
+                            "tertiary-container": "#00b2a1",
+                            "on-primary-fixed": "#2a0053",
+                            "surface-tint": "#dab9ff",
+                            "surface-container": "#201f1f",
+                            "surface-variant": "#353534",
+                            "primary-container": "#bb86fc",
+                            "surface-container-highest": "#353534",
+                            "inverse-surface": "#e5e2e1",
+                            "secondary-fixed": "#f0dbff"
+                        },
+                        "borderRadius": {
+                            "DEFAULT": "0.25rem",
+                            "lg": "0.5rem",
+                            "xl": "0.75rem",
+                            "full": "9999px"
+                        },
+                        "spacing": {
+                            "margin-mobile": "16px",
+                            "gutter": "24px",
+                            "margin-desktop": "40px",
+                            "unit": "4px",
+                            "container-max": "1440px"
+                        },
+                        "fontFamily": {
+                            "label-caps": ["JetBrains Mono"],
+                            "data-mono": ["JetBrains Mono"],
+                            "body-base": ["Inter"],
+                            "headline-md": ["Geist"],
+                            "display-lg": ["Geist"]
+                        },
+                        "fontSize": {
+                            "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                            "data-mono": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                            "body-base": ["16px", {"lineHeight": "24px", "letterSpacing": "0", "fontWeight": "400"}],
+                            "headline-md": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                            "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                            "headline-md-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                            "display-lg-mobile": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                        }
+                    },
+                },
+            }
+        } catch (_e) {}
+    </script>
+<style>
+        /* 3D Vertical Rocker Switch Styling */
+        .rocker-checkbox:checked + .rocker-inner-v {
+            background: linear-gradient(to bottom, rgba(187, 134, 252, 0.25), rgba(187, 134, 252, 0.05));
+            box-shadow: 0 0 40px rgba(187, 134, 252, 0.15);
+        }
+        .rocker-checkbox:checked + .rocker-inner-v .switch-body {
+            transform: translateY(10%);
+        }
+        .rocker-checkbox:not(:checked) + .rocker-inner-v .switch-body {
+            transform: translateY(-10%);
+        }
+        .rocker-checkbox:checked + .rocker-inner-v .indicator-dot {
+            background-color: #bb86fc;
+            box-shadow: 0 0 15px #bb86fc;
+        }
+        .rocker-checkbox:checked + .rocker-inner-v .label-on {
+            color: #bb86fc;
+            text-shadow: 0 0 10px rgba(187, 134, 252, 0.6);
+            opacity: 1;
+        }
+        .rocker-checkbox:not(:checked) + .rocker-inner-v .label-off {
+            color: #bb86fc;
+            text-shadow: 0 0 10px rgba(187, 134, 252, 0.6);
+            opacity: 1;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up { animation: slideUp 0.6s ease-out forwards; }
+
+        .dimmer-track::-webkit-slider-runnable-track {
+            background: #2a2a2a;
+            height: 6px;
+            border-radius: 3px;
+        }
+        .dimmer-track::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #bb86fc;
+            margin-top: -7px;
+            box-shadow: 0 0 15px #bb86fc;
+            border: 2px solid #fff;
+        }
+
+        .glass-card {
+            background: rgba(28, 27, 27, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface font-body-base min-h-screen overflow-x-hidden">
+<!-- Header -->
+<header class="bg-surface-container-lowest/80 backdrop-blur-xl border-b border-white/5 top-0 flex justify-between items-center px-margin-mobile h-16 w-full z-50 fixed">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center overflow-hidden border border-primary/30 shadow-lg shadow-primary/10">
+<img alt="User Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBX_LgHapfSanGSA3YS9l8kWrnr61qEeXCj5U7QIT_KQK9vTH9rac1TJNhdmhKU68wKbW2BCfW-vvhKsxA3J9Qg3UluLvpP6g2F-sfwTuPZpcxw7SztPvfn4Q9ulpEuPp-xMfzJYuuo_xXimFwba6YOmxlXphrMmnUigB5IXfkgbp0Y7volFxkRnRulwFepPBQu0ySlH1oSysAp0n-cDvrVVpeHB0oZs7va2t5SbHquyOoFTWCkKPYC4-TbdwR3cOgUJ5hDsslZekg"/>
+</div>
+<h1 class="font-display-lg text-2xl text-on-surface tracking-tight">Lumina Hub</h1>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-all duration-300">
+<span class="material-symbols-outlined text-2xl">notifications</span>
+</button>
+</header>
+<main class="pt-24 pb-32 px-margin-mobile max-w-container-max mx-auto space-y-6">
+<!-- Master Switch Section -->
+<section class="animate-slide-up">
+<div class="glass-card rounded-[2rem] p-8 flex flex-col items-center">
+<div class="w-full flex justify-between items-center mb-8 px-2">
+<div>
+<h2 class="font-label-caps text-[10px] text-primary/70 uppercase tracking-widest mb-1">Control Center</h2>
+<p class="font-headline-md text-3xl text-on-surface">Master Switch</p>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-high/50 px-3 py-1.5 rounded-full border border-white/5">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse shadow-[0_0_10px_rgba(23,222,202,0.8)]"></span>
+<span class="font-label-caps text-[10px] text-on-surface uppercase tracking-wider">All Active</span>
+</div>
+</div>
+<div class="relative py-4">
+<label class="relative inline-block cursor-pointer">
+<input checked="" class="rocker-checkbox hidden" id="master-switch" type="checkbox"/>
+<div class="rocker-inner-v relative w-44 h-72 rounded-[3.5rem] bg-surface-container-low shadow-[inset_0_4px_24px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col items-center justify-center p-3 overflow-hidden transition-all duration-500">
+<div class="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5 pointer-events-none"></div>
+<div class="switch-body w-full h-5/6 rounded-[3rem] bg-surface-container-highest flex flex-col justify-between items-center py-12 relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] border border-white/10 transition-transform duration-500 ease-in-out">
+<span class="label-on font-label-caps text-2xl text-on-surface-variant/20 select-none transition-all duration-300 opacity-50">ON</span>
+<div class="indicator-dot w-2.5 h-2.5 rounded-full bg-on-surface/20 transition-all duration-300"></div>
+<span class="label-off font-label-caps text-2xl text-on-surface-variant/20 select-none transition-all duration-300 opacity-50">OFF</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+</section>
+<!-- Individual Nodes Section (S-1 to S-4) -->
+<section class="animate-slide-up grid grid-cols-2 gap-4" style="animation-delay: 0.1s;">
+<!-- Node S-1 -->
+<div class="glass-card rounded-[2rem] p-6 flex flex-col items-center gap-6">
+<span class="font-label-caps text-primary text-sm tracking-widest uppercase">S-1</span>
+<label class="relative inline-block cursor-pointer">
+<input checked="" class="rocker-checkbox hidden" type="checkbox"/>
+<div class="rocker-inner-v relative w-24 h-40 rounded-[2rem] bg-surface-container-low shadow-[inset_0_4px_16px_rgba(0,0,0,0.7)] border border-white/5 flex flex-col items-center justify-center p-2 overflow-hidden transition-all duration-500">
+<div class="switch-body w-full h-5/6 rounded-[1.75rem] bg-surface-container-highest flex flex-col justify-between items-center py-6 relative z-10 shadow-2xl border border-white/10 transition-transform duration-500">
+<span class="label-on font-label-caps text-[10px] text-on-surface-variant/20 transition-all">ON</span>
+<div class="indicator-dot w-1.5 h-1.5 rounded-full bg-on-surface/20 transition-all"></div>
+<span class="label-off font-label-caps text-[10px] text-on-surface-variant/20 transition-all">OFF</span>
+</div>
+</div>
+</label>
+</div>
+<!-- Node S-2 -->
+<div class="glass-card rounded-[2rem] p-6 flex flex-col items-center gap-6">
+<span class="font-label-caps text-primary text-sm tracking-widest uppercase">S-2</span>
+<label class="relative inline-block cursor-pointer">
+<input class="rocker-checkbox hidden" type="checkbox"/>
+<div class="rocker-inner-v relative w-24 h-40 rounded-[2rem] bg-surface-container-low shadow-[inset_0_4px_16px_rgba(0,0,0,0.7)] border border-white/5 flex flex-col items-center justify-center p-2 overflow-hidden transition-all duration-500">
+<div class="switch-body w-full h-5/6 rounded-[1.75rem] bg-surface-container-highest flex flex-col justify-between items-center py-6 relative z-10 shadow-2xl border border-white/10 transition-transform duration-500">
+<span class="label-on font-label-caps text-[10px] text-on-surface-variant/20 transition-all">ON</span>
+<div class="indicator-dot w-1.5 h-1.5 rounded-full bg-on-surface/20 transition-all"></div>
+<span class="label-off font-label-caps text-[10px] text-on-surface-variant/20 transition-all">OFF</span>
+</div>
+</div>
+</label>
+</div>
+<!-- Node S-3 -->
+<div class="glass-card rounded-[2rem] p-6 flex flex-col items-center gap-6">
+<span class="font-label-caps text-primary text-sm tracking-widest uppercase">S-3</span>
+<label class="relative inline-block cursor-pointer">
+<input checked="" class="rocker-checkbox hidden" type="checkbox"/>
+<div class="rocker-inner-v relative w-24 h-40 rounded-[2rem] bg-surface-container-low shadow-[inset_0_4px_16px_rgba(0,0,0,0.7)] border border-white/5 flex flex-col items-center justify-center p-2 overflow-hidden transition-all duration-500">
+<div class="switch-body w-full h-5/6 rounded-[1.75rem] bg-surface-container-highest flex flex-col justify-between items-center py-6 relative z-10 shadow-2xl border border-white/10 transition-transform duration-500">
+<span class="label-on font-label-caps text-[10px] text-on-surface-variant/20 transition-all">ON</span>
+<div class="indicator-dot w-1.5 h-1.5 rounded-full bg-on-surface/20 transition-all"></div>
+<span class="label-off font-label-caps text-[10px] text-on-surface-variant/20 transition-all">OFF</span>
+</div>
+</div>
+</label>
+</div>
+<!-- Node S-4 -->
+<div class="glass-card rounded-[2rem] p-6 flex flex-col items-center gap-6">
+<span class="font-label-caps text-primary text-sm tracking-widest uppercase">S-4</span>
+<label class="relative inline-block cursor-pointer">
+<input checked="" class="rocker-checkbox hidden" type="checkbox"/>
+<div class="rocker-inner-v relative w-24 h-40 rounded-[2rem] bg-surface-container-low shadow-[inset_0_4px_16px_rgba(0,0,0,0.7)] border border-white/5 flex flex-col items-center justify-center p-2 overflow-hidden transition-all duration-500">
+<div class="switch-body w-full h-5/6 rounded-[1.75rem] bg-surface-container-highest flex flex-col justify-between items-center py-6 relative z-10 shadow-2xl border border-white/10 transition-transform duration-500">
+<span class="label-on font-label-caps text-[10px] text-on-surface-variant/20 transition-all">ON</span>
+<div class="indicator-dot w-1.5 h-1.5 rounded-full bg-on-surface/20 transition-all"></div>
+<span class="label-off font-label-caps text-[10px] text-on-surface-variant/20 transition-all">OFF</span>
+</div>
+</div>
+</label>
+</div>
+</section>
+<!-- S-5 (Fan) -->
+<section class="animate-slide-up" style="animation-delay: 0.2s;">
+<div class="glass-card rounded-[2rem] p-6">
+<div class="flex justify-between items-center mb-6">
+<span class="font-label-caps text-primary text-sm tracking-widest uppercase">S-5 (Fan)</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl animate-spin" style="animation-duration: 2s;">fan</span>
+<span class="font-label-caps text-[10px] text-primary inline-flex items-center justify-center">
+<span class="animate-spin inline-block origin-center" style="animation-duration: 3s;">FAN</span>
+</span>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<label class="relative inline-block cursor-pointer">
+<input checked="" class="rocker-checkbox hidden" type="checkbox"/>
+<div class="rocker-inner-v relative w-20 h-36 rounded-[1.75rem] bg-surface-container-low shadow-[inset_0_4px_12px_rgba(0,0,0,0.5)] border border-white/5 flex flex-col items-center justify-center p-2 overflow-hidden">
+<div class="switch-body w-full h-5/6 rounded-[1.5rem] bg-surface-container-highest flex flex-col justify-between items-center py-5 relative z-10 shadow-xl border border-white/10 transition-transform duration-500">
+<span class="label-on font-label-caps text-[8px] text-on-surface-variant/20 transition-all">ON</span>
+<div class="indicator-dot w-1.5 h-1.5 rounded-full bg-on-surface/20 transition-all"></div>
+<span class="label-off font-label-caps text-[8px] text-on-surface-variant/20 transition-all">OFF</span>
+</div>
+</div>
+</label>
+<div class="flex-1 flex flex-col gap-4">
+<div class="flex justify-between items-end">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest">Speed Level</span>
+<span class="font-headline-md text-xl text-primary leading-none">3</span>
+</div>
+<div class="flex gap-2 h-10 items-end">
+<div class="flex-1 bg-primary h-4 rounded-md shadow-[0_0_15px_#bb86fc]"></div>
+<div class="flex-1 bg-primary h-6 rounded-md shadow-[0_0_15px_#bb86fc]"></div>
+<div class="flex-1 bg-primary h-8 rounded-md shadow-[0_0_15px_#bb86fc]"></div>
+<div class="flex-1 bg-surface-container-highest h-10 rounded-md border border-white/5"></div>
+<div class="flex-1 bg-surface-container-highest h-12 rounded-md border border-white/5"></div>
+</div>
+<div class="flex justify-between px-1">
+<span class="font-label-caps text-[9px] text-on-surface-variant">1</span>
+<span class="font-label-caps text-[9px] text-on-surface-variant">2</span>
+<span class="font-label-caps text-[9px] text-on-surface-variant">3</span>
+<span class="font-label-caps text-[9px] text-on-surface-variant">4</span>
+<span class="font-label-caps text-[9px] text-on-surface-variant">5</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- S-6 (Dimmer) -->
+<section class="animate-slide-up" style="animation-delay: 0.3s;">
+<div class="glass-card rounded-[2rem] p-6">
+<div class="flex justify-between items-center mb-6">
+<span class="font-label-caps text-primary text-sm tracking-widest uppercase">S-6 (Dimmer)</span>
+<span class="material-symbols-outlined text-primary text-xl">lightbulb</span>
+</div>
+<div class="flex items-center gap-8">
+<label class="relative inline-block cursor-pointer">
+<input class="rocker-checkbox hidden" type="checkbox"/>
+<div class="rocker-inner-v relative w-20 h-36 rounded-[1.75rem] bg-surface-container-low shadow-[inset_0_4px_12px_rgba(0,0,0,0.5)] border border-white/5 flex flex-col items-center justify-center p-2 overflow-hidden">
+<div class="switch-body w-full h-5/6 rounded-[1.5rem] bg-surface-container-highest flex flex-col justify-between items-center py-5 relative z-10 shadow-xl border border-white/10 transition-transform duration-500">
+<span class="label-on font-label-caps text-[8px] text-on-surface-variant/20 transition-all">ON</span>
+<div class="indicator-dot w-1.5 h-1.5 rounded-full bg-on-surface/20 transition-all"></div>
+<span class="label-off font-label-caps text-[8px] text-on-surface-variant/20 transition-all">OFF</span>
+</div>
+</div>
+</label>
+<div class="flex-1 flex flex-col gap-6">
+<div class="flex justify-between items-center">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest">Brightness</span>
+<span class="font-data-mono text-sm text-primary">65%</span>
+</div>
+<div class="relative flex flex-col gap-2">
+<input class="w-full h-1.5 bg-surface-container-highest rounded-full appearance-none cursor-pointer accent-primary dimmer-track" type="range" value="65"/>
+<div class="flex justify-between items-center mt-2 px-1">
+<span class="material-symbols-outlined text-sm text-on-surface-variant">brightness_low</span>
+<span class="material-symbols-outlined text-sm text-on-surface-variant">brightness_high</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface-container-low/90 backdrop-blur-2xl border-t border-white/5 shadow-2xl fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-8 rounded-t-[2rem]">
+<a class="flex flex-col items-center justify-center text-primary drop-shadow-[0_0_8px_rgba(187,134,252,0.6)] active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-caps text-[10px] mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined text-2xl">devices</span>
+<span class="font-label-caps text-[10px] mt-1">Devices</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined text-2xl">layers</span>
+<span class="font-label-caps text-[10px] mt-1">Scenes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined text-2xl">settings</span>
+<span class="font-label-caps text-[10px] mt-1">Settings</span>
+</a>
+</nav>
+</body></html>

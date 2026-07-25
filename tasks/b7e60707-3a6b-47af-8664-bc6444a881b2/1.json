@@ -1,0 +1,8 @@
+{
+  "id": "1",
+  "subject": "Phase 0: APK crash fix (DeviceCard accessibilityState)",
+  "description": "DeviceCard.js mein device.status ko hamesha boolean banana taaki accessibilityState null crash na ho. DONE.",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

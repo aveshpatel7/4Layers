@@ -1,0 +1,347 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Settings - GoSmart</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed-dim": "#22c55e",
+                        "surface": "#131313",
+                        "inverse-surface": "#dfe2f1",
+                        "outline-variant": "#333333",
+                        "on-primary-fixed": "#001f28",
+                        "surface-bright": "#262626",
+                        "on-tertiary-fixed": "#24005b",
+                        "on-surface-variant": "#bbc9cf",
+                        "on-tertiary-fixed-variant": "#5800c8",
+                        "background": "#131313",
+                        "on-secondary-container": "#005435",
+                        "on-secondary-fixed-variant": "#005233",
+                        "on-secondary-fixed": "#002112",
+                        "tertiary-container": "#cdb5ff",
+                        "surface-variant": "#262626",
+                        "inverse-on-surface": "#2c303b",
+                        "on-primary": "#000000",
+                        "surface-container-highest": "#333333",
+                        "outline": "#859399",
+                        "secondary": "#43f0a5",
+                        "on-error": "#690005",
+                        "tertiary": "#e5d6ff",
+                        "error": "#ffb4ab",
+                        "secondary-fixed-dim": "#2be198",
+                        "secondary-container": "#00d38b",
+                        "tertiary-fixed-dim": "#d1bcff",
+                        "surface-dim": "#131313",
+                        "primary-fixed": "#4ade80",
+                        "on-tertiary-container": "#6114d3",
+                        "surface-tint": "#22c55e",
+                        "on-surface": "#dfe2f1",
+                        "surface-container-low": "#1a1a1a",
+                        "surface-container": "#1a1a1a",
+                        "surface-container-high": "#262626",
+                        "on-tertiary": "#3d008f",
+                        "secondary-fixed": "#56feb2",
+                        "on-primary-container": "#00566a",
+                        "on-background": "#dfe2f1",
+                        "primary": "#22c55e",
+                        "on-error-container": "#ffdad6",
+                        "primary-container": "#22c55e",
+                        "tertiary-fixed": "#eaddff",
+                        "on-primary-fixed-variant": "#004e60",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#000000",
+                        "inverse-primary": "#00677f",
+                        "on-secondary": "#003822"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "gutter": "16px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "unit": "4px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "stat-lg": ["Inter"],
+                        "body-bold": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-base": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "stat-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-bold": ["15px", { "lineHeight": "22px", "letterSpacing": "0", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-base": ["15px", { "lineHeight": "22px", "letterSpacing": "0", "fontWeight": "400" }],
+                        "headline-md": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #131313; /* Root Background from spec */
+            color: #dfe2f1;
+        }
+        /* Custom Input Styling for etched look */
+        .glass-input {
+            background-color: #1a1a1a;
+            border: 1px solid #333333;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .glass-input:focus {
+            border-color: #22c55e; /* primary */
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
+            outline: none;
+        }
+        /* Subtle elevation for cards */
+        .elevated-surface {
+            background-color: #1a1a1a; /* Surface layer */
+        }
+        /* Mechanical button style */
+        .btn-tactile {
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .btn-tactile:active {
+            transform: scale(0.97);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col pt-16 pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="bg-surface-dim dark:bg-surface-dim fixed top-0 w-full z-50 shadow-[0_1px_0_0_rgba(255,255,255,0.05)] flat no shadows">
+<div class="flex items-center justify-between px-margin-mobile h-16 w-full max-w-screen-xl mx-auto">
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 flex items-center justify-center overflow-hidden rounded-full"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7tEHSu9UzY4Eu6488--p3pjChIiOQYC1oLJeWaHFadmo59wNRUi8MWuRBCKQc5xzopTxZOVQfpSGh0U8x39grTvcc7iqiKDvfmJesMtoyyJR2WCa196J6AqtUXKe9N6229oYcF82ZUPUSzjVzZmkd18jdsgGTD1TQlunoRlfNQZsF-dg-EYiRq5SBHy6XFOax63Iy4hH_2PA9b_Z-_sNTHG8qnG8je8Pm0ptleaosg5gy_0-JjRzKX6mGf0W5UDWsVOflO5JWLw" alt="4Layers Logo" class="w-full h-full object-cover"></div>
+<h1 class="font-display-lg text-display-lg text-primary-fixed-dim tracking-tighter">4Layers</h1>
+</div>
+<!-- Desktop Nav Cluster (Hidden on mobile) -->
+<nav class="hidden md:flex gap-6 items-center">
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2" href="#">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+                    Dashboard
+                </a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2" href="#">
+<span class="material-symbols-outlined text-[20px]">schedule</span>
+                    Schedule
+                </a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2" href="#">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+                    Alerts
+                </a>
+<a class="font-label-caps text-label-caps text-primary dark:text-primary hover:opacity-80 flex items-center gap-2 bg-surface-bright/20 rounded-xl px-4 py-2 shadow-[0_0_15px_rgba(34,197,94,0.2)]" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+                    Settings
+                </a>
+</nav>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-screen-md mx-auto px-margin-mobile py-lg md:py-xl">
+<div class="mb-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-sm">Configuration</h2>
+<p class="font-body-base text-body-base text-on-surface-variant">Manage your connection profiles and application preferences.</p>
+</div>
+<div class="flex flex-col gap-lg">
+<!-- MQTT Broker Settings Section -->
+<section class="elevated-surface rounded-xl border border-surface-container-highest overflow-hidden">
+<div class="px-md py-sm border-b border-surface-container-highest bg-surface-container">
+<h3 class="font-body-bold text-body-bold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-[20px]">router</span>
+                        MQTT Broker Settings
+                    </h3>
+</div>
+<div class="p-md flex flex-col gap-md">
+<!-- Host -->
+<div>
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-xs">Host Address</label>
+<input class="glass-input w-full rounded-lg px-md py-sm font-body-base text-body-base text-on-surface" placeholder="e.g., 192.168.1.100" type="text" value="mqtt.gosmart.local">
+</div>
+<div class="grid grid-cols-2 gap-md">
+<!-- Port -->
+<div>
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-xs">Port</label>
+<input class="glass-input w-full rounded-lg px-md py-sm font-body-base text-body-base text-on-surface" placeholder="1883" type="number" value="1883">
+</div>
+<!-- Client ID -->
+<div>
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-xs">Client ID</label>
+<input class="glass-input w-full rounded-lg px-md py-sm font-body-base text-body-base text-on-surface" placeholder="Client ID" type="text" value="GOS-CTL-01">
+</div>
+</div>
+<div class="mt-xs">
+<button class="btn-tactile bg-surface-container-high hover:bg-surface-bright text-on-surface font-body-bold text-body-bold rounded-lg px-md py-sm w-full transition-colors flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+                            Test Connection
+                        </button>
+</div>
+</div>
+</section>
+<!-- Device Management Section -->
+<section class="elevated-surface rounded-xl border border-surface-container-highest overflow-hidden">
+<div class="px-md py-sm border-b border-surface-container-highest bg-surface-container">
+<h3 class="font-body-bold text-body-bold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-[20px]">devices</span>
+                        Device Management
+                    </h3>
+</div>
+<div class="flex flex-col">
+<button class="w-full flex items-center justify-between p-md hover:bg-surface-container-high transition-colors border-b border-surface-container-highest text-left group">
+<div class="flex items-center gap-md">
+<div class="bg-surface-container p-sm rounded-lg group-hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">add_circle</span>
+</div>
+<div>
+<div class="font-body-bold text-body-bold text-on-surface">Add New Device</div>
+<div class="font-body-base text-body-base text-on-surface-variant text-sm">Scan network for unconfigured nodes</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-md hover:bg-surface-container-high transition-colors border-b border-surface-container-highest text-left group">
+<div class="flex items-center gap-md">
+<div class="bg-surface-container p-sm rounded-lg group-hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">memory</span>
+</div>
+<div>
+<div class="font-body-bold text-body-bold text-on-surface">Firmware Updates</div>
+<div class="font-body-base text-body-base text-on-surface-variant text-sm">2 updates available</div>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+</button>
+<button class="w-full flex items-center justify-between p-md hover:bg-surface-container-high transition-colors text-left group">
+<div class="flex items-center gap-md">
+<div class="bg-surface-container p-sm rounded-lg group-hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">wifi_tethering</span>
+</div>
+<div>
+<div class="font-body-bold text-body-bold text-on-surface">Network Diagnostics</div>
+<div class="font-body-base text-body-base text-on-surface-variant text-sm">Check latency and signal strength</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- App Preferences Section -->
+<section class="elevated-surface rounded-xl border border-surface-container-highest overflow-hidden">
+<div class="px-md py-sm border-b border-surface-container-highest bg-surface-container">
+<h3 class="font-body-bold text-body-bold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-[20px]">tune</span>
+                        App Preferences
+                    </h3>
+</div>
+<div class="flex flex-col">
+<!-- Toggle item -->
+<div class="w-full flex items-center justify-between p-md border-b border-surface-container-highest">
+<div class="flex items-center gap-md">
+<div class="bg-surface-container p-sm rounded-lg">
+<span class="material-symbols-outlined text-on-surface-variant">dark_mode</span>
+</div>
+<div>
+<div class="font-body-bold text-body-bold text-on-surface">Dark Cockpit Theme</div>
+<div class="font-body-base text-body-base text-on-surface-variant text-sm">Force high-contrast UI mode</div>
+</div>
+</div>
+<!-- Custom Switch -->
+<button aria-checked="true" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface bg-primary shadow-[0_0_12px_rgba(34,197,94,0.3)]" role="switch">
+<span class="inline-block h-4 w-4 transform rounded-full bg-on-primary transition-transform translate-x-6"></span>
+</button>
+</div>
+<button class="w-full flex items-center justify-between p-md hover:bg-surface-container-high transition-colors text-left group border-b border-surface-container-highest">
+<div class="flex items-center gap-md">
+<div class="bg-surface-container p-sm rounded-lg group-hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">language</span>
+</div>
+<div>
+<div class="font-body-bold text-body-bold text-on-surface">Language &amp; Region</div>
+<div class="font-body-base text-body-base text-on-surface-variant text-sm">English (US)</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-md hover:bg-surface-container-high transition-colors text-left group">
+<div class="flex items-center gap-md">
+<div class="bg-surface-container p-sm rounded-lg group-hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-error">logout</span>
+</div>
+<div>
+<div class="font-body-bold text-body-bold text-error">Disconnect Node</div>
+<div class="font-body-base text-body-base text-error/70 text-sm">Terminate current session</div>
+</div>
+</div>
+</button>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden bg-surface-container-high dark:bg-surface-container-high fixed bottom-0 w-full z-50 rounded-t-xl shadow-[0_-4px_12px_rgba(34,197,94,0.08)] shadow-lg fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px] mb-1">grid_view</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px] mb-1">schedule</span>
+<span class="font-label-caps text-label-caps">Schedule</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px] mb-1">notifications</span>
+<span class="font-label-caps text-label-caps">Alerts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary-container bg-surface-bright/20 rounded-xl px-4 py-1 shadow-[0_0_15px_rgba(34,197,94,0.2)] Active: scale(0.95) transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[24px] mb-1" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</a>
+</nav>
+<script>
+        // Simple switch toggle interaction
+        document.querySelectorAll('button[role="switch"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const isChecked = this.getAttribute('aria-checked') === 'true';
+                this.setAttribute('aria-checked', !isChecked);
+                
+                const span = this.querySelector('span');
+                if (!isChecked) {
+                    this.classList.remove('bg-surface-container', 'border', 'border-outline-variant');
+                    this.classList.add('bg-primary', 'shadow-[0_0_12px_rgba(34,197,94,0.3)]');
+                    span.classList.remove('translate-x-1', 'bg-outline');
+                    span.classList.add('translate-x-6', 'bg-on-primary');
+                } else {
+                    this.classList.remove('bg-primary', 'shadow-[0_0_12px_rgba(34,197,94,0.3)]');
+                    this.classList.add('bg-surface-container', 'border', 'border-outline-variant');
+                    span.classList.remove('translate-x-6', 'bg-on-primary');
+                    span.classList.add('translate-x-1', 'bg-outline');
+                }
+            });
+        });
+    </script>
+
+
+</body></html>

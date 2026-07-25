@@ -1,0 +1,8 @@
+{
+  "id": "9",
+  "subject": "Phase 2: Alerts/Notifications",
+  "description": "Backend mein Alerts/Notifications system: device online/offline events, threshold breaches. Alerts table + endpoints. Mobile mein Alerts screen ya tab. Optional: push notifications.",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}
