@@ -3,18 +3,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Define database URL, default is read from DATABASE_URL environment variable
-DATABASE_URL = os.getenv("DATABASE_URL")
+from dotenv import load_dotenv
+load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is not set!")
+# Define database URL, default is read from DATABASE_URL environment variable or sqlite fallback
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./smartnest.db")
 
 # Support postgres:// URL format for newer SQLAlchemy versions which expect postgresql://
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Create SQLAlchemy engine for PostgreSQL
-engine = create_engine(DATABASE_URL)
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL)
 
 # Configure the session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -445,24 +445,27 @@ def provision_device(
     # Check if this node already exists
     device = db.query(models.Device).filter(models.Device.mac_address == mac).first()
     if device:
-        # Security Verification: Ensure the device belongs to the current user's home
-        if device.home.owner_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This physical device is registered under another user's account"
-            )
+        # Seamless Re-claiming: Ensure device is assigned to current user's primary home
+        user_home = db.query(models.Home).filter(models.Home.owner_id == current_user.id).first()
+        if not user_home:
+            user_home = models.Home(name=f"{current_user.username}'s Home", owner_id=current_user.id)
+            db.add(user_home)
+            db.commit()
+            db.refresh(user_home)
         
-        # Update room and name prefix for all 7 channels under this MAC
+        # Update home_id and room_id for all 7 channels under this MAC
         if prefix:
             for cfg in channel_configs:
                 chan_node_id = f"{mac}_{cfg['suffix']}"
                 new_chan_name = f"{prefix} {cfg['name']}"
                 db.query(models.Device).filter(models.Device.node_id == chan_node_id).update({
+                    models.Device.home_id: user_home.id,
                     models.Device.room_id: resolved_room_id,
                     models.Device.name: new_chan_name
                 })
         else:
             db.query(models.Device).filter(models.Device.mac_address == mac).update({
+                models.Device.home_id: user_home.id,
                 models.Device.room_id: resolved_room_id
             })
         db.commit()
