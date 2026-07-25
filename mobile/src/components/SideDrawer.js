@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  Dimensions
+  Dimensions,
+  PanResponder
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BrandLogo from './BrandLogo';
@@ -39,6 +40,20 @@ export default function SideDrawer({
     { key: 'RoomsTab', label: 'Room Management', icon: 'door-open', activeIcon: 'door-open' }
   ];
 
+  // Swipe Left Gesture Responder inside Drawer to close
+  const drawerPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return gestureState.dx < -15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx < -30) {
+          onClose();
+        }
+      }
+    })
+  ).current;
+
   const handleNavigate = (routeKey) => {
     onClose();
     if (navigation && routeKey) {
@@ -62,7 +77,7 @@ export default function SideDrawer({
     >
       <View style={styles.overlay}>
         {/* Drawer Slider Container on Left */}
-        <View style={styles.drawerContainer}>
+        <View style={styles.drawerContainer} {...drawerPanResponder.panHandlers}>
           <SafeAreaView style={styles.safeArea}>
 
             {/* Header: Brand & Close Button */}

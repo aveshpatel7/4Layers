@@ -8,7 +8,8 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
-  Modal
+  Modal,
+  PanResponder
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import apiClient from "../api/client";
@@ -59,6 +60,20 @@ export default function DashboardScreen({ navigation }) {
   const [dbRooms, setDbRooms] = useState([]);
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [username, setUsername] = useState("User");
+
+  // Swipe Right Gesture Responder to open SideDrawer
+  const swipePanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return gestureState.dx > 20 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx > 40) {
+          setIsDrawerOpen(true);
+        }
+      }
+    })
+  ).current;
 
   const fetchRoomsMapping = async () => {
     try {
@@ -341,7 +356,7 @@ export default function DashboardScreen({ navigation }) {
 
   const currentRoomName = dbRooms.find(r => r.id === selectedRoom)?.name || 'Living Room';
 
-  return <SafeAreaView style={styles.safeContainer}>
+  return <SafeAreaView style={styles.safeContainer} {...swipePanResponder.panHandlers}>
       <StatusBar barStyle="light-content" backgroundColor={TOKENS.bg} />
       
       {/* Side Navigation Drawer */}
