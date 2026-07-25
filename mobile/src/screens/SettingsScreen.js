@@ -74,22 +74,30 @@ export default function SettingsScreen({ navigation }) {
 
       const devs = devsRes.data || [];
       const macSet = new Set();
+      const activeRoomIdSet = new Set();
+
       devs.forEach(d => {
         if (d.mac_address) {
           macSet.add(d.mac_address);
         } else if (d.node_id && d.node_id.includes('_')) {
           macSet.add(d.node_id.split('_')[0]);
         }
+        if (d.room_id) {
+          activeRoomIdSet.add(d.room_id);
+        }
       });
 
       const uniqueBoardsCount = macSet.size > 0 ? macSet.size : (devs.length > 0 ? 1 : 0);
       const activeCount = devs.filter(d => d.current_state?.status === 'ON' || d.status).length;
+      
+      // Calculate rooms that actually have configured switchboards
+      const activeRoomsCount = activeRoomIdSet.size > 0 ? activeRoomIdSet.size : (roomsCount > 0 ? roomsCount : 1);
 
       setStats({
         totalBoards: uniqueBoardsCount,
         totalDevices: devs.length,
         activeDevices: activeCount,
-        totalRooms: roomsCount
+        totalRooms: activeRoomsCount
       });
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
