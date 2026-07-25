@@ -10,7 +10,9 @@ import {
   Modal,
   FlatList,
   TextInput,
-  Switch
+  Switch,
+  Platform,
+  StatusBar
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
@@ -623,7 +625,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: TOKENS.bg,
-    padding: 16
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 36) : 16
   },
   loadingContainer: {
     flex: 1,
@@ -636,7 +639,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-    marginTop: 10
+    marginTop: 4
   },
   title: {
     fontSize: 20,
