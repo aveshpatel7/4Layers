@@ -49,6 +49,6 @@ const styles = StyleSheet.create({
   brandText: {
     fontWeight: "900",
     letterSpacing: -0.5,
-    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif-medium"
+    fontFamily: "GoogleSansFlex-Bold"
   }
 });

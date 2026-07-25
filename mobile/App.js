@@ -48,9 +48,42 @@ class ErrorBoundary extends Component {
   }
 }
 
-// Custom Material Design 3 Dark Theme for a premium modern Black + Green aesthetic
+import { Text as RNText, TextInput as RNTextInput } from 'react-native';
+
+// Set global font family defaults for all Text and TextInput components across the entire app
+if (RNText.defaultProps) {
+  RNText.defaultProps.style = [{ fontFamily: 'GoogleSansFlex-Regular' }, RNText.defaultProps.style];
+} else {
+  RNText.defaultProps = { style: { fontFamily: 'GoogleSansFlex-Regular' } };
+}
+
+if (RNTextInput.defaultProps) {
+  RNTextInput.defaultProps.style = [{ fontFamily: 'GoogleSansFlex-Regular' }, RNTextInput.defaultProps.style];
+} else {
+  RNTextInput.defaultProps = { style: { fontFamily: 'GoogleSansFlex-Regular' } };
+}
+
+// Custom Material Design 3 Dark Theme for a premium modern Black + Green aesthetic with Google Sans Flex
 const theme = {
   ...MD3DarkTheme,
+  fonts: {
+    ...MD3DarkTheme.fonts,
+    displayLarge: { fontFamily: 'GoogleSansFlex-Bold' },
+    displayMedium: { fontFamily: 'GoogleSansFlex-Bold' },
+    displaySmall: { fontFamily: 'GoogleSansFlex-Bold' },
+    headlineLarge: { fontFamily: 'GoogleSansFlex-Bold' },
+    headlineMedium: { fontFamily: 'GoogleSansFlex-SemiBold' },
+    headlineSmall: { fontFamily: 'GoogleSansFlex-SemiBold' },
+    titleLarge: { fontFamily: 'GoogleSansFlex-SemiBold' },
+    titleMedium: { fontFamily: 'GoogleSansFlex-Medium' },
+    titleSmall: { fontFamily: 'GoogleSansFlex-Medium' },
+    bodyLarge: { fontFamily: 'GoogleSansFlex-Regular' },
+    bodyMedium: { fontFamily: 'GoogleSansFlex-Regular' },
+    bodySmall: { fontFamily: 'GoogleSansFlex-Regular' },
+    labelLarge: { fontFamily: 'GoogleSansFlex-Medium' },
+    labelMedium: { fontFamily: 'GoogleSansFlex-Regular' },
+    labelSmall: { fontFamily: 'GoogleSansFlex-Regular' },
+  },
   colors: {
     ...MD3DarkTheme.colors,
     primary: '#22C55E',          // Brand Dark Emerald Green (#22C55E)

@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 10,
-    fontFamily: "System",
+    fontFamily: "GoogleSansFlex-Bold",
     fontWeight: "800",
     color: TOKENS.textSecondary,
     letterSpacing: 1.5,
@@ -650,13 +650,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 15,
-    fontFamily: "System",
+    fontFamily: "GoogleSansFlex-Bold",
     fontWeight: "700",
     color: TOKENS.textPrimary
   },
   cardSubtitle: {
     fontSize: 9,
-    fontFamily: "System",
+    fontFamily: "GoogleSansFlex-Bold",
     fontWeight: "700",
     color: TOKENS.textSecondary,
     letterSpacing: 0.8,
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
   },
   circularText: {
     fontSize: 11,
-    fontFamily: "System",
+    fontFamily: "GoogleSansFlex-Bold",
     fontWeight: "bold",
     color: TOKENS.textPrimary
   },
@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
   statusTitle: {
     color: TOKENS.accent,
     fontSize: 10,
-    fontFamily: "System",
+    fontFamily: "GoogleSansFlex-Bold",
     fontWeight: "800",
     letterSpacing: 1,
     marginBottom: 4
