@@ -198,8 +198,11 @@ const styles = StyleSheet.create({
     width: DRAWER_WIDTH,
     backgroundColor: TOKENS.drawerBg,
     height: '100%',
+    borderTopRightRadius: 28,
+    borderBottomRightRadius: 28,
     borderRightWidth: 1,
-    borderColor: TOKENS.border
+    borderColor: TOKENS.border,
+    overflow: 'hidden'
   },
   safeArea: {
     flex: 1,
