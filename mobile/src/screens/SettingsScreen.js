@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    justify: 'center',
+    justifyContent: 'center',
     alignItems: 'center'
   },
   addDeviceTitle: {
