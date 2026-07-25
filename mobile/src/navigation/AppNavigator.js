@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
+
+// Global Drawer Wrapper
+import GlobalDrawerWrapper from '../components/GlobalDrawerWrapper';
 
 // Auth Context
 import { AuthContext } from '../context/AuthContext';
@@ -185,11 +188,13 @@ export default function AppNavigator() {
     );
   }
 
+  const navigationRef = useNavigationContainerRef();
+
   return (
     <AuthContext.Provider value={authContextValue}>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         {state.userToken == null ? (
-          // User is NOT logged in
+          // User is NOT logged in (Login & Register - No Drawer, No Swipe)
           <AuthStack.Navigator
             screenOptions={{
               headerShown: false,
@@ -200,53 +205,55 @@ export default function AppNavigator() {
             <AuthStack.Screen name="Register" component={RegisterScreen} />
           </AuthStack.Navigator>
         ) : (
-          // User IS logged in - Show main app with bottom tabs
-          <Tab.Navigator
-            screenOptions={({ route }) => ({
-              tabBarIcon: ({ color, size }) => {
-                let iconName;
-                if (route.name === 'HomeTab') {
-                  iconName = 'home-variant';
-                } else if (route.name === 'SchedulesTab') {
-                  iconName = 'calendar-clock';
-                } else if (route.name === 'SettingsTab') {
-                  iconName = 'cog';
-                }
-                return <MaterialCommunityIcons name={iconName} size={size + 2} color={color} />;
-              },
-              tabBarActiveTintColor: theme.colors.primary,
-              tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-              tabBarStyle: {
-                display: 'none'
-              },
-              headerStyle: { 
-                backgroundColor: '#0E0E0E',
-                elevation: 0,
-                shadowOpacity: 0,
-                borderBottomWidth: 1.5,
-                borderBottomColor: '#262626',
-              },
-              headerTintColor: theme.colors.onSurface,
-              headerTitleStyle: { fontWeight: '900', letterSpacing: 0.8 },
-              tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: -2 },
-            })}
-          >
-            <Tab.Screen
-              name="HomeTab"
-              component={HomeStackScreen}
-              options={{ title: 'Home', headerShown: false }}
-            />
-            <Tab.Screen
-              name="SchedulesTab"
-              component={SchedulesScreen}
-              options={{ title: 'Schedules', headerShown: false }}
-            />
-            <Tab.Screen
-              name="SettingsTab"
-              component={SettingsScreen}
-              options={{ title: 'Settings' }}
-            />
-          </Tab.Navigator>
+          // User IS logged in - Wrapped in GlobalDrawerWrapper for universal swipe-right-to-open
+          <GlobalDrawerWrapper navigationRef={navigationRef}>
+            <Tab.Navigator
+              screenOptions={({ route }) => ({
+                tabBarIcon: ({ color, size }) => {
+                  let iconName;
+                  if (route.name === 'HomeTab') {
+                    iconName = 'home-variant';
+                  } else if (route.name === 'SchedulesTab') {
+                    iconName = 'calendar-clock';
+                  } else if (route.name === 'SettingsTab') {
+                    iconName = 'cog';
+                  }
+                  return <MaterialCommunityIcons name={iconName} size={size + 2} color={color} />;
+                },
+                tabBarActiveTintColor: theme.colors.primary,
+                tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+                tabBarStyle: {
+                  display: 'none'
+                },
+                headerStyle: { 
+                  backgroundColor: '#0E0E0E',
+                  elevation: 0,
+                  shadowOpacity: 0,
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: '#262626',
+                },
+                headerTintColor: theme.colors.onSurface,
+                headerTitleStyle: { fontWeight: '900', letterSpacing: 0.8 },
+                tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: -2 },
+              })}
+            >
+              <Tab.Screen
+                name="HomeTab"
+                component={HomeStackScreen}
+                options={{ title: 'Home', headerShown: false }}
+              />
+              <Tab.Screen
+                name="SchedulesTab"
+                component={SchedulesScreen}
+                options={{ title: 'Schedules', headerShown: false }}
+              />
+              <Tab.Screen
+                name="SettingsTab"
+                component={SettingsScreen}
+                options={{ title: 'Settings' }}
+              />
+            </Tab.Navigator>
+          </GlobalDrawerWrapper>
         )}
       </NavigationContainer>
     </AuthContext.Provider>
