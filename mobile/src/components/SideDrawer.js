@@ -63,14 +63,7 @@ export default function SideDrawer({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        {/* Semi-transparent backdrop tap to close */}
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-
-        {/* Drawer Slider Container */}
+        {/* Drawer Slider Container on Left */}
         <View style={styles.drawerContainer}>
           <SafeAreaView style={styles.safeArea}>
 
@@ -78,7 +71,6 @@ export default function SideDrawer({
             <View style={styles.drawerHeader}>
               <View style={styles.brandRow}>
                 <BrandLogo size="small" />
-                <Text style={styles.brandTitle}>4Layers</Text>
               </View>
               <TouchableOpacity
                 onPress={onClose}
@@ -143,6 +135,13 @@ export default function SideDrawer({
 
           </SafeAreaView>
         </View>
+
+        {/* Semi-transparent backdrop tap to close on right */}
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
       </View>
     </Modal>
   );
