@@ -412,52 +412,30 @@ export default function DashboardScreen({ navigation }) {
           <BrandLogo size="small" color={TOKENS.accent} bg={TOKENS.bg} />
         </View>
 
-        {/* Ultra-Compact Room Dropdown Pill */}
-        <TouchableOpacity
-          style={styles.compactRoomDropdownBtn}
-          onPress={() => setIsRoomPickerOpen(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.compactRoomDropdownText} numberOfLines={1}>
-            {currentRoomName}
-          </Text>
-          <MaterialCommunityIcons name="chevron-down" size={14} color={TOKENS.accent} />
-        </TouchableOpacity>
+        <View style={styles.headerRightGroup}>
+          {/* Ultra-Compact Room Dropdown Pill */}
+          <TouchableOpacity
+            style={styles.compactRoomDropdownBtn}
+            onPress={() => setIsRoomPickerOpen(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.compactRoomDropdownText} numberOfLines={1}>
+              {currentRoomName}
+            </Text>
+            <MaterialCommunityIcons name="chevron-down" size={14} color={TOKENS.accent} />
+          </TouchableOpacity>
 
-        {/* Status Indicator Dot Only (Blue = Connected, Red = Disconnected) */}
-        <View style={styles.statusDotWrapper}>
-          <View style={[
-            styles.statusDotOnly,
-            !hasError ? styles.statusDotConnected : styles.statusDotDisconnected
-          ]} />
+          {/* Status Indicator Dot Only (Blue = Connected, Red = Disconnected) */}
+          <View style={styles.statusDotWrapper}>
+            <View style={[
+              styles.statusDotOnly,
+              !hasError ? styles.statusDotConnected : styles.statusDotDisconnected
+            ]} />
+          </View>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-
-        {/* Greeting section */}
-        <View style={styles.greetingSection}>
-          <Text style={styles.greetingTitle}>Welcome, {username}</Text>
-          <Text style={styles.greetingSubtitle}>All primary systems are online and responsive.</Text>
-        </View>
-
-        {/* Real Stats Card */}
-        <View style={styles.statsCard}>
-          <View style={styles.statColumn}>
-            <Text style={styles.statNumber}>{filteredDevices.length}</Text>
-            <Text style={styles.statLabel}>Total Devices</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statColumn}>
-            <Text style={styles.statNumber}>{filteredDevices.filter(d => d.status).length}</Text>
-            <Text style={styles.statLabel}>Devices ON</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statColumn}>
-            <Text style={styles.statNumber}>{dbRooms.length}</Text>
-            <Text style={styles.statLabel}>Rooms</Text>
-          </View>
-        </View>
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>SWITCHBOARD CONTROLS</Text>
@@ -525,12 +503,17 @@ const styles = StyleSheet.create({
   drawerMenuBtn: {
     padding: 4
   },
+  headerRightGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
   compactRoomDropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1C1B1B',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -545,12 +528,12 @@ const styles = StyleSheet.create({
   statusDotWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 4
+    padding: 2
   },
   statusDotOnly: {
-    width: 10,
-    height: 10,
-    borderRadius: 5
+    width: 8,
+    height: 8,
+    borderRadius: 4
   },
   statusDotConnected: {
     backgroundColor: '#3B82F6', // Blue dot when connected

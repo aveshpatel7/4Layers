@@ -44,6 +44,8 @@ export default function SettingsScreen({ navigation }) {
 
 
 
+  const [stats, setStats] = useState({ totalDevices: 0, activeDevices: 0, totalRooms: 0 });
+
   useEffect(() => {
     fetchUserProfile();
   }, []);
@@ -55,9 +57,28 @@ export default function SettingsScreen({ navigation }) {
       setUser(response.data);
       setEditUsername(response.data.username);
       setEditEmail(response.data.email);
+
+      // Fetch stats
+      const [devsRes, homesRes] = await Promise.all([
+        apiClient.get('/api/devices').catch(() => ({ data: [] })),
+        apiClient.get('/api/homes').catch(() => ({ data: [] }))
+      ]);
+
+      let roomsCount = 0;
+      if (homesRes.data && homesRes.data.length > 0) {
+        const roomsRes = await apiClient.get(`/api/rooms/home/${homesRes.data[0].id}`).catch(() => ({ data: [] }));
+        roomsCount = roomsRes.data ? roomsRes.data.length : 0;
+      }
+
+      const devs = devsRes.data || [];
+      const activeCount = devs.filter(d => d.current_state?.status === 'ON' || d.status).length;
+      setStats({
+        totalDevices: devs.length,
+        activeDevices: activeCount,
+        totalRooms: roomsCount
+      });
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
-      Alert.alert('Error', 'Could not load profile');
     } finally {
       setIsLoading(false);
     }
@@ -147,6 +168,24 @@ export default function SettingsScreen({ navigation }) {
       <View style={styles.titleSection}>
         <Text style={styles.mainTitle}>Configuration</Text>
         <Text style={styles.mainSubtitle}>Manage connection profiles and application settings.</Text>
+      </View>
+
+      {/* Real Stats Card */}
+      <View style={styles.statsCard}>
+        <View style={styles.statColumn}>
+          <Text style={styles.statNumber}>{stats.totalDevices}</Text>
+          <Text style={styles.statLabel}>Total Devices</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statColumn}>
+          <Text style={styles.statNumber}>{stats.activeDevices}</Text>
+          <Text style={styles.statLabel}>Devices ON</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statColumn}>
+          <Text style={styles.statNumber}>{stats.totalRooms}</Text>
+          <Text style={styles.statLabel}>Rooms</Text>
+        </View>
       </View>
 
       {/* Device Management Section */}
@@ -546,5 +585,43 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: TOKENS.textSecondary,
     marginTop: 2
+  },
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: TOKENS.surface,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: TOKENS.border,
+    marginBottom: 20
+  },
+  statColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start'
+  },
+  statNumber: {
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: '900',
+    color: TOKENS.accent,
+    textAlign: 'center'
+  },
+  statLabel: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '700',
+    color: TOKENS.textSecondary,
+    marginTop: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center'
+  },
+  statDivider: {
+    width: 1,
+    height: '70%',
+    backgroundColor: TOKENS.border,
+    alignSelf: 'center'
   }
 });

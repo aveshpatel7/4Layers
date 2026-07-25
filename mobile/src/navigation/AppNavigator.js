@@ -217,12 +217,7 @@ export default function AppNavigator() {
               tabBarActiveTintColor: theme.colors.primary,
               tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
               tabBarStyle: {
-                backgroundColor: '#0E0E0E',
-                height: 64,
-                borderTopWidth: 1,
-                borderTopColor: 'rgba(255, 255, 255, 0.05)',
-                paddingBottom: Platform.OS === 'ios' ? 12 : 8,
-                paddingTop: 8,
+                display: 'none'
               },
               headerStyle: { 
                 backgroundColor: '#0E0E0E',

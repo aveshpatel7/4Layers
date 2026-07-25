@@ -36,9 +36,7 @@ export default function SideDrawer({
   const menuItems = [
     { key: 'HomeTab', label: 'Dashboard', icon: 'home-outline', activeIcon: 'home' },
     { key: 'SchedulesTab', label: 'Schedules', icon: 'clock-outline', activeIcon: 'clock' },
-    { key: 'EnergyTab', label: 'Energy Monitor', icon: 'lightning-bolt-outline', activeIcon: 'lightning-bolt' },
-    { key: 'RoomsTab', label: 'Room Management', icon: 'door-open', activeIcon: 'door-open' },
-    { key: 'AlertsTab', label: 'Alerts & History', icon: 'bell-outline', activeIcon: 'bell' }
+    { key: 'RoomsTab', label: 'Room Management', icon: 'door-open', activeIcon: 'door-open' }
   ];
 
   const handleNavigate = (routeKey) => {
