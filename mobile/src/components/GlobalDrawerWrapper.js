@@ -30,6 +30,18 @@ export default function GlobalDrawerWrapper({ children, navigationRef }) {
     })
   ).current;
 
+  const getActiveRouteName = () => {
+    try {
+      if (navigationRef && navigationRef.current) {
+        const route = navigationRef.current.getCurrentRoute();
+        return route ? route.name : 'HomeTab';
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return 'HomeTab';
+  };
+
   return (
     <DrawerContext.Provider value={{ openDrawer, closeDrawer }}>
       <View style={styles.wrapper} {...swipePanResponder.panHandlers}>
@@ -40,6 +52,7 @@ export default function GlobalDrawerWrapper({ children, navigationRef }) {
           visible={isDrawerOpen}
           onClose={closeDrawer}
           navigation={navigationRef?.current || navigationRef}
+          activeRouteName={getActiveRouteName()}
         />
       </View>
     </DrawerContext.Provider>

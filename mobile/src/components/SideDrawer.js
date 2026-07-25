@@ -54,6 +54,23 @@ export default function SideDrawer({
     })
   ).current;
 
+  const isItemActive = (itemKey) => {
+    if (!activeRouteName) return itemKey === 'HomeTab';
+    if (itemKey === 'HomeTab') {
+      return activeRouteName === 'HomeTab' || activeRouteName === 'DevicesHome' || activeRouteName === 'Home';
+    }
+    if (itemKey === 'SchedulesTab') {
+      return activeRouteName === 'SchedulesTab' || activeRouteName === 'Schedules';
+    }
+    if (itemKey === 'RoomsTab') {
+      return activeRouteName === 'RoomsTab' || activeRouteName === 'Rooms';
+    }
+    if (itemKey === 'SettingsTab') {
+      return activeRouteName === 'SettingsTab' || activeRouteName === 'Settings';
+    }
+    return activeRouteName === itemKey;
+  };
+
   const handleNavigate = (routeKey) => {
     onClose();
     if (navigation && routeKey) {
@@ -67,6 +84,8 @@ export default function SideDrawer({
       navigation.navigate('SettingsTab');
     }
   };
+
+  const isSettingsActive = isItemActive('SettingsTab');
 
   return (
     <Modal
@@ -110,7 +129,7 @@ export default function SideDrawer({
             {/* Navigation Menu List */}
             <ScrollView style={styles.menuList} showsVerticalScrollIndicator={false}>
               {menuItems.map((item) => {
-                const isActive = activeRouteName === item.key || (activeRouteName === 'Home' && item.key === 'HomeTab');
+                const isActive = isItemActive(item.key);
                 return (
                   <TouchableOpacity
                     key={item.key}
@@ -134,7 +153,7 @@ export default function SideDrawer({
             {/* Bottom Footer: Settings Gear Icon */}
             <View style={styles.drawerFooter}>
               <TouchableOpacity
-                style={styles.settingsFooterBtn}
+                style={[styles.settingsFooterBtn, isSettingsActive && styles.menuItemActive]}
                 onPress={handleOpenSettings}
                 activeOpacity={0.7}
               >
