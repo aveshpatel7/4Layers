@@ -71,8 +71,10 @@ export default function SettingsScreen({ navigation }) {
       }
 
       const devs = devsRes.data || [];
+      const uniqueBoards = new Set(devs.map(d => d.mac_address).filter(Boolean)).size || (devs.length > 0 ? 1 : 0);
       const activeCount = devs.filter(d => d.current_state?.status === 'ON' || d.status).length;
       setStats({
+        totalBoards: uniqueBoards,
         totalDevices: devs.length,
         activeDevices: activeCount,
         totalRooms: roomsCount
@@ -173,18 +175,18 @@ export default function SettingsScreen({ navigation }) {
       {/* Real Stats Card */}
       <View style={styles.statsCard}>
         <View style={styles.statColumn}>
-          <Text style={styles.statNumber}>{stats.totalDevices}</Text>
-          <Text style={styles.statLabel}>Total Devices</Text>
+          <Text style={styles.statNumber}>{stats.totalBoards || 1}</Text>
+          <Text style={styles.statLabel}>BOARDS</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statColumn}>
           <Text style={styles.statNumber}>{stats.activeDevices}</Text>
-          <Text style={styles.statLabel}>Devices ON</Text>
+          <Text style={styles.statLabel}>DEVICES ON</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statColumn}>
           <Text style={styles.statNumber}>{stats.totalRooms}</Text>
-          <Text style={styles.statLabel}>Rooms</Text>
+          <Text style={styles.statLabel}>ROOMS</Text>
         </View>
       </View>
 
