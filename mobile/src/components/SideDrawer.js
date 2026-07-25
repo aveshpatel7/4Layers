@@ -8,7 +8,9 @@ import {
   SafeAreaView,
   ScrollView,
   Dimensions,
-  PanResponder
+  PanResponder,
+  StatusBar,
+  Platform
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BrandLogo from './BrandLogo';
@@ -99,11 +101,12 @@ export default function SideDrawer({
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      statusBarTranslucent={true}
     >
       <View style={styles.overlay}>
         {/* Drawer Slider Container on Left */}
         <View style={styles.drawerContainer} {...drawerPanResponder.panHandlers}>
-          <SafeAreaView style={styles.safeArea}>
+          <View style={styles.safeArea}>
 
             {/* Header: Brand & Close Button */}
             <View style={styles.drawerHeader}>
@@ -171,7 +174,7 @@ export default function SideDrawer({
               </TouchableOpacity>
             </View>
 
-          </SafeAreaView>
+          </View>
         </View>
 
         {/* Semi-transparent backdrop tap to close on right */}
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 36) : 48,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.border
