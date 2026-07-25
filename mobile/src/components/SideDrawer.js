@@ -42,14 +42,24 @@ export default function SideDrawer({
     { key: 'RoomsTab', label: 'Room Management', icon: 'door-open', activeIcon: 'door-open' }
   ];
 
-  // Swipe Left Gesture Responder inside Drawer to close
+  // Hyper-responsive Swipe Left Gesture Responder inside Drawer to close
   const drawerPanResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return gestureState.dx < -15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        return gestureState.dx < -10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
+        return gestureState.dx < -10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx < -30) {
+        if (gestureState.dx < -15 || gestureState.vx < -0.1) {
+          onClose();
+        }
+      },
+      onPanResponderTerminate: (evt, gestureState) => {
+        if (gestureState.dx < -15 || gestureState.vx < -0.1) {
           onClose();
         }
       }
