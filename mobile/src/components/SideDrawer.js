@@ -74,7 +74,13 @@ export default function SideDrawer({
   const handleNavigate = (routeKey) => {
     onClose();
     if (navigation && routeKey) {
-      navigation.navigate(routeKey);
+      if (routeKey === 'RoomsTab' || routeKey === 'Rooms') {
+        navigation.navigate('HomeTab', { screen: 'Rooms' });
+      } else if (routeKey === 'HomeTab') {
+        navigation.navigate('HomeTab', { screen: 'DevicesHome' });
+      } else {
+        navigation.navigate(routeKey);
+      }
     }
   };
 
