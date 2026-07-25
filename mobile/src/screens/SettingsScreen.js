@@ -71,10 +71,20 @@ export default function SettingsScreen({ navigation }) {
       }
 
       const devs = devsRes.data || [];
-      const uniqueBoards = new Set(devs.map(d => d.mac_address).filter(Boolean)).size || (devs.length > 0 ? 1 : 0);
+      const macSet = new Set();
+      devs.forEach(d => {
+        if (d.mac_address) {
+          macSet.add(d.mac_address);
+        } else if (d.node_id && d.node_id.includes('_')) {
+          macSet.add(d.node_id.split('_')[0]);
+        }
+      });
+
+      const uniqueBoardsCount = macSet.size > 0 ? macSet.size : (devs.length > 0 ? 1 : 0);
       const activeCount = devs.filter(d => d.current_state?.status === 'ON' || d.status).length;
+
       setStats({
-        totalBoards: uniqueBoards,
+        totalBoards: uniqueBoardsCount,
         totalDevices: devs.length,
         activeDevices: activeCount,
         totalRooms: roomsCount
