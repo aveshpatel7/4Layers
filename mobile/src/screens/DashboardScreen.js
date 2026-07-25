@@ -457,10 +457,6 @@ export default function DashboardScreen({ navigation }) {
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>SWITCHBOARD CONTROLS</Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Rooms")} style={styles.manageLink}>
-            <MaterialCommunityIcons name="cog" size={14} color={TOKENS.accent} />
-            <Text style={styles.manageLinkText}>Manage</Text>
-          </TouchableOpacity>
         </View>
         
         {isLoading ? <View style={styles.statusBox}>
