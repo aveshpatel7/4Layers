@@ -114,6 +114,7 @@ function AddDeviceStackScreen() {
 // Navigation structure
 export default function AppNavigator() {
   const theme = useTheme();
+  const navigationRef = useNavigationContainerRef();
   const [state, dispatch] = React.useReducer(
     (prevState, action) => {
       switch (action.type) {
@@ -187,8 +188,6 @@ export default function AppNavigator() {
       </View>
     );
   }
-
-  const navigationRef = useNavigationContainerRef();
 
   return (
     <AuthContext.Provider value={authContextValue}>
