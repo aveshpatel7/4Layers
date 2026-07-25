@@ -61,14 +61,17 @@ export default function DashboardScreen({ navigation }) {
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [username, setUsername] = useState("User");
 
-  // Swipe Right Gesture Responder to open SideDrawer
+  // Swipe Right Gesture Responder to open SideDrawer (Hyper-responsive)
   const swipePanResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: (evt) => {
+        return evt.nativeEvent.pageX < 70;
+      },
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return gestureState.dx > 20 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        return gestureState.dx > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx > 40) {
+        if (gestureState.dx > 15 || gestureState.vx > 0.12) {
           setIsDrawerOpen(true);
         }
       }

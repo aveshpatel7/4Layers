@@ -15,15 +15,20 @@ export default function GlobalDrawerWrapper({ children, navigationRef }) {
   const openDrawer = () => setIsDrawerOpen(true);
   const closeDrawer = () => setIsDrawerOpen(false);
 
-  // Swipe Right Gesture Responder to open SideDrawer on ANY screen
+  // Swipe Right Gesture Responder to open SideDrawer on ANY screen (Hyper-responsive)
   const swipePanResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: (evt) => {
+        // Instant response if touch originates near left edge (first 70px)
+        return evt.nativeEvent.pageX < 70;
+      },
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Trigger swipe right when dx > 25 and horizontal movement is dominant
-        return gestureState.dx > 25 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        // Low threshold: just 10px horizontal movement to right
+        return gestureState.dx > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx > 45) {
+        // Ultra-sensitive trigger: swipe right by 15px OR quick velocity flick (vx > 0.12)
+        if (gestureState.dx > 15 || gestureState.vx > 0.12) {
           setIsDrawerOpen(true);
         }
       }
