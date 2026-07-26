@@ -140,11 +140,16 @@ export default function DashboardScreen({ navigation }) {
       if (Array.isArray(data)) {
         const formattedList = data.map(d => {
           let mobileType = 'outlet';
-          if (d.device_type === 'light') mobileType = 'light';
+          const nodeSuffix = d.node_id?.split('_').pop();
+          if (nodeSuffix === '5' || d.device_type === 'fan') mobileType = 'fan';
+          else if (nodeSuffix === '6' || nodeSuffix === '7' || d.device_type === 'master') mobileType = 'master';
+          else if (d.device_type === 'light') mobileType = 'light';
           else if (d.device_type === 'ac') mobileType = 'thermostat';
-          else if (d.device_type === 'fan') mobileType = 'fan';
-          else if (d.device_type === 'tv') mobileType = 'outlet';
-          else if (d.device_type === 'plug') mobileType = 'outlet';
+          else if (d.device_type === 'tv' || d.device_type === 'plug') mobileType = 'outlet';
+
+          const val = d.current_state?.value !== undefined 
+            ? d.current_state.value 
+            : (d.current_state?.speed !== undefined ? d.current_state.speed : 1);
 
           return {
             id: d.id,
@@ -153,8 +158,22 @@ export default function DashboardScreen({ navigation }) {
             node_id: d.node_id,
             type: mobileType,
             status: d.current_state?.status === 'ON',
-            value: d.current_state?.value !== undefined ? d.current_state.value : (d.device_type === 'ac' ? 72 : 50)
+            value: val
           };
+        });
+
+        // Compute Master Switch status dynamically for each room
+        const roomStatusMap = {};
+        formattedList.forEach(d => {
+          if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
+            if (d.status) roomStatusMap[d.room_id] = true;
+          }
+        });
+
+        formattedList.forEach(d => {
+          if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
+            d.status = !!roomStatusMap[d.room_id];
+          }
         });
         
         // Sort devices by node_id to ensure stable ordering in the dashboard
@@ -278,11 +297,11 @@ export default function DashboardScreen({ navigation }) {
       const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d);
       const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
       const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master');
-      const allOn = nonMasterDevs.length > 0 && nonMasterDevs.every(d => d.status === true || d.status === 'ON');
+      const isAnyOn = nonMasterDevs.some(d => d.status === true || d.status === 'ON');
 
       return updated.map(d => {
         if (d.room_id === target.room_id && (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.type === 'master')) {
-          return { ...d, status: allOn };
+          return { ...d, status: isAnyOn };
         }
         return d;
       });
@@ -297,15 +316,19 @@ export default function DashboardScreen({ navigation }) {
       channel = parseInt(parts[parts.length - 1], 10);
     }
     const topic = `home/device/${baseNodeId}/control`;
-    publishMessage(topic, {
+    const togglePayload = {
       channel,
       status: nextStatusStr
-    });
+    };
+    if (channel === 5 || target.type === 'fan') {
+      togglePayload.speed = (typeof target.value === 'number' && !isNaN(target.value)) ? target.value : 1;
+    }
+    publishMessage(topic, togglePayload);
 
     // 3. HTTP sync backup
     try {
       await apiClient.post(`/api/devices/${id}/control`, {
-        state: { status: nextStatusStr }
+        state: togglePayload
       });
     } catch (err) {
       console.warn("Failed to sync toggle with server MQTT:", err);
@@ -320,17 +343,32 @@ export default function DashboardScreen({ navigation }) {
     const isFan = target.type === 'fan' || target.node_id?.endsWith('_5') || target.name?.toLowerCase().includes('fan');
     if (!isFan) return;
 
-    const defaultVal = 3;
+    const defaultVal = 1;
     const currentVal = (typeof target.value === 'number' && !isNaN(target.value)) ? target.value : defaultVal;
 
-    const minVal = 1;
-    const maxVal = 5;
+    const minVal = 0;
+    const maxVal = 4;
 
     const nextVal = Math.max(minVal, Math.min(maxVal, currentVal + step));
     if (nextVal === currentVal) return;
 
-    // 1. Optimistic UI update
-    setDevices((prev) => prev.map((d) => d.id === id ? { ...d, value: nextVal } : d));
+    const nextStatus = nextVal > 0;
+    const nextStatusStr = nextStatus ? 'ON' : 'OFF';
+
+    // 1. Optimistic UI update + Master Switch state update
+    setDevices((prev) => {
+      const updated = prev.map((d) => d.id === id ? { ...d, value: nextVal, status: nextStatus } : d);
+      const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
+      const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master');
+      const isAnyOn = nonMasterDevs.some(d => d.status === true || d.status === 'ON');
+
+      return updated.map(d => {
+        if (d.room_id === target.room_id && (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.type === 'master')) {
+          return { ...d, status: isAnyOn };
+        }
+        return d;
+      });
+    });
 
     // 2. Direct MQTT publish
     let baseNodeId = target.node_id;
@@ -343,26 +381,19 @@ export default function DashboardScreen({ navigation }) {
     const topic = `home/device/${baseNodeId}/control`;
     const payload = {
       channel,
-      status: target.status ? 'ON' : 'OFF',
-      value: nextVal
+      status: nextStatusStr,
+      value: nextVal,
+      speed: nextVal
     };
-    if (isFan) {
-      payload.speed = nextVal;
-    }
     publishMessage(topic, payload);
 
     // 3. HTTP sync backup
     try {
       await apiClient.post(`/api/devices/${id}/control`, {
-        state: { 
-          status: target.status ? 'ON' : 'OFF',
-          value: nextVal,
-          ...(isFan ? { speed: nextVal } : {})
-        }
+        state: payload
       });
     } catch (err) {
-      console.warn("Failed to sync adjusted value with server:", err);
-      setDevices((prev) => prev.map((d) => d.id === id ? { ...d, value: currentVal } : d));
+      console.warn("Failed to sync fan speed adjustment with server:", err);
     }
   };
 
@@ -506,9 +537,7 @@ export default function DashboardScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
 
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>SWITCHBOARD CONTROLS</Text>
-        </View>
+
         
         {isLoading ? <View style={styles.statusBox}>
             <View style={styles.activeDot} />
@@ -518,32 +547,33 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.statusSubtitle}>FastAPI server is sleeping. Local telemetry simulation running.</Text>
           </View> : filteredDevices.length === 0 ? <View style={styles.statusBox}>
             <Text style={styles.statusText}>No devices in this room yet</Text>
-          </View> : <View style={styles.gridContainer}>
-            {[...filteredDevices]
-              .filter((d) => {
-                const suffix = d.node_id?.split('_').pop();
-                // If board has channel 7 (Master Switch), hide channel 6 (Dimmer) so Master Switch takes the 6th card slot!
-                if (suffix === '6') {
-                  const hasChannel7 = filteredDevices.some(x => x.node_id?.endsWith('_7'));
-                  if (hasChannel7) return false;
-                }
-                return true;
-              })
-              .sort((a, b) => {
-                const aSuffix = parseInt(a.node_id?.split('_').pop() || '0', 10);
-                const bSuffix = parseInt(b.node_id?.split('_').pop() || '0', 10);
-                return aSuffix - bSuffix;
-              })
-              .map((device) => (
-                <DeviceCard
-                  key={device.id}
-                  device={device}
-                  onToggle={() => handleToggleDevice(device.id)}
-                  onIncrease={() => handleAdjustValue(device.id, device.type === 'fan' ? 1 : 10)}
-                  onDecrease={() => handleAdjustValue(device.id, device.type === 'fan' ? -1 : -10)}
-                />
-              ))}
-          </View>}
+          </View> : (
+            <View style={styles.gridContainer}>
+              {[...filteredDevices]
+                .filter((d) => {
+                  const suffix = d.node_id?.split('_').pop();
+                  if (suffix === '6') {
+                    const hasChannel7 = filteredDevices.some(x => x.node_id?.endsWith('_7'));
+                    if (hasChannel7) return false;
+                  }
+                  return true;
+                })
+                .sort((a, b) => {
+                  const aSuffix = parseInt(a.node_id?.split('_').pop() || '0', 10);
+                  const bSuffix = parseInt(b.node_id?.split('_').pop() || '0', 10);
+                  return aSuffix - bSuffix;
+                })
+                .map((device) => (
+                  <DeviceCard
+                    key={device.id}
+                    device={device}
+                    onToggle={() => handleToggleDevice(device.id)}
+                    onIncrease={() => handleAdjustValue(device.id, device.type === 'fan' ? 1 : 10)}
+                    onDecrease={() => handleAdjustValue(device.id, device.type === 'fan' ? -1 : -10)}
+                  />
+                ))}
+            </View>
+          )}
 
       </ScrollView>
     </SafeAreaView>;
@@ -555,8 +585,59 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
   },
   scrollContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 32
+    flexGrow: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 20,
+    justifyContent: "center"
+  },
+  switchboardPanel: {
+    backgroundColor: "#131313",
+    borderRadius: 28,
+    paddingTop: 14,
+    paddingBottom: 2,
+    paddingHorizontal: 14,
+    borderWidth: 1.5,
+    borderColor: "rgba(34, 197, 94, 0.25)",
+    shadowColor: "#22C55E",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8
+  },
+  panelHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 6,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)"
+  },
+  panelHeaderText: {
+    fontSize: 11,
+    fontFamily: "GoogleSansFlex-Bold",
+    fontWeight: "900",
+    color: "#22C55E",
+    letterSpacing: 1.4
+  },
+  panelActiveBadge: {
+    fontSize: 10,
+    fontFamily: "GoogleSansFlex-Bold",
+    fontWeight: "700",
+    color: "rgba(229, 226, 225, 0.6)",
+    letterSpacing: 0.8
+  },
+  pulsingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#22C55E",
+    shadowColor: "#22C55E",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 6
   },
   customHeader: {
     flexDirection: "row",

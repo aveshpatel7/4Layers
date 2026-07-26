@@ -79,6 +79,7 @@ Rules:
 4. Keep changes minimal and focused on the task. Show me the final files.
 5. The backend already has: Auth (register/login JWT, /me), Homes CRUD, Rooms CRUD, Devices (add/list/delete/control via MQTT/history). Reuse these; only add new endpoints when the task explicitly needs them.
 6. FINAL PRODUCT = ONE mobile app (Android APK). The dashboard/ folder is REFERENCE ONLY — we are porting its features INTO the mobile app. Do NOT build/deploy the dashboard. When a task says "match the dashboard", read dashboard/src to copy the behavior/UX into mobile.
+7. ALWAYS check and update SESSION_HISTORY.md at C:\Users\andyk\Desktop\SmartNest\SESSION_HISTORY.md to log every decision, user request, and completed milestone so history is never lost across chat sessions.
 
 Acknowledge you understand, then wait for my task.
 ```

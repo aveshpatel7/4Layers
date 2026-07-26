@@ -37,8 +37,13 @@ export const connectMqtt = (credentials = null) => {
     password: 'D2m9ga8JynJDEM6' // Default fallback for dev/local environment
   };
 
+  let port = Number(config.broker_port);
+  if (port === 8883 || port === 1883) {
+    port = 8084; // Enforce WebSocket WSS port for browser client
+  }
+
   const clientId = `SmartNest-App-${Math.random().toString(16).substr(2, 8)}`;
-  pahoClient = new Paho.Client(config.broker_host, Number(config.broker_port), '/mqtt', clientId);
+  pahoClient = new Paho.Client(config.broker_host, port, '/mqtt', clientId);
 
   pahoClient.onConnectionLost = (responseObject) => {
     isConnected = false;

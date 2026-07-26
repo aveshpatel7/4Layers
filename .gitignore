@@ -39,3 +39,12 @@ ENV/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Build binaries
+*.apk
+
+# Local Session History & Scratch (Do NOT push to GitHub)
+SESSION_HISTORY.md
+tasks/
+scratch/
+

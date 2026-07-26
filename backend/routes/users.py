@@ -128,9 +128,11 @@ def change_password(
 def get_mqtt_config(current_user: models.User = Depends(auth.get_current_user)):
     """Retrieve dynamic MQTT broker credentials for WebSockets connection."""
     from backend import mqtt
+    import os
+    ws_port = int(os.getenv("MQTT_WS_PORT", 8084))
     return {
         "broker_host": mqtt.MQTT_BROKER,
-        "broker_port": mqtt.MQTT_PORT,
+        "broker_port": ws_port,
         "username": mqtt.MQTT_USERNAME,
         "password": mqtt.MQTT_PASSWORD
     }

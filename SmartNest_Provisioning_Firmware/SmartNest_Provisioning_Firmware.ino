@@ -62,11 +62,9 @@ const int STATUS_LED = 2;   // Onboard LED
 const int RESET_BUTTON = 0; // ESP32 physical BOOT button (Active Low)
 
 // Device States
-bool relayStates[4] = {false, false, false, false};
-bool fanEnabled = false;
-int fanSpeed = 3; // Default speed: 3/5
-bool ledEnabled = false;
-int ledBrightness = 50; // Default brightness: 50%
+bool relayStates[4] = {false, false, false, false}; // Relays 1-4 (Channels 1-4)
+bool fanEnabled = false;                            // Ceiling Fan (Channel 5)
+int fanSpeed = 3;                                   // Default speed: 3/4 (Range 1-4)
 
 char NODE_ID[32];        
 char command_topic[100]; 
@@ -162,12 +160,8 @@ void sendChannelState(int channel, bool status, int val = -1) {
   StaticJsonDocument<200> doc;
   doc["channel"] = channel;
   doc["status"] = status ? "ON" : "OFF";
-  if (val != -1) {
-    if (channel == 5) {
-      doc["speed"] = val;
-    } else if (channel == 6) {
-      doc["value"] = val;
-    }
+  if (val != -1 && channel == 5) {
+    doc["speed"] = val;
   }
 
   char buffer[256];
@@ -474,16 +468,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
     sendChannelState(5, fanEnabled, fanSpeed);
   }
-  // LED Strip (Channel 6) - Logical
+  // Master Switch (Channel 6)
   else if (channel == 6) {
-    ledEnabled = turnOn;
-    if (doc.containsKey("value")) {
-      ledBrightness = doc["value"];
-    }
-    sendChannelState(6, ledEnabled, ledBrightness);
-  }
-  // Master Switch (Channel 7)
-  else if (channel == 7) {
     for (int i = 0; i < 4; i++) {
       relayStates[i] = turnOn;
       sendChannelState(i + 1, turnOn);
@@ -491,10 +477,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     fanEnabled = turnOn;
     sendChannelState(5, fanEnabled, fanSpeed);
     
-    ledEnabled = turnOn;
-    sendChannelState(6, ledEnabled, ledBrightness);
-    
-    sendChannelState(7, turnOn);
+    sendChannelState(6, turnOn);
   }
 
   // Write changes to physical pins
@@ -519,8 +502,7 @@ void reconnectMqtt() {
       // Publish initial state confirmations on reconnect
       for (int i = 1; i <= 4; i++) sendChannelState(i, relayStates[i-1]);
       sendChannelState(5, fanEnabled, fanSpeed);
-      sendChannelState(6, ledEnabled, ledBrightness);
-      sendChannelState(7, relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled || ledEnabled);
+      sendChannelState(6, relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -638,7 +620,7 @@ void loop() {
       Serial.println("Sending periodic telemetry heartbeat...");
       for (int i = 1; i <= 4; i++) sendChannelState(i, relayStates[i-1]);
       sendChannelState(5, fanEnabled, fanSpeed);
-      sendChannelState(6, ledEnabled, ledBrightness);
+      sendChannelState(6, relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled);
     }
   }
 }

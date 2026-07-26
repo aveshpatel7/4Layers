@@ -51,34 +51,33 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
   const isFan = nodeNum === 5 || device?.type === "fan";
   const hasSettings = isFan;
 
-  // 2. Uniform 2-Column Grid Cards (S-1 to S-6)
+  // Clean Static Grid Cards (S-1 to S-6)
   return (
     <View style={styles.gridGlassCard}>
-      {/* Node Tag Header */}
-      <Text style={styles.nodeTagText}>{nodeLabel}</Text>
+      {/* Node Tag & Status LED Header */}
+      <View style={styles.cardHeaderRow}>
+        <Text style={styles.nodeTagText}>{nodeLabel}</Text>
+        <View style={styles.cardHeaderRight}>
+          {hasSettings && (
+            <TouchableOpacity
+              style={styles.gearButtonInline}
+              onPress={() => setModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="cog" size={15} color={TOKENS.accentGreen} />
+            </TouchableOpacity>
+          )}
+          <View style={[styles.statusLedDot, isEnabled ? styles.statusLedOn : styles.statusLedOff]} />
+        </View>
+      </View>
 
-      {/* 3D Rocker Switch */}
-      <View style={{ marginTop: 10 }}>
+      {/* 3D Rocker Switch - Centered */}
+      <View style={styles.cardBodyCenter}>
         <LuminaRockerSwitch isEnabled={isEnabled} onToggle={onToggle} size="normal" />
       </View>
 
-      {/* Gear Icon Button for Fan & Dimmer Settings */}
-      {hasSettings && (
-        <TouchableOpacity
-          style={styles.gearButton}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={{ width: 16, height: 16, justifyContent: "center", alignItems: "center" }}>
-            <MaterialCommunityIcons
-              name="cog"
-              size={16}
-              color={TOKENS.accentGreen}
-              style={{ textAlign: "center", textAlignVertical: "center", marginTop: Platform.OS === "android" ? -1 : 0 }}
-            />
-          </View>
-        </TouchableOpacity>
-      )}
+      {/* Card Footer Area (Balanced height on all cards for 100% exact center alignment) */}
+      <View style={styles.cardFooterArea} />
 
       {/* Settings Modal (Popup) */}
       <Modal
@@ -111,34 +110,37 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
             </View>
 
             {/* Fan Speed Controls Modal Content (- and + buttons) */}
-            {isFan && (
-              <View style={styles.modalControlGroup}>
-                <View style={styles.levelHeaderRow}>
-                  <Text style={styles.subLabelCaps}>Speed Level</Text>
-                  <Text style={styles.speedValueText}>{(typeof device?.value === 'number' ? device.value : 3)} / 5</Text>
-                </View>
-
-                <View style={styles.dimmerAdjusterRow}>
-                  <TouchableOpacity style={styles.adjustBtn} onPress={onDecrease} activeOpacity={0.7}>
-                    <MaterialCommunityIcons name="minus" size={20} color={TOKENS.textPrimary} />
-                  </TouchableOpacity>
-
-                  <View style={styles.dimmerProgressBar}>
-                    <View
-                      style={[
-                        styles.dimmerProgressFill,
-                        { width: `${((typeof device?.value === 'number' ? device.value : 3) / 5) * 100}%` },
-                        isEnabled ? styles.fillActive : styles.fillInactive
-                      ]}
-                    />
+            {isFan && (() => {
+              const currentSpeed = (typeof device?.value === 'number' ? device.value : (isEnabled ? 1 : 0));
+              return (
+                <View style={styles.modalControlGroup}>
+                  <View style={styles.levelHeaderRow}>
+                    <Text style={styles.subLabelCaps}>Speed Level</Text>
+                    <Text style={styles.speedValueText}>{currentSpeed} / 4</Text>
                   </View>
 
-                  <TouchableOpacity style={styles.adjustBtn} onPress={onIncrease} activeOpacity={0.7}>
-                    <MaterialCommunityIcons name="plus" size={20} color={TOKENS.textPrimary} />
-                  </TouchableOpacity>
+                  <View style={styles.dimmerAdjusterRow}>
+                    <TouchableOpacity style={styles.adjustBtn} onPress={onDecrease} activeOpacity={0.7}>
+                      <MaterialCommunityIcons name="minus" size={20} color={TOKENS.textPrimary} />
+                    </TouchableOpacity>
+
+                    <View style={styles.dimmerProgressBar}>
+                      <View
+                        style={[
+                          styles.dimmerProgressFill,
+                          { width: `${(currentSpeed / 4) * 100}%` },
+                          styles.fillActive
+                        ]}
+                      />
+                    </View>
+
+                    <TouchableOpacity style={styles.adjustBtn} onPress={onIncrease} activeOpacity={0.7}>
+                      <MaterialCommunityIcons name="plus" size={20} color={TOKENS.textPrimary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            )}
+              );
+            })()}
 
 
 
@@ -158,60 +160,97 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
 }
 
 const styles = StyleSheet.create({
-  /* Grid Card (S-1 to S-6) */
+  /* Grid Card Shell (S-1 to S-6) */
   gridGlassCard: {
     width: "48%",
-    height: 180,
-    backgroundColor: TOKENS.glassBg,
+    height: 205,
+    backgroundColor: "#161515",
     borderRadius: 24,
     paddingTop: 14,
-    paddingBottom: 14,
+    paddingBottom: 10,
     paddingHorizontal: 12,
-    marginBottom: 16,
+    marginBottom: 14,
     alignItems: "center",
-    justifyContent: "flex-start",
-    borderWidth: 1,
-    borderColor: TOKENS.border,
+    justifyContent: "space-between",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.08)",
     position: "relative"
   },
-
-  /* Full Width Master Card (Master Switch Room Master) */
-  fullWidthMasterCard: {
-    width: "100%",
-    backgroundColor: TOKENS.glassBg,
-    borderRadius: 24,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: TOKENS.border
+  gridGlassCardActive: {
+    borderColor: "rgba(34, 197, 94, 0.45)",
+    backgroundColor: "#1C1B1B"
   },
-  masterCardRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  cardBodyCenter: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "center",
     alignItems: "center"
   },
-  masterTextGroup: {
-    flex: 1,
-    marginRight: 12
+  cardFooterArea: {
+    height: 24,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center"
   },
-  masterTitleProminent: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: TOKENS.accentGreen,
-    letterSpacing: 0.5,
-    marginBottom: 4
+  cardHeaderRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 2
   },
-  masterSubtitleText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: TOKENS.textSecondary
+  cardHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
   },
   nodeTagText: {
     fontSize: 12,
-    fontWeight: "800",
-    color: TOKENS.accentGreen,
+    fontWeight: "900",
+    color: "#E5E2E1",
     letterSpacing: 0.5
+  },
+  nodeTagTextActive: {
+    color: TOKENS.accentGreen
+  },
+  statusLedDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4
+  },
+  statusLedOn: {
+    backgroundColor: TOKENS.accentGreen,
+    shadowColor: TOKENS.accentGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    elevation: 4
+  },
+  statusLedOff: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)"
+  },
+  gearButtonInline: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  fanSpeedBadgeRow: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: "rgba(34, 197, 94, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(34, 197, 94, 0.2)",
+    marginTop: 2
+  },
+  fanSpeedBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: TOKENS.accentGreen,
+    letterSpacing: 0.8
   },
 
   /* Gear Icon Button */
@@ -346,19 +385,20 @@ const styles = StyleSheet.create({
   dimmerProgressBar: {
     flex: 1,
     height: 10,
-    backgroundColor: "#2A2A2A",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 5,
     overflow: "hidden"
   },
   dimmerProgressFill: {
     height: "100%",
-    borderRadius: 5
+    borderRadius: 5,
+    backgroundColor: TOKENS.accentGreen
   },
   fillActive: {
     backgroundColor: TOKENS.accentGreen
   },
   fillInactive: {
-    backgroundColor: TOKENS.accentInactive
+    backgroundColor: TOKENS.accentGreen
   },
 
   doneButton: {

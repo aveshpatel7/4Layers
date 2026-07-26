@@ -70,16 +70,22 @@ export default function VerticalCapsuleSwitch({
   });
 
   const handlePressOn = () => {
-    if (!isEnabled) {
-      if (onTurnOn) onTurnOn();
-      else if (onToggle) onToggle(true);
+    if (onToggle) {
+      onToggle(!isEnabled);
+    } else if (!isEnabled && onTurnOn) {
+      onTurnOn();
+    } else if (isEnabled && onTurnOff) {
+      onTurnOff();
     }
   };
 
   const handlePressOff = () => {
-    if (isEnabled) {
-      if (onTurnOff) onTurnOff();
-      else if (onToggle) onToggle(false);
+    if (onToggle) {
+      onToggle(!isEnabled);
+    } else if (isEnabled && onTurnOff) {
+      onTurnOff();
+    } else if (!isEnabled && onTurnOn) {
+      onTurnOn();
     }
   };
 

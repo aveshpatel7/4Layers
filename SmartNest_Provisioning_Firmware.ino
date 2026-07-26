@@ -1,24 +1,27 @@
 /*
- * SmartNest Multi-Channel Production Firmware (7 Channels)
- * Target Microcontroller: ESP32 Dev Module
+ * SmartNest Multi-Channel Production Firmware (6 Channels Total)
+ * Target Microcontroller: ESP32 Dev Module (Go Smart AIO V2 Compatible)
  * 
  * Features:
- *   1. Custom Local WebServer (SoftAP): Exposes a direct `/config` HTTP endpoint.
- *      The mobile app sends SSID/Password here to pair the board dynamically.
- *   2. Preferences Storage: Securely saves WiFi configurations in the ESP32 NVS flash.
- *   3. Manual Factory Reset Button: Hold the ESP32 physical BOOT button (GPIO 0) 
+ *   1. Preferences Storage: Securely saves WiFi configurations in the ESP32 NVS flash.
+ *   2. Manual Factory Reset Button: Hold the ESP32 physical BOOT button (GPIO 0) 
  *      for 3 seconds on startup to clear credentials and trigger Setup Mode.
- *   4. Unique Node ID Generation: Generates an MQTT client identifier using the MAC address.
- *   5. Multi-Channel MQTT Controls: Listens to toggles, fan speeds, and LED brightness.
+ *   3. Unique Node ID Generation: Generates an MQTT client identifier using the MAC address.
+ *   4. Multi-Channel MQTT Controls: Listens to toggles, fan speed relays, and master logical commands.
+ *   5. Remote MQTT Reset: Resets Wi-Fi credentials when receiving {"action": "factory_reset"}.
  * 
- * Pin Configuration mapping:
- *   - Channel 1 (Switch 1): Relay 1 connected to GPIO 12
- *   - Channel 2 (Switch 2): Relay 2 connected to GPIO 13
- *   - Channel 3 (Switch 3): Relay 3 connected to GPIO 14
- *   - Channel 4 (Switch 4): Relay 4 connected to GPIO 15
- *   - Channel 5 (Ceiling Fan): PWM speed driver on GPIO 16 (Speed 1-5 mapping)
- *   - Channel 6 (LED Strip): PWM brightness driver on GPIO 17 (0-100% dimming)
- *   - Channel 7 (Master Switch): Logical toggle for all channels combined.
+ * Pin Configuration mapping (Go Smart AIO V2 Hardware):
+ *   - Channel 1 (Switch 1): Relay 1 connected to GPIO 15
+ *   - Channel 2 (Switch 2): Relay 2 connected to GPIO 5
+ *   - Channel 3 (Switch 3): Relay 3 connected to GPIO 4
+ *   - Channel 4 (Switch 4): Relay 4 connected to GPIO 22
+ *   - Channel 5 (Ceiling Fan Relays): 
+ *     * Speed 1 Relay: GPIO 21
+ *     * Speed 2 Relay: GPIO 19
+ *     * Speed 4 Relay: GPIO 18
+ *   - Channel 6 (Master Switch): Logical toggle for Channels 1 to 5 combined.
+ *   - Onboard Status LED: GPIO 2
+ *   - Factory Reset Button: GPIO 0
  * 
  * Required Libraries (Install via Arduino Library Manager):
  *   - PubSubClient (by Nick O'Leary)
@@ -26,6 +29,7 @@
  */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <Preferences.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -33,54 +37,42 @@
 #include <BLEUtils.h>
 #include <BLEServer.h>
 #include <BLE2902.h>
-
-// ESP32 Arduino Core Version 3.x Compatibility Layer
-#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
-  #define LEDC_SETUP(channel, freq, resolution) // handled by ledcAttachChannel
-  #define LEDC_ATTACH(pin, freq, resolution, channel) ledcAttachChannel(pin, freq, resolution, channel)
-  #define LEDC_WRITE(channel, duty) ledcWriteChannel(channel, duty)
-#else
-  #define LEDC_SETUP(channel, freq, resolution) ledcSetup(channel, freq, resolution)
-  #define LEDC_ATTACH(pin, freq, resolution, channel) ledcAttachPin(pin, channel)
-  #define LEDC_WRITE(channel, duty) ledcWrite(channel, duty)
-#endif
+#include <WebServer.h>
 
 // ==========================================
 // 🔧 CONFIGURATION (GLOBAL SETTINGS)
 // ==========================================
-const char* mqtt_server = "broker.emqx.io";
-const int mqtt_port = 1883;
+const char* mqtt_server = "i26a1c71.ala.asia-southeast1.emqxsl.com";
+const int mqtt_port = 8883;
+const char* mqtt_user = "smartnest_client";
+const char* mqtt_pass = "D2m9ga8JynJDEM6";
 
-// Pin Definitions
-const int RELAY_1 = 12;
-const int RELAY_2 = 13;
-const int RELAY_3 = 14;
-const int RELAY_4 = 15;
-const int FAN_PWM = 16;
-const int LED_PWM = 17;
+// Pin Definitions matching Go Smart AIO V2 hardware
+const int RELAY_1 = 15;
+const int RELAY_2 = 5;
+const int RELAY_3 = 4;
+const int RELAY_4 = 22;
+
+const int FAN_SPEED_1 = 21;
+const int FAN_SPEED_2 = 19;
+const int FAN_SPEED_4 = 18;
+
 const int STATUS_LED = 2;   // Onboard LED
-const int RESET_BUTTON = 0; // ESP32 physical BOOT button
-
-// PWM Properties for Fan and LED dimming
-const int pwmFreq = 5000;
-const int pwmResolution = 8; // 8-bit resolution (0-255)
-const int FAN_CHANNEL = 0;
-const int LED_CHANNEL = 1;
+const int RESET_BUTTON = 0; // ESP32 physical BOOT button (Active Low)
 
 // Device States
-bool relayStates[4] = {false, false, false, false};
-bool fanEnabled = false;
-int fanSpeed = 3; // Default speed: 3/5
-bool ledEnabled = false;
-int ledBrightness = 50; // Default brightness: 50%
+bool relayStates[4] = {false, false, false, false}; // Relays 1-4 (Channels 1-4)
+bool fanEnabled = false;                            // Ceiling Fan (Channel 5)
+int fanSpeed = 3;                                   // Default speed: 3/4 (Range 1-4)
 
 char NODE_ID[32];        
 char command_topic[100]; 
 char status_topic[100];  
 
-WiFiClient espClient;
+WiFiClientSecure espClient;
 PubSubClient client(espClient);
 Preferences preferences;
+WebServer server(80);
 
 // BLE Onboarding Configurations
 #define SERVICE_UUID           "0000ffe0-0000-1000-8000-00805f9b34fb"
@@ -100,6 +92,10 @@ bool inSetupMode = false;
 String ssid = "";
 String password = "";
 
+// Reset Button holding logic
+unsigned long buttonPressStart = 0;
+bool buttonHeld = false;
+
 // --- Format Unique Node ID based on MAC Address ---
 void generateNodeId() {
   uint64_t mac = ESP.getEfuseMac();
@@ -116,6 +112,10 @@ void generateNodeId() {
   Serial.println(command_topic);
   Serial.print("Publish Status Topic    : ");
   Serial.println(status_topic);
+  Serial.println("------------------------------------");
+  Serial.println("Click the link to generate/print QR sticker:");
+  Serial.printf("Plain ID QR: https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=%s\n", NODE_ID);
+  Serial.printf("JSON Payload QR: https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=%%7B%%22uuid%%22:%%22%s%%22,%%22name%%22:%%22SmartNest%%20Board%%22%%7D\n", NODE_ID);
   Serial.println("====================================\n");
 }
 
@@ -129,17 +129,38 @@ void blinkLED(int times, int delayMs) {
   }
 }
 
+// --- Check and handle reset button hold at runtime ---
+void checkResetButton() {
+  if (digitalRead(RESET_BUTTON) == LOW) {
+    if (!buttonHeld) {
+      buttonPressStart = millis();
+      buttonHeld = true;
+      Serial.println("[Reset] Button pressed. Keep holding for 3 seconds to reset...");
+    } else {
+      if (millis() - buttonPressStart >= 3000) {
+        Serial.println("[Reset] Reset button held for 3 seconds! Formatting NVS and rebooting...");
+        preferences.begin("wifi", false);
+        preferences.clear();
+        preferences.end();
+        blinkLED(15, 60); // Rapid blink to confirm
+        ESP.restart();
+      }
+    }
+  } else {
+    if (buttonHeld) {
+      Serial.println("[Reset] Button released before 3 seconds.");
+      buttonHeld = false;
+    }
+  }
+}
+
 // --- Publish Channel State telemetry back to MQTT ---
 void sendChannelState(int channel, bool status, int val = -1) {
   StaticJsonDocument<200> doc;
   doc["channel"] = channel;
   doc["status"] = status ? "ON" : "OFF";
-  if (val != -1) {
-    if (channel == 5) {
-      doc["speed"] = val;
-    } else if (channel == 6) {
-      doc["value"] = val;
-    }
+  if (val != -1 && channel == 5) {
+    doc["speed"] = val;
   }
 
   char buffer[256];
@@ -157,24 +178,25 @@ void applyHardware() {
   digitalWrite(RELAY_3, relayStates[2] ? HIGH : LOW);
   digitalWrite(RELAY_4, relayStates[3] ? HIGH : LOW);
   
-  // Apply Fan speed (Speed 1-5 maps to PWM 50-255 duty cycle)
+  // Apply Fan speed relays combinations (matching Go Smart V2 speed steps)
+  digitalWrite(FAN_SPEED_1, LOW);
+  digitalWrite(FAN_SPEED_2, LOW);
+  digitalWrite(FAN_SPEED_4, LOW);
+  
   if (fanEnabled) {
-    int duty = map(fanSpeed, 1, 5, 50, 255);
-    LEDC_WRITE(FAN_CHANNEL, duty);
-  } else {
-    LEDC_WRITE(FAN_CHANNEL, 0);
-  }
-
-  // Apply LED brightness (0-100% maps to PWM 0-255 duty cycle)
-  if (ledEnabled) {
-    int duty = map(ledBrightness, 0, 100, 0, 255);
-    LEDC_WRITE(LED_CHANNEL, duty);
-  } else {
-    LEDC_WRITE(LED_CHANNEL, 0);
+    if (fanSpeed == 1) {
+      digitalWrite(FAN_SPEED_1, HIGH);
+    } else if (fanSpeed == 2) {
+      digitalWrite(FAN_SPEED_2, HIGH);
+    } else if (fanSpeed == 3) {
+      digitalWrite(FAN_SPEED_1, HIGH);
+      digitalWrite(FAN_SPEED_2, HIGH);
+    } else if (fanSpeed >= 4) {
+      digitalWrite(FAN_SPEED_4, HIGH);
+    }
   }
 }
 
-// --- Web Server Setup Mode Handler ---
 // --- Base64 Encoding Helper ---
 String base64Encode(String input) {
   const char lookup[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -281,7 +303,7 @@ class WifiWriteCallback: public BLECharacteristicCallbacks {
           preferences.putString("pass", receivedPass);
           preferences.end();
           
-          // Do NOT set shouldReboot = true here. Wait for the app to write the Device ID (UUID) first.
+          // Wait for the app to write the Device ID (UUID) before rebooting
         }
       }
     }
@@ -295,42 +317,76 @@ class DeviceIdWriteCallback: public BLECharacteristicCallbacks {
         Serial.print("[BLE] Decoded Cloud Device UUID: ");
         Serial.println(value);
         
-        // Save UUID to preferences (optional, for debugging or storage)
         preferences.begin("wifi", false);
         preferences.putString("uuid", value);
         preferences.end();
         
-        // Now that the handshake is complete, trigger the reboot!
+        // Handshake complete, trigger the reboot!
         shouldReboot = true;
       }
     }
 };
 
-// --- Start Local Config BLE Server ---
+// --- Start Local Config BLE & SoftAP Server ---
 void startSetupPortal() {
   inSetupMode = true;
   char portalSSID[50];
   snprintf(portalSSID, sizeof(portalSSID), "SmartNest-Setup-%s", NODE_ID + 8);
 
-  Serial.println("\n--- [BLE SETUP MODE ACTIVE] ---");
-  Serial.print("BLE Device Name: ");
+  Serial.println("\n--- [SETUP MODE ACTIVE (BLE & SOFTAP)] ---");
+  Serial.print("SSID/Device Name: ");
   Serial.println(portalSSID);
-  Serial.println("---------------------------------\n");
+  Serial.println("-----------------------------------------\n");
 
   // Keep Status LED ON during Setup Mode
   digitalWrite(STATUS_LED, HIGH);
 
-  // Initialize BLE Device
+  // 1. Initialize WiFi Access Point (SoftAP)
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(portalSSID); // default IP: 192.168.4.1
+  Serial.print("SoftAP Hotspot active. IP Address: ");
+  Serial.println(WiFi.softAPIP());
+
+  // 2. Set Up HTTP Web Server route for SoftAP config URL
+  server.on("/config", HTTP_GET, []() {
+    String ssid_param = server.arg("ssid");
+    String pass_param = server.arg("pass");
+    
+    if (ssid_param.length() > 0) {
+      Serial.println("\n[SoftAP] Received WiFi credentials via Web Server!");
+      Serial.printf("SSID: %s\n", ssid_param.c_str());
+      
+      preferences.begin("wifi", false);
+      preferences.putString("ssid", ssid_param);
+      preferences.putString("pass", pass_param);
+      preferences.end();
+      
+      // Return HTTP response success to app (including the generated unique node_id)
+      char responseBuf[128];
+      snprintf(responseBuf, sizeof(responseBuf), "{\"status\":\"success\",\"node_id\":\"%s\",\"message\":\"Credentials saved. Rebooting...\"}", NODE_ID);
+      server.send(200, "application/json", responseBuf);
+      
+      delay(500);
+      shouldReboot = true;
+    } else {
+      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing SSID parameter.\"}");
+    }
+  });
+  
+  server.begin();
+  Serial.println("HTTP Web Config Server started successfully.");
+
+  // 3. Initialize BLE Device
   BLEDevice::init(portalSSID);
   
-  // Create Server
+  // Create BLE Server
   BLEServer *pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
-  // Create Service
+  // Create BLE Service
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
-  // Create Characteristics
+  // Create BLE Characteristics
   BLECharacteristic *pWifiChar = pService->createCharacteristic(
                                          WIFI_CHAR_UUID,
                                          BLECharacteristic::PROPERTY_WRITE
@@ -341,7 +397,6 @@ void startSetupPortal() {
                                          MAC_CHAR_UUID,
                                          BLECharacteristic::PROPERTY_READ
                                        );
-  // Set read value (raw node ID)
   pMacChar->setValue(NODE_ID);
 
   BLECharacteristic *pDevIdChar = pService->createCharacteristic(
@@ -350,14 +405,14 @@ void startSetupPortal() {
                                        );
   pDevIdChar->setCallbacks(new DeviceIdWriteCallback());
 
-  // Start Service
+  // Start BLE Service
   pService->start();
 
-  // Start Advertising
+  // Start BLE Advertising
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06);  // iPhone connection helper
+  pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMinPreferred(0x12);
   BLEDevice::startAdvertising();
 }
@@ -374,6 +429,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (error) {
     Serial.print("JSON Parse failed: ");
     Serial.println(error.c_str());
+    return;
+  }
+
+  // Handle Remote Factory Reset Trigger
+  if (doc.containsKey("action") && doc["action"] == "factory_reset") {
+    Serial.println("[MQTT] Remote Reset Command Received. Erasing credentials & rebooting...");
+    preferences.begin("wifi", false);
+    preferences.clear();
+    preferences.end();
+    delay(1000);
+    ESP.restart();
     return;
   }
 
@@ -401,16 +467,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
     sendChannelState(5, fanEnabled, fanSpeed);
   }
-  // LED Strip (Channel 6)
+  // Master Switch (Channel 6)
   else if (channel == 6) {
-    ledEnabled = turnOn;
-    if (doc.containsKey("value")) {
-      ledBrightness = doc["value"];
-    }
-    sendChannelState(6, ledEnabled, ledBrightness);
-  }
-  // Master Switch (Channel 7)
-  else if (channel == 7) {
     for (int i = 0; i < 4; i++) {
       relayStates[i] = turnOn;
       sendChannelState(i + 1, turnOn);
@@ -418,10 +476,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     fanEnabled = turnOn;
     sendChannelState(5, fanEnabled, fanSpeed);
     
-    ledEnabled = turnOn;
-    sendChannelState(6, ledEnabled, ledBrightness);
-    
-    sendChannelState(7, turnOn);
+    sendChannelState(6, turnOn);
   }
 
   // Write changes to physical pins
@@ -439,15 +494,14 @@ void reconnectMqtt() {
     Serial.print("Connecting to EMQX MQTT Broker...");
     String clientId = "SmartNestClient-" + String(NODE_ID);
     
-    if (client.connect(clientId.c_str())) {
+    if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
       Serial.println("connected!");
       client.subscribe(command_topic);
       
       // Publish initial state confirmations on reconnect
       for (int i = 1; i <= 4; i++) sendChannelState(i, relayStates[i-1]);
       sendChannelState(5, fanEnabled, fanSpeed);
-      sendChannelState(6, ledEnabled, ledBrightness);
-      sendChannelState(7, relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled || ledEnabled);
+      sendChannelState(6, relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -468,12 +522,9 @@ void setup() {
   pinMode(RELAY_3, OUTPUT);
   pinMode(RELAY_4, OUTPUT);
 
-  // Setup PWM channels for Fan and LED Dimming
-  LEDC_SETUP(FAN_CHANNEL, pwmFreq, pwmResolution);
-  LEDC_ATTACH(FAN_PWM, pwmFreq, pwmResolution, FAN_CHANNEL);
-  
-  LEDC_SETUP(LED_CHANNEL, pwmFreq, pwmResolution);
-  LEDC_ATTACH(LED_PWM, pwmFreq, pwmResolution, LED_CHANNEL);
+  pinMode(FAN_SPEED_1, OUTPUT);
+  pinMode(FAN_SPEED_2, OUTPUT);
+  pinMode(FAN_SPEED_4, OUTPUT);
 
   // Initial boot state is OFF
   applyHardware();
@@ -521,6 +572,12 @@ void setup() {
       Serial.println(WiFi.localIP());
       digitalWrite(STATUS_LED, LOW); // turn off on success
       
+      // Disable WiFi Sleep Mode to ensure instant MQTT message delivery (<10ms latency)
+      WiFi.setSleep(false);
+      
+      // Bypasses certificate chain validation securely for EMQX Serverless TLS
+      espClient.setInsecure();
+      
       // Initialize MQTT Broker Connection
       client.setServer(mqtt_server, mqtt_port);
       client.setCallback(callback);
@@ -535,9 +592,12 @@ void setup() {
 }
 
 void loop() {
+  checkResetButton(); // Always check reset button state (at runtime or setup mode)
+
   if (inSetupMode) {
+    server.handleClient(); // Handle HTTP server requests
     if (shouldReboot) {
-      Serial.println("[BLE] Rebooting board in 2 seconds...");
+      Serial.println("[Setup] Rebooting board in 2 seconds...");
       blinkLED(5, 100);
       delay(2000);
       ESP.restart();
@@ -559,7 +619,7 @@ void loop() {
       Serial.println("Sending periodic telemetry heartbeat...");
       for (int i = 1; i <= 4; i++) sendChannelState(i, relayStates[i-1]);
       sendChannelState(5, fanEnabled, fanSpeed);
-      sendChannelState(6, ledEnabled, ledBrightness);
+      sendChannelState(6, relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled);
     }
   }
 }

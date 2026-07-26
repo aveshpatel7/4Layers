@@ -60,44 +60,89 @@ export default function SettingsScreen({ navigation }) {
       setEditUsername(response.data.username);
       setEditEmail(response.data.email);
 
+      // Auto cleanup empty test homes
+      await apiClient.post('/api/homes/cleanup-test-data').catch(() => {});
+
       // Fetch stats
       const [devsRes, homesRes] = await Promise.all([
         apiClient.get('/api/devices').catch(() => ({ data: [] })),
         apiClient.get('/api/homes').catch(() => ({ data: [] }))
       ]);
 
-      let roomsCount = 0;
-      if (homesRes.data && homesRes.data.length > 0) {
-        const roomsRes = await apiClient.get(`/api/rooms/home/${homesRes.data[0].id}`).catch(() => ({ data: [] }));
-        roomsCount = roomsRes.data ? roomsRes.data.length : 0;
+      let activeHome = null;
+      let activeRooms = [];
+
+      if (homesRes.data && Array.isArray(homesRes.data)) {
+        for (const home of homesRes.data) {
+          try {
+            const roomRes = await apiClient.get(`/api/rooms/home/${home.id}`);
+            const rooms = roomRes.data || [];
+            if (rooms.length > 0) {
+              activeHome = home;
+              activeRooms = rooms;
+              break;
+            }
+          } catch (err) {}
+        }
+        if (!activeHome && homesRes.data.length > 0) {
+          activeHome = homesRes.data[0];
+          try {
+            const roomRes = await apiClient.get(`/api/rooms/home/${activeHome.id}`);
+            activeRooms = roomRes.data || [];
+          } catch (err) {}
+        }
       }
 
-      const devs = devsRes.data || [];
-      const macSet = new Set();
-      const activeRoomIdSet = new Set();
+      const roomsCount = activeRooms.length;
+      const activeRoomIds = new Set(activeRooms.map(r => r.id));
 
-      devs.forEach(d => {
-        if (d.mac_address) {
-          macSet.add(d.mac_address);
-        } else if (d.node_id && d.node_id.includes('_')) {
-          macSet.add(d.node_id.split('_')[0]);
+      const allDevs = devsRes.data || [];
+      const roomDevs = allDevs.filter(d => d.room_id && activeRoomIds.has(d.room_id));
+      const devsToCount = roomDevs.length > 0 ? roomDevs : allDevs;
+
+      const extractBoardKey = (d) => {
+        if (!d || !d.node_id) return d?.mac_address?.toLowerCase().replace(/[:-]/g, '') || null;
+        let raw = d.node_id;
+        if (raw.includes('_')) {
+          const parts = raw.split('_');
+          const last = parts[parts.length - 1];
+          if (/^\d+$/.test(last)) {
+            parts.pop();
+            raw = parts.join('_');
+          }
         }
-        if (d.room_id) {
-          activeRoomIdSet.add(d.room_id);
+        return raw.toLowerCase().replace(/[:-]/g, '');
+      };
+
+      const macSet = new Set();
+      devsToCount.forEach(d => {
+        const key = extractBoardKey(d);
+        if (key) {
+          macSet.add(key);
         }
       });
 
-      const uniqueBoardsCount = macSet.size > 0 ? macSet.size : (devs.length > 0 ? 1 : 0);
-      const activeCount = devs.filter(d => d.current_state?.status === 'ON' || d.status).length;
+      const uniqueBoardsCount = macSet.size > 0 ? macSet.size : (devsToCount.length > 0 ? 1 : 0);
       
-      // Calculate rooms accurately (0 if user has no rooms)
-      const totalRoomsCount = activeRoomIdSet.size > 0 ? activeRoomIdSet.size : roomsCount;
+      const isDeviceOn = (d) => {
+        if (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.device_type === 'master' || d.type === 'master' || d.name?.toLowerCase().includes('master')) {
+          return false;
+        }
+        let stateObj = d.current_state;
+        if (typeof stateObj === 'string') {
+          try { stateObj = JSON.parse(stateObj); } catch (e) {}
+        }
+        const st = stateObj?.status ?? d.status;
+        return st === true || st === 'ON' || st === 1 || st === '1';
+      };
+
+      const activeCount = devsToCount.filter(isDeviceOn).length;
 
       setStats({
         totalBoards: uniqueBoardsCount,
-        totalDevices: devs.length,
+        totalDevices: devsToCount.length,
         activeDevices: activeCount,
-        totalRooms: totalRoomsCount
+        totalRooms: roomsCount
       });
     } catch (error) {
       console.error('Failed to fetch user profile:', error);

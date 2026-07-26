@@ -53,3 +53,25 @@ def delete_home(
     db.delete(home)
     db.commit()
     return {"detail": "Home and all linked resources successfully terminated."}
+
+@router.post("/cleanup-test-data", status_code=status.HTTP_200_OK)
+def cleanup_test_data(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete empty test homes for the authenticated user."""
+    user_homes = db.query(models.Home).filter(models.Home.owner_id == current_user.id).all()
+    cleaned_homes = 0
+
+    for home in user_homes:
+        rooms_count = db.query(models.Room).filter(models.Room.home_id == home.id).count()
+        devs_count = db.query(models.Device).filter(models.Device.home_id == home.id).count()
+        if rooms_count == 0 and devs_count == 0:
+            db.delete(home)
+            cleaned_homes += 1
+
+    db.commit()
+    return {
+        "detail": "Test data cleanup completed successfully.",
+        "cleaned_homes": cleaned_homes
+    }
