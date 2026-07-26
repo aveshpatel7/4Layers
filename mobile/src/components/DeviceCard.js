@@ -49,6 +49,7 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
   }
 
   const isFan = nodeNum === 5 || device?.type === "fan";
+  const isDimmer = false;
   const hasSettings = isFan;
 
   // 2. Uniform 2-Column Grid Cards (S-1 to S-6)
