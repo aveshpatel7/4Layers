@@ -470,9 +470,9 @@ export default function DashboardScreen({ navigation }) {
           </View> : <View style={styles.gridContainer}>
             {[...filteredDevices]
               .sort((a, b) => {
-                const aIsM = a.node_id?.endsWith('_7') || a.type === 'master' ? 1 : 0;
-                const bIsM = b.node_id?.endsWith('_7') || b.type === 'master' ? 1 : 0;
-                return bIsM - aIsM;
+                const aSuffix = parseInt(a.node_id?.split('_').pop() || '0', 10);
+                const bSuffix = parseInt(b.node_id?.split('_').pop() || '0', 10);
+                return aSuffix - bSuffix;
               })
               .map((device) => (
                 <DeviceCard

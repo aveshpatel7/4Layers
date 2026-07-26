@@ -29,51 +29,27 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
   const isEnabled = device?.status === true || device?.status === "ON";
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Determine Node S-1 to S-7
+  // Determine Node S-1 to S-6
   let nodeLabel = "DEV";
   let nodeNum = 0;
   if (device?.node_id?.includes("_")) {
     const suffix = parseInt(device.node_id.split("_").pop(), 10);
     nodeNum = suffix;
     if (suffix === 5) nodeLabel = "Fan";
-    else if (suffix === 6) nodeLabel = "Dimmer";
-    else if (suffix === 7) nodeLabel = "Master Switch";
+    else if (suffix === 6 || suffix === 7) nodeLabel = "Master Switch";
     else nodeLabel = `Switch ${suffix}`;
   } else if (device?.type === "fan") {
     nodeLabel = "Fan";
     nodeNum = 5;
-  } else if (device?.type === "light") {
-    nodeLabel = "Dimmer";
-    nodeNum = 6;
-  } else if (device?.type === "master") {
+  } else if (device?.type === "master" || device?.name?.toLowerCase().includes("master")) {
     nodeLabel = "Master Switch";
-    nodeNum = 7;
+    nodeNum = 6;
+  } else {
+    nodeLabel = device?.name || "Switch";
   }
 
-  const isMaster = nodeNum === 7 || device?.type === "master";
   const isFan = nodeNum === 5 || device?.type === "fan";
-  const isDimmer = nodeNum === 6 || (device?.type === "light" && (device?.name?.toLowerCase().includes("strip") || device?.name?.toLowerCase().includes("dim")));
-  const hasSettings = isFan || isDimmer;
-
-  // 1. Full-Width Master Switch Card Layout (Room-specific)
-  if (isMaster) {
-    return (
-      <View style={styles.fullWidthMasterCard}>
-        <View style={styles.masterCardRow}>
-          <View style={styles.masterTextGroup}>
-            <Text style={styles.masterTitleProminent}>Master Switch</Text>
-            <Text style={styles.masterSubtitleText}>Master control for this room</Text>
-          </View>
-          <VerticalCapsuleSwitch
-            isEnabled={isEnabled}
-            onToggle={onToggle}
-            orientation="horizontal"
-            size="normal"
-          />
-        </View>
-      </View>
-    );
-  }
+  const hasSettings = isFan;
 
   // 2. Uniform 2-Column Grid Cards (S-1 to S-6)
   return (

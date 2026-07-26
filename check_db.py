@@ -1,13 +1,17 @@
-from backend.database import SessionLocal
-from backend import models
+import sqlite3
 
-db = SessionLocal()
-devs = db.query(models.Device).all()
-print("--- TOTAL DEVICES IN DB:", len(devs), "---")
-for d in devs:
-    print(f"ID: {d.id} | Name: {d.name} | MAC: {d.mac_address} | RoomID: {d.room_id}")
-
-rooms = db.query(models.Room).all()
-print("\n--- ROOMS IN DB:", len(rooms), "---")
-for r in rooms:
-    print(f"Room ID: {r.id} | Name: {r.name}")
+for path in ['smartnest.db', 'backend/smartnest.db']:
+    print(f"\n================ {path} ================")
+    try:
+        conn = sqlite3.connect(path)
+        cursor = conn.cursor()
+        for tbl in ['users', 'homes', 'rooms', 'devices']:
+            try:
+                rows = cursor.execute(f'SELECT * FROM {tbl}').fetchall()
+                print(f"Table {tbl}: {len(rows)} rows")
+                for r in rows:
+                    print("  ", r)
+            except Exception as e:
+                print(f"Table {tbl} error:", e)
+    except Exception as e:
+        print("Conn error:", e)

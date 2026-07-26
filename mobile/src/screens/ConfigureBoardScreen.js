@@ -25,19 +25,18 @@ const TOKENS = {
   error: '#EF4444'
 };
 
-const STATIC_SUFFIXES = ['1', '2', '3', '4', '5', '6', '7'];
+const STATIC_SUFFIXES = ['1', '2', '3', '4', '5', '6'];
 
 const getChannelDefaultLabel = (suffix) => {
   if (suffix === '5') return 'Fan';
-  if (suffix === '6') return 'LED Strip';
-  if (suffix === '7') return 'Master Switch';
+  if (suffix === '6') return 'Master Switch';
   return `Switch ${suffix}`;
 };
 
 const getChannelDefaultType = (suffix) => {
   if (suffix === '5') return 'fan';
-  if (suffix === '7') return 'outlet';
-  return 'light'; // 1, 2, 3, 4, 6
+  if (suffix === '6') return 'master';
+  return 'light'; // 1, 2, 3, 4
 };
 
 export default function ConfigureBoardScreen({ route, navigation }) {

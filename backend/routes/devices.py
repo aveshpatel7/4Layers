@@ -53,15 +53,13 @@ def add_device(
             detail=f"Device node '{base_node_id}' is already registered"
         )
 
-    # Automatically create the 7 channels of the switchboard board
     channel_configs = [
         {"suffix": "1", "name": "Switch 1", "type": "light", "state": {"status": "OFF"}},
         {"suffix": "2", "name": "Switch 2", "type": "light", "state": {"status": "OFF"}},
         {"suffix": "3", "name": "Switch 3", "type": "light", "state": {"status": "OFF"}},
         {"suffix": "4", "name": "Switch 4", "type": "light", "state": {"status": "OFF"}},
         {"suffix": "5", "name": "Fan", "type": "fan", "state": {"status": "OFF", "value": 3}},
-        {"suffix": "6", "name": "LED Strip", "type": "light", "state": {"status": "OFF", "value": 50}},
-        {"suffix": "7", "name": "Master Switch", "type": "outlet", "state": {"status": "OFF"}}
+        {"suffix": "6", "name": "Master Switch", "type": "master", "state": {"status": "OFF"}}
     ]
 
     created_devices = []
@@ -438,8 +436,7 @@ def provision_device(
         {"suffix": "3", "name": "Switch 3", "type": "light", "state": {"status": "OFF"}},
         {"suffix": "4", "name": "Switch 4", "type": "light", "state": {"status": "OFF"}},
         {"suffix": "5", "name": "Fan", "type": "fan", "state": {"status": "OFF", "value": 3}},
-        {"suffix": "6", "name": "LED Strip", "type": "light", "state": {"status": "OFF", "value": 50}},
-        {"suffix": "7", "name": "Master Switch", "type": "outlet", "state": {"status": "OFF"}}
+        {"suffix": "6", "name": "Master Switch", "type": "master", "state": {"status": "OFF"}}
     ]
 
     # Check if this node already exists
@@ -555,8 +552,6 @@ def provision_single_channel(
     if suffix == "5":
         default_name = "Fan"
     elif suffix == "6":
-        default_name = "LED Strip"
-    elif suffix == "7":
         default_name = "Master Switch"
 
     new_device = models.Device(
