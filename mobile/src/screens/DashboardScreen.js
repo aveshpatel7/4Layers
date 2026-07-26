@@ -232,12 +232,63 @@ export default function DashboardScreen({ navigation }) {
   const handleToggleDevice = async (id) => {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
+
+    const isMaster = target.type === 'master' || target.node_id?.endsWith('_6') || target.node_id?.endsWith('_7') || target.name?.toLowerCase().includes('master');
     const nextStatus = !target.status;
-    
-    // 1. Optimistic UI update
-    setDevices((prev) => prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d));
-    
-    // 2. Direct MQTT publish over WebSockets (sub-30ms execution)
+    const nextStatusStr = nextStatus ? 'ON' : 'OFF';
+
+    if (isMaster) {
+      // MASTER SWITCH TOGGLE: Controls ALL devices in this room!
+      const roomDevs = filteredDevices;
+      const roomDevIds = roomDevs.map(d => d.id);
+
+      // 1. Optimistic UI update: Turn ALL room devices ON or OFF
+      setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: nextStatus } : d));
+
+      // 2. Direct MQTT publish for Master Switch channel (6 or 7)
+      let baseNodeId = target.node_id;
+      let masterChannel = 6;
+      if (target.node_id.includes('_')) {
+        const parts = target.node_id.split('_');
+        baseNodeId = parts[0];
+        const lastPart = parts[parts.length - 1];
+        if (lastPart === '7' || lastPart === '6') {
+          masterChannel = parseInt(lastPart, 10);
+        }
+      }
+      publishMessage(`home/device/${baseNodeId}/control`, {
+        channel: masterChannel,
+        status: nextStatusStr
+      });
+
+      // 3. HTTP sync backup via bulk-control
+      try {
+        await apiClient.post('/api/devices/bulk-control', {
+          device_ids: roomDevIds,
+          state: { status: nextStatusStr }
+        });
+      } catch (err) {
+        console.warn("Failed to sync master toggle with server MQTT:", err);
+      }
+      return;
+    }
+
+    // 1. Optimistic UI update for individual device + Master Switch state update
+    setDevices((prev) => {
+      const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d);
+      const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
+      const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master');
+      const allOn = nonMasterDevs.length > 0 && nonMasterDevs.every(d => d.status === true || d.status === 'ON');
+
+      return updated.map(d => {
+        if (d.room_id === target.room_id && (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.type === 'master')) {
+          return { ...d, status: allOn };
+        }
+        return d;
+      });
+    });
+
+    // 2. Direct MQTT publish over WebSockets
     let baseNodeId = target.node_id;
     let channel = 1;
     if (target.node_id.includes('_')) {
@@ -248,13 +299,13 @@ export default function DashboardScreen({ navigation }) {
     const topic = `home/device/${baseNodeId}/control`;
     publishMessage(topic, {
       channel,
-      status: nextStatus ? 'ON' : 'OFF'
+      status: nextStatusStr
     });
 
     // 3. HTTP sync backup
     try {
       await apiClient.post(`/api/devices/${id}/control`, {
-        state: { status: nextStatus ? 'ON' : 'OFF' }
+        state: { status: nextStatusStr }
       });
     } catch (err) {
       console.warn("Failed to sync toggle with server MQTT:", err);
@@ -470,8 +521,13 @@ export default function DashboardScreen({ navigation }) {
           </View> : <View style={styles.gridContainer}>
             {[...filteredDevices]
               .filter((d) => {
-                const s = parseInt(d.node_id?.split('_').pop() || '0', 10);
-                return s <= 6;
+                const suffix = d.node_id?.split('_').pop();
+                // If board has channel 7 (Master Switch), hide channel 6 (Dimmer) so Master Switch takes the 6th card slot!
+                if (suffix === '6') {
+                  const hasChannel7 = filteredDevices.some(x => x.node_id?.endsWith('_7'));
+                  if (hasChannel7) return false;
+                }
+                return true;
               })
               .sort((a, b) => {
                 const aSuffix = parseInt(a.node_id?.split('_').pop() || '0', 10);
