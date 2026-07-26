@@ -469,6 +469,10 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.statusText}>No devices in this room yet</Text>
           </View> : <View style={styles.gridContainer}>
             {[...filteredDevices]
+              .filter((d) => {
+                const s = parseInt(d.node_id?.split('_').pop() || '0', 10);
+                return s <= 6;
+              })
               .sort((a, b) => {
                 const aSuffix = parseInt(a.node_id?.split('_').pop() || '0', 10);
                 const bSuffix = parseInt(b.node_id?.split('_').pop() || '0', 10);

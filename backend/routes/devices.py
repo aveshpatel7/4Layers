@@ -100,10 +100,19 @@ def get_devices(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve all devices owned by the authenticated user across all their homes."""
-    return db.query(models.Device).join(models.Home).filter(
+    """Retrieve all devices owned by the authenticated user across all their homes (max 6 channels per board)."""
+    devices = db.query(models.Device).join(models.Home).filter(
         models.Home.owner_id == current_user.id
     ).order_by(models.Device.node_id.asc()).all()
+
+    valid_devices = []
+    for d in devices:
+        if d.node_id and "_" in d.node_id:
+            suffix = d.node_id.rsplit('_', 1)[-1]
+            if suffix.isdigit() and int(suffix) > 6:
+                continue
+        valid_devices.append(d)
+    return valid_devices
 
 @router.delete("/{device_id}", status_code=status.HTTP_200_OK)
 def remove_device(
