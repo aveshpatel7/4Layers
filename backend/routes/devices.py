@@ -453,21 +453,23 @@ def provision_device(
             db.commit()
             db.refresh(user_home)
         
-        # Update home_id and room_id for all 7 channels under this MAC
-        if prefix:
-            for cfg in channel_configs:
-                chan_node_id = f"{mac}_{cfg['suffix']}"
-                new_chan_name = f"{prefix} {cfg['name']}"
-                db.query(models.Device).filter(models.Device.node_id == chan_node_id).update({
-                    models.Device.home_id: user_home.id,
-                    models.Device.room_id: resolved_room_id,
-                    models.Device.name: new_chan_name
-                })
-        else:
-            db.query(models.Device).filter(models.Device.mac_address == mac).update({
-                models.Device.home_id: user_home.id,
-                models.Device.room_id: resolved_room_id
-            })
+        # Cleanly transfer all 7 channels of this MAC to current user's home & room
+        # and reset channel names to fresh defaults so old user's names never leak!
+        for cfg in channel_configs:
+            chan_node_id = f"{mac}_{cfg['suffix']}"
+            new_chan_name = f"{prefix} {cfg['name']}" if prefix else cfg['name']
+            
+            chan_device = db.query(models.Device).filter(models.Device.node_id == chan_node_id).first()
+            if chan_device:
+                chan_device.home_id = user_home.id
+                chan_device.room_id = resolved_room_id
+                chan_device.name = new_chan_name
+                chan_device.device_type = cfg['type']
+                chan_device.current_state = cfg['state']
+                
+                # Delete any old schedules linked to this device from previous owner
+                db.query(models.Schedule).filter(models.Schedule.device_id == chan_device.id).delete(synchronize_session=False)
+
         db.commit()
         return {"id": device.id}
 
