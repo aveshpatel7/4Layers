@@ -90,14 +90,14 @@ export default function SettingsScreen({ navigation }) {
       const uniqueBoardsCount = macSet.size > 0 ? macSet.size : (devs.length > 0 ? 1 : 0);
       const activeCount = devs.filter(d => d.current_state?.status === 'ON' || d.status).length;
       
-      // Calculate rooms that actually have configured switchboards
-      const activeRoomsCount = activeRoomIdSet.size > 0 ? activeRoomIdSet.size : (roomsCount > 0 ? roomsCount : 1);
+      // Calculate rooms accurately (0 if user has no rooms)
+      const totalRoomsCount = activeRoomIdSet.size > 0 ? activeRoomIdSet.size : roomsCount;
 
       setStats({
         totalBoards: uniqueBoardsCount,
         totalDevices: devs.length,
         activeDevices: activeCount,
-        totalRooms: activeRoomsCount
+        totalRooms: totalRoomsCount
       });
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
