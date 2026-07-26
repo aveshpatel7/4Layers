@@ -330,11 +330,12 @@ def bulk_control_devices(
         requested_state = control_data.state
         status_val = requested_state.get("status", "OFF")
 
-        if 7 in channels:
-            # Optimize: Only send a single Master Switch (channel 7) command!
+        if 6 in channels or 7 in channels:
+            # Optimize: Only send a single Master Switch (channel 6 or 7) command!
             # The firmware automatically applies this to all other channels.
+            master_chan = 6 if 6 in channels else 7
             payload_to_publish = {
-                "channel": 7,
+                "channel": master_chan,
                 "status": status_val
             }
             mqtt.publish_control_message(
