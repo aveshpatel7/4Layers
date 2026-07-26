@@ -51,18 +51,14 @@ const getUniqueDevices = (devList, roomList = []) => {
       const s = parseInt(suffix, 10);
       channelKey = `ch_${suffix}`;
       if (s === 5) cleanName = 'Fan';
-      else if (s === 6) cleanName = 'Dimmer';
-      else if (s === 7) cleanName = 'Master Switch';
+      else if (s === 6 || s === 7) cleanName = 'Master Switch';
       else if (s >= 1 && s <= 4) cleanName = `Switch ${s}`;
     } else if (dev.name?.toLowerCase().includes('fan')) {
       cleanName = 'Fan';
       channelKey = 'ch_5';
-    } else if (dev.name?.toLowerCase().includes('dim') || dev.name?.toLowerCase().includes('strip')) {
-      cleanName = 'Dimmer';
-      channelKey = 'ch_6';
     } else if (dev.name?.toLowerCase().includes('master')) {
       cleanName = 'Master Switch';
-      channelKey = 'ch_7';
+      channelKey = 'ch_6';
     }
 
     if (!channelMap.has(channelKey)) {

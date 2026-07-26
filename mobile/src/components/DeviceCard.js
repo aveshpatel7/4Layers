@@ -49,7 +49,6 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
   }
 
   const isFan = nodeNum === 5 || device?.type === "fan";
-  const isDimmer = false;
   const hasSettings = isFan;
 
   // 2. Uniform 2-Column Grid Cards (S-1 to S-6)
@@ -141,35 +140,7 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
               </View>
             )}
 
-            {/* Dimmer Controls Modal Content (- and + buttons) */}
-            {isDimmer && (
-              <View style={styles.modalControlGroup}>
-                <View style={styles.levelHeaderRow}>
-                  <Text style={styles.subLabelCaps}>Brightness</Text>
-                  <Text style={styles.brightnessValueText}>{(typeof device?.value === 'number' ? device.value : 65)}%</Text>
-                </View>
 
-                <View style={styles.dimmerAdjusterRow}>
-                  <TouchableOpacity style={styles.adjustBtn} onPress={onDecrease} activeOpacity={0.7}>
-                    <MaterialCommunityIcons name="minus" size={20} color={TOKENS.textPrimary} />
-                  </TouchableOpacity>
-
-                  <View style={styles.dimmerProgressBar}>
-                    <View
-                      style={[
-                        styles.dimmerProgressFill,
-                        { width: `${(typeof device?.value === 'number' ? device.value : 65)}%` },
-                        isEnabled ? styles.fillActive : styles.fillInactive
-                      ]}
-                    />
-                  </View>
-
-                  <TouchableOpacity style={styles.adjustBtn} onPress={onIncrease} activeOpacity={0.7}>
-                    <MaterialCommunityIcons name="plus" size={20} color={TOKENS.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
 
             {/* Done / Close Button */}
             <TouchableOpacity

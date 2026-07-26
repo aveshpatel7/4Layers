@@ -267,13 +267,13 @@ export default function DashboardScreen({ navigation }) {
     if (!target) return;
 
     const isFan = target.type === 'fan' || target.node_id?.endsWith('_5') || target.name?.toLowerCase().includes('fan');
-    const isDimmer = target.type === 'light' || target.node_id?.endsWith('_6') || target.name?.toLowerCase().includes('dim') || target.name?.toLowerCase().includes('strip');
+    if (!isFan) return;
 
-    const defaultVal = isFan ? 3 : 65;
+    const defaultVal = 3;
     const currentVal = (typeof target.value === 'number' && !isNaN(target.value)) ? target.value : defaultVal;
 
-    const minVal = isFan ? 1 : 10;
-    const maxVal = isFan ? 5 : 100;
+    const minVal = 1;
+    const maxVal = 5;
 
     const nextVal = Math.max(minVal, Math.min(maxVal, currentVal + step));
     if (nextVal === currentVal) return;
