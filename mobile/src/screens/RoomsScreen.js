@@ -14,6 +14,7 @@ import {
   StatusBar
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import apiClient from '../api/client';
 
 const TOKENS = {
@@ -34,7 +35,10 @@ const ROOM_TYPES = [
   { id: 'bathroom', label: 'Bathroom', icon: 'shower' }
 ];
 
-export default function RoomsScreen() {
+export default function RoomsScreen({ navigation: navProp }) {
+  const nav = useNavigation();
+  const navigation = navProp || nav;
+
   const [rooms, setRooms] = useState([]);
   const [homeId, setHomeId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,9 +56,10 @@ export default function RoomsScreen() {
     initializeData(showLoading);
     hasLoadedRef.current = true;
 
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribe = navigation?.addListener ? navigation.addListener('focus', () => {
       initializeData(false);
-    });
+    }) : () => {};
+
     return unsubscribe;
   }, [navigation]);
 

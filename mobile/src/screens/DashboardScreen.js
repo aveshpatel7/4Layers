@@ -294,13 +294,14 @@ export default function DashboardScreen({ navigation }) {
   }, [roomMapping]);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribe = navigation?.addListener ? navigation.addListener('focus', () => {
       initMqttConnection();
       fetchRoomsMapping();
       fetchDevices(false);
       fetchUnreadAlertsCount();
       fetchProfile();
-    });
+    }) : () => {};
+
     return unsubscribe;
   }, [navigation, roomMapping]);
 

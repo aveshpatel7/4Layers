@@ -12,6 +12,7 @@ import {
   StatusBar
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import apiClient from '../api/client';
 
 const TOKENS = {
@@ -26,7 +27,10 @@ const TOKENS = {
   info: '#3B82F6'
 };
 
-export default function AlertsScreen({ navigation }) {
+export default function AlertsScreen({ navigation: navProp }) {
+  const nav = useNavigation();
+  const navigation = navProp || nav;
+
   const [alerts, setAlerts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,9 +41,10 @@ export default function AlertsScreen({ navigation }) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribe = navigation?.addListener ? navigation.addListener('focus', () => {
       fetchAlerts(false);
-    });
+    }) : () => {};
+
     return unsubscribe;
   }, [navigation]);
 

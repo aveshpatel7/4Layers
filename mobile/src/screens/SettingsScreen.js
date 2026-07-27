@@ -77,9 +77,9 @@ export default function SettingsScreen({ navigation }) {
       fetchUserProfile(false);
     }, 5000);
 
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribe = navigation?.addListener ? navigation.addListener('focus', () => {
       fetchUserProfile(false);
-    });
+    }) : () => {};
 
     return () => {
       clearInterval(intervalId);

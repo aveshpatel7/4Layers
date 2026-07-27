@@ -1,0 +1,12 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <!-- Top-left room -->
+  <rect x="10" y="10" width="46" height="46" rx="8" stroke="#22C55E" stroke-width="4" fill="#22C55E" fill-opacity="0.1"/>
+  <!-- Top-right room -->
+  <rect x="64" y="10" width="46" height="46" rx="8" stroke="#22C55E" stroke-width="4" fill="#22C55E" fill-opacity="0.1"/>
+  <!-- Bottom-left room -->
+  <rect x="10" y="64" width="46" height="46" rx="8" stroke="#22C55E" stroke-width="4" fill="#22C55E" fill-opacity="0.1"/>
+  <!-- Bottom-right room — plus icon inside -->
+  <rect x="64" y="64" width="46" height="46" rx="8" stroke="#22C55E" stroke-width="2.5" fill="none" stroke-dasharray="5 3"/>
+  <line x1="87" y1="76" x2="87" y2="98" stroke="#22C55E" stroke-width="4" stroke-linecap="round"/>
+  <line x1="76" y1="87" x2="98" y2="87" stroke="#22C55E" stroke-width="4" stroke-linecap="round"/>
+</svg>
