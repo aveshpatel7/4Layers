@@ -9,7 +9,9 @@ import {
   StatusBar,
   Platform,
   Modal,
-  PanResponder
+  PanResponder,
+  TextInput,
+  ActivityIndicator
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import apiClient from "../api/client";
