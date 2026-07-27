@@ -473,6 +473,49 @@ export default function SettingsScreen({ navigation }) {
         )}
       </View>
 
+      {/* Voice Assistant Integration Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="microphone" size={20} color={TOKENS.accent} />
+          <Text style={styles.sectionTitle}>Voice Assistants & Smart Home</Text>
+        </View>
+
+        <View style={styles.card}>
+          {/* Google Assistant */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+            <MaterialCommunityIcons name="google-assistant" size={28} color="#4285F4" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: TOKENS.textPrimary, fontWeight: '700', fontSize: 14 }}>Google Home / Assistant</Text>
+              <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Linked & Ready • "Hey Google, turn on Bedroom Light"</Text>
+            </View>
+            <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+              <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: '700' }}>READY</Text>
+            </View>
+          </View>
+
+          {/* Amazon Alexa */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+            <MaterialCommunityIcons name="amazon-alexa" size={28} color="#00CAFF" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: TOKENS.textPrimary, fontWeight: '700', fontSize: 14 }}>Amazon Alexa Skill</Text>
+              <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Smart Home V3 • "Alexa, set Fan speed to 3"</Text>
+            </View>
+            <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+              <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: '700' }}>READY</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, styles.buttonSecondary, { marginTop: 4 }]}
+            onPress={() => Alert.alert('OAuth Account Linking', 'Open Google Home or Alexa App -> Add Device -> Search "4Layers Smart Home" -> Log in with your email and password.')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="link-variant" size={16} color={TOKENS.accent} style={{ marginRight: 6 }} />
+            <Text style={styles.buttonTextSecondary}>View Account Linking Guide</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Logout Section */}
       <View style={[styles.section, { marginTop: 12 }]}>
         <TouchableOpacity

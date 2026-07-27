@@ -61,6 +61,30 @@ export default function DashboardScreen({ navigation }) {
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [username, setUsername] = useState("User");
 
+  // Voice Control Modal State
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [voiceText, setVoiceText] = useState("");
+  const [voiceResponse, setVoiceResponse] = useState(null);
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+
+  const handleSendVoiceCommand = async (cmdText) => {
+    const textToSend = cmdText || voiceText;
+    if (!textToSend || !textToSend.trim()) return;
+
+    try {
+      setIsProcessingVoice(true);
+      setVoiceResponse(null);
+      const res = await apiClient.post('/api/voice/command', { command: textToSend.trim() });
+      setVoiceResponse(res.data);
+      fetchDevices(false);
+    } catch (err) {
+      console.warn("Voice command failed:", err);
+      setVoiceResponse({ success: false, message: err.response?.data?.detail || "Failed to process voice command" });
+    } finally {
+      setIsProcessingVoice(false);
+    }
+  };
+
   // Swipe Right Gesture Responder to open SideDrawer (Hyper-responsive)
   const swipePanResponder = useRef(
     PanResponder.create({
@@ -606,6 +630,111 @@ export default function DashboardScreen({ navigation }) {
           )}
 
       </ScrollView>
+
+      {/* Floating Voice Assistant Mic Button */}
+      <TouchableOpacity
+        style={styles.floatingMicBtn}
+        onPress={() => {
+          setIsVoiceModalOpen(true);
+          setVoiceResponse(null);
+          setVoiceText("");
+        }}
+        activeOpacity={0.8}
+      >
+        <MaterialCommunityIcons name="microphone" size={26} color="#000" />
+      </TouchableOpacity>
+
+      {/* Voice Control Assistant Modal */}
+      <Modal
+        visible={isVoiceModalOpen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsVoiceModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.voiceModalCard}>
+            <View style={styles.voiceModalHeader}>
+              <MaterialCommunityIcons name="microphone" size={24} color={TOKENS.accent} />
+              <Text style={styles.voiceModalTitle}>Voice Control Assistant</Text>
+              <TouchableOpacity onPress={() => setIsVoiceModalOpen(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.voiceHelpSubtitle}>
+              Speak or type voice commands (e.g., "Turn on Bedroom Light", "Set Fan to 3", "Turn off all lights"):
+            </Text>
+
+            <TextInput
+              style={styles.voiceTextInput}
+              value={voiceText}
+              onChangeText={setVoiceText}
+              placeholder="e.g. Turn on Bedroom Light"
+              placeholderTextColor={TOKENS.textSecondary}
+              onSubmitEditing={() => handleSendVoiceCommand()}
+            />
+
+            {/* Quick Action Chips */}
+            <View style={styles.quickVoiceChipsRow}>
+              <TouchableOpacity
+                style={styles.quickVoiceChip}
+                onPress={() => {
+                  setVoiceText("turn on all lights");
+                  handleSendVoiceCommand("turn on all lights");
+                }}
+              >
+                <Text style={styles.quickVoiceChipText}>"Turn On All"</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickVoiceChip}
+                onPress={() => {
+                  setVoiceText("turn off all lights");
+                  handleSendVoiceCommand("turn off all lights");
+                }}
+              >
+                <Text style={styles.quickVoiceChipText}>"Turn Off All"</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickVoiceChip}
+                onPress={() => {
+                  setVoiceText("set fan speed to 4");
+                  handleSendVoiceCommand("set fan speed to 4");
+                }}
+              >
+                <Text style={styles.quickVoiceChipText}>"Fan Speed 4"</Text>
+              </TouchableOpacity>
+            </View>
+
+            {voiceResponse && (
+              <View style={[
+                styles.voiceResponseBox,
+                voiceResponse.success ? styles.voiceRespSuccess : styles.voiceRespError
+              ]}>
+                <MaterialCommunityIcons
+                  name={voiceResponse.success ? "check-circle-outline" : "alert-circle-outline"}
+                  size={20}
+                  color={voiceResponse.success ? "#22C55E" : "#EF4444"}
+                />
+                <Text style={{ color: voiceResponse.success ? "#22C55E" : "#EF4444", marginLeft: 8, flex: 1, fontSize: 12, fontWeight: '600' }}>
+                  {voiceResponse.message}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.voiceSendButton}
+              onPress={() => handleSendVoiceCommand()}
+              disabled={isProcessingVoice}
+            >
+              {isProcessingVoice ? (
+                <ActivityIndicator color="#000" size="small" />
+              ) : (
+                <Text style={styles.voiceSendButtonText}>Execute Command</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>;
 }
 const styles = StyleSheet.create({
@@ -1484,5 +1613,113 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: TOKENS.textPrimary,
     letterSpacing: 1
+  },
+  floatingMicBtn: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#22C55E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 999
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  voiceModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#1C1B1B',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  voiceModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12
+  },
+  voiceModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: TOKENS.textPrimary,
+    flex: 1,
+    marginLeft: 8
+  },
+  voiceHelpSubtitle: {
+    fontSize: 12,
+    color: TOKENS.textSecondary,
+    marginBottom: 14,
+    lineHeight: 16
+  },
+  voiceTextInput: {
+    backgroundColor: '#161515',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 12
+  },
+  quickVoiceChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14
+  },
+  quickVoiceChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8
+  },
+  quickVoiceChipText: {
+    color: TOKENS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  voiceResponseBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 14
+  },
+  voiceRespSuccess: {
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.3)'
+  },
+  voiceRespError: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)'
+  },
+  voiceSendButton: {
+    backgroundColor: TOKENS.accent,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  voiceSendButtonText: {
+    color: '#000',
+    fontWeight: '800',
+    fontSize: 14
   }
 });
