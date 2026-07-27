@@ -9,7 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  StatusBar
+  StatusBar,
+  Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
@@ -43,6 +44,7 @@ export default function SettingsScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
 
 
@@ -507,7 +509,7 @@ export default function SettingsScreen({ navigation }) {
 
           <TouchableOpacity
             style={[styles.button, styles.buttonSecondary, { marginTop: 4 }]}
-            onPress={() => Alert.alert('OAuth Account Linking', 'Open Google Home or Alexa App -> Add Device -> Search "4Layers Smart Home" -> Log in with your email and password.')}
+            onPress={() => setIsGuideModalOpen(true)}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="link-variant" size={16} color={TOKENS.accent} style={{ marginRight: 6 }} />
@@ -533,6 +535,60 @@ export default function SettingsScreen({ navigation }) {
         <Text style={styles.appInfoText}>4Layers Home Automation Panel</Text>
         <Text style={styles.appInfoText}>v1.0.0</Text>
       </View>
+
+      {/* Account Linking Guide Modal */}
+      <Modal
+        visible={isGuideModalOpen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsGuideModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.guideModalCard}>
+            <View style={styles.modalHeaderRow}>
+              <MaterialCommunityIcons name="google-assistant" size={24} color="#4285F4" />
+              <MaterialCommunityIcons name="amazon-alexa" size={24} color="#00CAFF" style={{ marginLeft: 6 }} />
+              <Text style={styles.modalHeaderTitle}>Voice Setup Guide</Text>
+              <TouchableOpacity onPress={() => setIsGuideModalOpen(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+              {/* Google Section */}
+              <View style={styles.guideSectionBox}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialCommunityIcons name="google-assistant" size={20} color="#4285F4" style={{ marginRight: 8 }} />
+                  <Text style={styles.guideSectionTitle}>Google Home Setup</Text>
+                </View>
+                <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Google Home App</Text>.</Text>
+                <Text style={styles.guideStepText}>2. Tap <Text style={{ fontWeight: '700', color: '#fff' }}>"+" -> Works with Google</Text>.</Text>
+                <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"4Layers Smart Home"</Text>.</Text>
+                <Text style={styles.guideStepText}>4. Enter your email & password to link your account.</Text>
+              </View>
+
+              {/* Alexa Section */}
+              <View style={styles.guideSectionBox}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialCommunityIcons name="amazon-alexa" size={20} color="#00CAFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.guideSectionTitle}>Amazon Alexa Setup</Text>
+                </View>
+                <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Amazon Alexa App</Text>.</Text>
+                <Text style={styles.guideStepText}>2. Go to <Text style={{ fontWeight: '700', color: '#fff' }}>More -> Skills & Games</Text>.</Text>
+                <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"4Layers Smart Home"</Text>.</Text>
+                <Text style={styles.guideStepText}>4. Tap Enable to Use and log in with your credentials.</Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.closeGuideBtn}
+              onPress={() => setIsGuideModalOpen(false)}
+            >
+              <Text style={styles.closeGuideBtnText}>Got it, Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -754,5 +810,64 @@ const styles = StyleSheet.create({
     height: '70%',
     backgroundColor: TOKENS.border,
     alignSelf: 'center'
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  guideModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#1C1B1B',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  modalHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: TOKENS.textPrimary,
+    flex: 1,
+    marginLeft: 10
+  },
+  guideSectionBox: {
+    backgroundColor: '#131313',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
+  },
+  guideSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: TOKENS.textPrimary
+  },
+  guideStepText: {
+    fontSize: 12,
+    color: TOKENS.textSecondary,
+    marginBottom: 6,
+    lineHeight: 18
+  },
+  closeGuideBtn: {
+    backgroundColor: TOKENS.accent,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10
+  },
+  closeGuideBtnText: {
+    color: '#000',
+    fontWeight: '800',
+    fontSize: 14
   }
 });
