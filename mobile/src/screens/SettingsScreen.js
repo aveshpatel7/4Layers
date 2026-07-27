@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Platform,
   StatusBar,
-  Modal
+  Modal,
+  Image
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
@@ -26,6 +27,29 @@ const TOKENS = {
   textSecondary: '#9CA3AF',
   error: '#EF4444'
 };
+
+const GoogleHomeLogo = ({ size = 28 }) => (
+  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}>
+      <View style={{ width: size * 0.7, height: size * 0.7, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ width: size * 0.28, height: size * 0.28, borderRadius: size * 0.14, backgroundColor: '#4285F4', margin: 1 }} />
+        <View style={{ width: size * 0.28, height: size * 0.28, borderRadius: size * 0.14, backgroundColor: '#EA4335', margin: 1 }} />
+        <View style={{ width: size * 0.28, height: size * 0.28, borderRadius: size * 0.14, backgroundColor: '#FBBC05', margin: 1 }} />
+        <View style={{ width: size * 0.28, height: size * 0.28, borderRadius: size * 0.14, backgroundColor: '#34A853', margin: 1 }} />
+      </View>
+    </View>
+  </View>
+);
+
+const AlexaLogo = ({ size = 28 }) => (
+  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#00CAFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#00CAFF', shadowOpacity: 0.5, shadowRadius: 6, elevation: 4 }}>
+      <View style={{ width: size * 0.65, height: size * 0.65, borderRadius: (size * 0.65) / 2, backgroundColor: '#1C1B1B', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ width: size * 0.25, height: size * 0.25, borderRadius: (size * 0.25) / 2, backgroundColor: '#00CAFF' }} />
+      </View>
+    </View>
+  </View>
+);
 
 export default function SettingsScreen({ navigation }) {
   const { signOut } = useContext(AuthContext);
@@ -485,7 +509,9 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.card}>
           {/* Google Assistant */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-            <MaterialCommunityIcons name="google-assistant" size={28} color="#4285F4" style={{ marginRight: 12 }} />
+            <View style={{ marginRight: 12 }}>
+              <GoogleHomeLogo size={32} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: TOKENS.textPrimary, fontWeight: '700', fontSize: 14 }}>Google Home / Assistant</Text>
               <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Linked & Ready • "Hey Google, turn on Bedroom Light"</Text>
@@ -497,7 +523,9 @@ export default function SettingsScreen({ navigation }) {
 
           {/* Amazon Alexa */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-            <MaterialCommunityIcons name="amazon-alexa" size={28} color="#00CAFF" style={{ marginRight: 12 }} />
+            <View style={{ marginRight: 12 }}>
+              <AlexaLogo size={32} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: TOKENS.textPrimary, fontWeight: '700', fontSize: 14 }}>Amazon Alexa Skill</Text>
               <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Smart Home V3 • "Alexa, set Fan speed to 3"</Text>
@@ -546,8 +574,10 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.guideModalCard}>
             <View style={styles.modalHeaderRow}>
-              <MaterialCommunityIcons name="google-assistant" size={24} color="#4285F4" />
-              <MaterialCommunityIcons name="amazon-alexa" size={24} color="#00CAFF" style={{ marginLeft: 6 }} />
+              <View style={{ marginRight: 6 }}>
+                <GoogleHomeLogo size={24} />
+              </View>
+              <AlexaLogo size={24} />
               <Text style={styles.modalHeaderTitle}>Voice Setup Guide</Text>
               <TouchableOpacity onPress={() => setIsGuideModalOpen(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
@@ -558,7 +588,9 @@ export default function SettingsScreen({ navigation }) {
               {/* Google Section */}
               <View style={styles.guideSectionBox}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <MaterialCommunityIcons name="google-assistant" size={20} color="#4285F4" style={{ marginRight: 8 }} />
+                  <View style={{ marginRight: 8 }}>
+                    <GoogleHomeLogo size={20} />
+                  </View>
                   <Text style={styles.guideSectionTitle}>Google Home Setup</Text>
                 </View>
                 <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Google Home App</Text>.</Text>
@@ -570,7 +602,9 @@ export default function SettingsScreen({ navigation }) {
               {/* Alexa Section */}
               <View style={styles.guideSectionBox}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <MaterialCommunityIcons name="amazon-alexa" size={20} color="#00CAFF" style={{ marginRight: 8 }} />
+                  <View style={{ marginRight: 8 }}>
+                    <AlexaLogo size={20} />
+                  </View>
                   <Text style={styles.guideSectionTitle}>Amazon Alexa Setup</Text>
                 </View>
                 <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Amazon Alexa App</Text>.</Text>
