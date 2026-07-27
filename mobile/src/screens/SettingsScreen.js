@@ -29,26 +29,19 @@ const TOKENS = {
 };
 
 const GoogleHomeLogo = ({ size = 28 }) => (
-  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}>
-      <View style={{ width: size * 0.7, height: size * 0.7, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-        <View style={{ width: size * 0.28, height: size * 0.28, borderRadius: size * 0.14, backgroundColor: '#4285F4', margin: 1 }} />
-        <View style={{ width: size * 0.28, height: size * 0.28, borderRadius: size * 0.14, backgroundColor: '#EA4335', margin: 1 }} />
-        <View style={{ width: size * 0.28, height: size * 0.28, borderRadius: size * 0.14, backgroundColor: '#FBBC05', margin: 1 }} />
-        <View style={{ width: size * 0.28, height: size * 0.28, borderRadius: size * 0.14, backgroundColor: '#34A853', margin: 1 }} />
-      </View>
-    </View>
-  </View>
+  <Image
+    source={require('../assets/google_home.png')}
+    style={{ width: size, height: size }}
+    resizeMode="contain"
+  />
 );
 
 const AlexaLogo = ({ size = 28 }) => (
-  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#00CAFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#00CAFF', shadowOpacity: 0.5, shadowRadius: 6, elevation: 4 }}>
-      <View style={{ width: size * 0.65, height: size * 0.65, borderRadius: (size * 0.65) / 2, backgroundColor: '#1C1B1B', justifyContent: 'center', alignItems: 'center' }}>
-        <View style={{ width: size * 0.25, height: size * 0.25, borderRadius: (size * 0.25) / 2, backgroundColor: '#00CAFF' }} />
-      </View>
-    </View>
-  </View>
+  <Image
+    source={require('../assets/amazon_alexa.png')}
+    style={{ width: size, height: size }}
+    resizeMode="contain"
+  />
 );
 
 export default function SettingsScreen({ navigation }) {
