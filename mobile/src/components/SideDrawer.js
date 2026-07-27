@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
   Dimensions,
   PanResponder,
   StatusBar,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BrandLogo from './BrandLogo';
@@ -36,10 +37,14 @@ export default function SideDrawer({
   activeRouteName = 'Home',
   userProfile = null
 }) {
+  const [activeVoiceModal, setActiveVoiceModal] = useState(null);
+
   const menuItems = [
-    { key: 'HomeTab', label: 'Dashboard', icon: 'home-outline', activeIcon: 'home' },
-    { key: 'SchedulesTab', label: 'Schedules', icon: 'clock-outline', activeIcon: 'clock' },
-    { key: 'RoomsTab', label: 'Room Management', icon: 'door-open', activeIcon: 'door-open' }
+    { key: 'HomeTab', label: 'Dashboard', icon: 'home-outline', activeIcon: 'home', type: 'route' },
+    { key: 'SchedulesTab', label: 'Schedules', icon: 'clock-outline', activeIcon: 'clock', type: 'route' },
+    { key: 'RoomsTab', label: 'Room Management', icon: 'door-open', activeIcon: 'door-open', type: 'route' },
+    { key: 'GoogleHome', label: 'Google Home', image: require('../assets/google_home.png'), type: 'modal' },
+    { key: 'AmazonAlexa', label: 'Amazon Alexa', image: require('../assets/amazon_alexa.png'), type: 'modal' }
   ];
 
   // Hyper-responsive Swipe Left Gesture Responder inside Drawer to close
@@ -83,15 +88,23 @@ export default function SideDrawer({
     return activeRouteName === itemKey;
   };
 
-  const handleNavigate = (routeKey) => {
-    onClose();
-    if (navigation && routeKey) {
-      if (routeKey === 'RoomsTab' || routeKey === 'Rooms') {
-        navigation.navigate('HomeTab', { screen: 'Rooms' });
-      } else if (routeKey === 'HomeTab') {
-        navigation.navigate('HomeTab', { screen: 'DevicesHome' });
-      } else {
-        navigation.navigate(routeKey);
+  const handleItemPress = (item) => {
+    if (item.type === 'modal') {
+      if (item.key === 'GoogleHome') {
+        setActiveVoiceModal('google');
+      } else if (item.key === 'AmazonAlexa') {
+        setActiveVoiceModal('alexa');
+      }
+    } else {
+      onClose();
+      if (navigation && item.key) {
+        if (item.key === 'RoomsTab' || item.key === 'Rooms') {
+          navigation.navigate('HomeTab', { screen: 'Rooms' });
+        } else if (item.key === 'HomeTab') {
+          navigation.navigate('HomeTab', { screen: 'DevicesHome' });
+        } else {
+          navigation.navigate(item.key);
+        }
       }
     }
   };
@@ -106,99 +119,253 @@ export default function SideDrawer({
   const isSettingsActive = isItemActive('SettingsTab');
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-      statusBarTranslucent={true}
-    >
-      <View style={styles.overlay}>
-        {/* Drawer Slider Container on Left */}
-        <View style={styles.drawerContainer} {...drawerPanResponder.panHandlers}>
-          <View style={styles.safeArea}>
+    <>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={onClose}
+        statusBarTranslucent={true}
+      >
+        <View style={styles.overlay}>
+          {/* Drawer Slider Container on Left */}
+          <View style={styles.drawerContainer} {...drawerPanResponder.panHandlers}>
+            <View style={styles.safeArea}>
 
-            {/* Header: Brand & Close Button */}
-            <View style={styles.drawerHeader}>
-              <View style={styles.brandRow}>
-                <BrandLogo size="small" />
-              </View>
-              <TouchableOpacity
-                onPress={onClose}
-                style={styles.closeBtn}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="close" size={20} color={TOKENS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* User Profile Card */}
-            <View style={styles.profileCard}>
-              <View style={styles.avatarCircle}>
-                <MaterialCommunityIcons name="account" size={24} color={TOKENS.accent} />
-              </View>
-              <View style={styles.profileInfo}>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {userProfile?.name || 'Naved'}
-                </Text>
-                <Text style={styles.userRole}>Smart Home Owner</Text>
-              </View>
-            </View>
-
-            {/* Navigation Menu List */}
-            <ScrollView style={styles.menuList} showsVerticalScrollIndicator={false}>
-              {menuItems.map((item) => {
-                const isActive = isItemActive(item.key);
-                return (
-                  <TouchableOpacity
-                    key={item.key}
-                    style={[styles.menuItem, isActive && styles.menuItemActive]}
-                    onPress={() => handleNavigate(item.key)}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons
-                      name={isActive ? item.activeIcon : item.icon}
-                      size={22}
-                      color={isActive ? TOKENS.accent : TOKENS.textSecondary}
-                    />
-                    <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Bottom Footer: Settings Gear Icon */}
-            <View style={styles.drawerFooter}>
-              <TouchableOpacity
-                style={[styles.settingsFooterBtn, isSettingsActive && styles.menuItemActive]}
-                onPress={handleOpenSettings}
-                activeOpacity={0.7}
-              >
-                <View style={styles.settingsLeftGroup}>
-                  <MaterialCommunityIcons name="cog" size={24} color={TOKENS.accent} />
-                  <Text style={styles.settingsBtnText}>Settings</Text>
+              {/* Header: Brand & Close Button */}
+              <View style={styles.drawerHeader}>
+                <View style={styles.brandRow}>
+                  <BrandLogo size="small" />
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={TOKENS.textSecondary} />
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={styles.closeBtn}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="close" size={20} color={TOKENS.textSecondary} />
+                </TouchableOpacity>
+              </View>
 
+              {/* User Profile Card */}
+              <View style={styles.profileCard}>
+                <View style={styles.avatarCircle}>
+                  <MaterialCommunityIcons name="account" size={24} color={TOKENS.accent} />
+                </View>
+                <View style={styles.profileInfo}>
+                  <Text style={styles.userName} numberOfLines={1}>
+                    {userProfile?.name || 'Naved'}
+                  </Text>
+                  <Text style={styles.userRole}>Smart Home Owner</Text>
+                </View>
+              </View>
+
+              {/* Navigation Menu List */}
+              <ScrollView style={styles.menuList} showsVerticalScrollIndicator={false}>
+                {menuItems.map((item) => {
+                  const isActive = item.type === 'route' && isItemActive(item.key);
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[styles.menuItem, isActive && styles.menuItemActive]}
+                      onPress={() => handleItemPress(item)}
+                      activeOpacity={0.7}
+                    >
+                      {item.image ? (
+                        <Image
+                          source={item.image}
+                          style={{ width: 22, height: 22 }}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <MaterialCommunityIcons
+                          name={isActive ? item.activeIcon : item.icon}
+                          size={22}
+                          color={isActive ? TOKENS.accent : TOKENS.textSecondary}
+                        />
+                      )}
+                      <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Bottom Footer: Settings Gear Icon */}
+              <View style={styles.drawerFooter}>
+                <TouchableOpacity
+                  style={[styles.settingsFooterBtn, isSettingsActive && styles.menuItemActive]}
+                  onPress={handleOpenSettings}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.settingsLeftGroup}>
+                    <MaterialCommunityIcons name="cog" size={24} color={TOKENS.accent} />
+                    <Text style={styles.settingsBtnText}>Settings</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={TOKENS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+            </View>
+          </View>
+
+          {/* Semi-transparent backdrop tap to close on right */}
+          <TouchableOpacity
+            style={styles.backdrop}
+            activeOpacity={1}
+            onPress={onClose}
+          />
+        </View>
+      </Modal>
+
+      {/* Voice Setup Guide Modal (Google Home / Amazon Alexa) */}
+      <Modal
+        visible={activeVoiceModal !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActiveVoiceModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.guideModalCard}>
+            {activeVoiceModal === 'google' && (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <Image
+                    source={require('../assets/google_home.png')}
+                    style={{ width: 28, height: 28, marginRight: 10 }}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.modalHeaderTitle}>Google Home Setup</Text>
+                  <TouchableOpacity onPress={() => setActiveVoiceModal(null)}>
+                    <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.statusBadgeRow}>
+                  <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>LINKED & READY</Text>
+                  <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Action.Devices API</Text>
+                </View>
+
+                <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+                  <View style={styles.guideSectionBox}>
+                    <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Google Home App</Text>.</Text>
+                    <Text style={styles.guideStepText}>2. Tap <Text style={{ fontWeight: '700', color: '#fff' }}>"+" -> Works with Google</Text>.</Text>
+                    <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"4Layers Smart Home"</Text>.</Text>
+                    <Text style={styles.guideStepText}>4. Enter your email & password to link your account.</Text>
+                    <Text style={styles.guideStepText}>5. Say: <Text style={{ fontWeight: '700', color: '#4285F4' }}>"Hey Google, turn on Bedroom Light"</Text>.</Text>
+                  </View>
+                </ScrollView>
+              </>
+            )}
+
+            {activeVoiceModal === 'alexa' && (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <Image
+                    source={require('../assets/amazon_alexa.png')}
+                    style={{ width: 28, height: 28, marginRight: 10 }}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.modalHeaderTitle}>Amazon Alexa Setup</Text>
+                  <TouchableOpacity onPress={() => setActiveVoiceModal(null)}>
+                    <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.statusBadgeRow}>
+                  <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>READY & ACTIVE</Text>
+                  <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Smart Home V3 Skill</Text>
+                </View>
+
+                <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+                  <View style={styles.guideSectionBox}>
+                    <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Amazon Alexa App</Text>.</Text>
+                    <Text style={styles.guideStepText}>2. Go to <Text style={{ fontWeight: '700', color: '#fff' }}>More -> Skills & Games</Text>.</Text>
+                    <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"4Layers Smart Home"</Text>.</Text>
+                    <Text style={styles.guideStepText}>4. Tap Enable to Use and log in with your credentials.</Text>
+                    <Text style={styles.guideStepText}>5. Say: <Text style={{ fontWeight: '700', color: '#00CAFF' }}>"Alexa, set Fan speed to 3"</Text>.</Text>
+                  </View>
+                </ScrollView>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={styles.closeGuideBtn}
+              onPress={() => setActiveVoiceModal(null)}
+            >
+              <Text style={styles.closeGuideBtnText}>Got it, Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
-
-        {/* Semi-transparent backdrop tap to close on right */}
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-      </View>
-    </Modal>
+      </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20
+  },
+  guideModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: TOKENS.cardBg,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: TOKENS.border
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12
+  },
+  modalHeaderTitle: {
+    flex: 1,
+    color: TOKENS.textPrimary,
+    fontSize: 17,
+    fontWeight: '700'
+  },
+  statusBadgeRow: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  guideSectionBox: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: TOKENS.border
+  },
+  guideStepText: {
+    color: TOKENS.textSecondary,
+    fontSize: 13,
+    lineHeight: 22,
+    marginBottom: 8
+  },
+  closeGuideBtn: {
+    backgroundColor: TOKENS.accent,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 16
+  },
+  closeGuideBtnText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '800'
+  },
   overlay: {
     flex: 1,
     flexDirection: 'row',

@@ -492,53 +492,6 @@ export default function SettingsScreen({ navigation }) {
         )}
       </View>
 
-      {/* Voice Assistant Integration Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <MaterialCommunityIcons name="microphone" size={20} color={TOKENS.accent} />
-          <Text style={styles.sectionTitle}>Voice Assistants & Smart Home</Text>
-        </View>
-
-        <View style={styles.card}>
-          {/* Google Assistant */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-            <View style={{ marginRight: 12 }}>
-              <GoogleHomeLogo size={32} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: TOKENS.textPrimary, fontWeight: '700', fontSize: 14 }}>Google Home / Assistant</Text>
-              <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Linked & Ready • "Hey Google, turn on Bedroom Light"</Text>
-            </View>
-            <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
-              <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: '700' }}>READY</Text>
-            </View>
-          </View>
-
-          {/* Amazon Alexa */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-            <View style={{ marginRight: 12 }}>
-              <AlexaLogo size={32} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: TOKENS.textPrimary, fontWeight: '700', fontSize: 14 }}>Amazon Alexa Skill</Text>
-              <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Smart Home V3 • "Alexa, set Fan speed to 3"</Text>
-            </View>
-            <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
-              <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: '700' }}>READY</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.button, styles.buttonSecondary, { marginTop: 4 }]}
-            onPress={() => setIsGuideModalOpen(true)}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="link-variant" size={16} color={TOKENS.accent} style={{ marginRight: 6 }} />
-            <Text style={styles.buttonTextSecondary}>View Account Linking Guide</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
       {/* Logout Section */}
       <View style={[styles.section, { marginTop: 12 }]}>
         <TouchableOpacity
@@ -556,66 +509,6 @@ export default function SettingsScreen({ navigation }) {
         <Text style={styles.appInfoText}>4Layers Home Automation Panel</Text>
         <Text style={styles.appInfoText}>v1.0.0</Text>
       </View>
-
-      {/* Account Linking Guide Modal */}
-      <Modal
-        visible={isGuideModalOpen}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsGuideModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.guideModalCard}>
-            <View style={styles.modalHeaderRow}>
-              <View style={{ marginRight: 6 }}>
-                <GoogleHomeLogo size={24} />
-              </View>
-              <AlexaLogo size={24} />
-              <Text style={styles.modalHeaderTitle}>Voice Setup Guide</Text>
-              <TouchableOpacity onPress={() => setIsGuideModalOpen(false)}>
-                <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
-              {/* Google Section */}
-              <View style={styles.guideSectionBox}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <View style={{ marginRight: 8 }}>
-                    <GoogleHomeLogo size={20} />
-                  </View>
-                  <Text style={styles.guideSectionTitle}>Google Home Setup</Text>
-                </View>
-                <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Google Home App</Text>.</Text>
-                <Text style={styles.guideStepText}>2. Tap <Text style={{ fontWeight: '700', color: '#fff' }}>"+" -> Works with Google</Text>.</Text>
-                <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"4Layers Smart Home"</Text>.</Text>
-                <Text style={styles.guideStepText}>4. Enter your email & password to link your account.</Text>
-              </View>
-
-              {/* Alexa Section */}
-              <View style={styles.guideSectionBox}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <View style={{ marginRight: 8 }}>
-                    <AlexaLogo size={20} />
-                  </View>
-                  <Text style={styles.guideSectionTitle}>Amazon Alexa Setup</Text>
-                </View>
-                <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Amazon Alexa App</Text>.</Text>
-                <Text style={styles.guideStepText}>2. Go to <Text style={{ fontWeight: '700', color: '#fff' }}>More -> Skills & Games</Text>.</Text>
-                <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"4Layers Smart Home"</Text>.</Text>
-                <Text style={styles.guideStepText}>4. Tap Enable to Use and log in with your credentials.</Text>
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity
-              style={styles.closeGuideBtn}
-              onPress={() => setIsGuideModalOpen(false)}
-            >
-              <Text style={styles.closeGuideBtnText}>Got it, Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
