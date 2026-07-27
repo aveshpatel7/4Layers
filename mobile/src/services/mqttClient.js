@@ -75,6 +75,12 @@ export const connectMqtt = (credentials = null) => {
         isConnected = true;
         connectingPromise = null;
         console.log('[MQTT Client] Connected successfully over secure WebSockets!');
+        try {
+          pahoClient.subscribe('home/device/#');
+          console.log('[MQTT Client] Subscribed to wildcard topic: home/device/#');
+        } catch (subErr) {
+          console.warn('[MQTT Client] Auto-subscribe wildcard topic error:', subErr);
+        }
         resolve(pahoClient);
       },
       onFailure: (err) => {

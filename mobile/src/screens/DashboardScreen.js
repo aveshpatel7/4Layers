@@ -17,7 +17,7 @@ import DeviceCard, { LuminaRockerSwitch } from "../components/DeviceCard";
 import EnergyChart from "../components/EnergyChart";
 import BrandLogo from "../components/BrandLogo";
 import SideDrawer from "../components/SideDrawer";
-import { connectMqtt, disconnectMqtt, publishMessage } from "../services/mqttClient";
+import { connectMqtt, disconnectMqtt, publishMessage, registerMqttListener } from "../services/mqttClient";
 const TOKENS = {
   bg: "#0E0E0E",
   cardBg: "#1C1B1B",
@@ -218,10 +218,39 @@ export default function DashboardScreen({ navigation }) {
     fetchProfile();
     
     initMqttConnection();
+
+    const unregister = registerMqttListener((topic, payloadStr) => {
+      try {
+        const payload = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
+        const parts = topic.split('/');
+        if (parts.length >= 3) {
+          const baseNodeId = parts[2];
+          const channel = payload.channel;
+          const nextStatus = payload.status === 'ON' || payload.status === true || payload.status === 1;
+          const nextValue = payload.value ?? payload.speed ?? 1;
+
+          setDevices((prev) => prev.map((d) => {
+            let isMatch = false;
+            if (channel) {
+              const expectedSuffix = `_${channel}`;
+              isMatch = d.node_id === `${baseNodeId}${expectedSuffix}` || (d.node_id?.startsWith(baseNodeId) && d.node_id?.endsWith(expectedSuffix));
+            } else {
+              isMatch = d.node_id === baseNodeId;
+            }
+
+            if (isMatch) {
+              return { ...d, status: nextStatus, value: nextValue };
+            }
+            return d;
+          }));
+        }
+      } catch (e) {
+        console.warn('[Dashboard] Live MQTT event parse error:', e);
+      }
+    });
     
     return () => {
-      // Disconnect cleanly when leaving dashboard screen
-      disconnectMqtt();
+      unregister();
     };
   }, []);
 
@@ -234,14 +263,15 @@ export default function DashboardScreen({ navigation }) {
     const intervalId = setInterval(() => {
       fetchDevices(false);
       fetchUnreadAlertsCount();
-    }, 10000);
+    }, 3000);
     return () => clearInterval(intervalId);
   }, [roomMapping]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
+      initMqttConnection();
       fetchRoomsMapping();
-      fetchDevices(true);
+      fetchDevices(false);
       fetchUnreadAlertsCount();
       fetchProfile();
     });

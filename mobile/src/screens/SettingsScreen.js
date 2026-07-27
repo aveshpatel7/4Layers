@@ -50,7 +50,19 @@ export default function SettingsScreen({ navigation }) {
 
   useEffect(() => {
     fetchUserProfile();
-  }, []);
+    const intervalId = setInterval(() => {
+      fetchUserProfile();
+    }, 3000);
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchUserProfile();
+    });
+
+    return () => {
+      clearInterval(intervalId);
+      unsubscribe();
+    };
+  }, [navigation]);
 
   const fetchUserProfile = async () => {
     try {

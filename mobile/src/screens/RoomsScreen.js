@@ -47,7 +47,11 @@ export default function RoomsScreen() {
 
   useEffect(() => {
     initializeData();
-  }, []);
+    const unsubscribe = navigation.addListener('focus', () => {
+      initializeData();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const initializeData = async () => {
     try {
