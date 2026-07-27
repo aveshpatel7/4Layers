@@ -47,15 +47,19 @@ export default function SettingsScreen({ navigation }) {
 
 
   const [stats, setStats] = useState({ totalDevices: 0, activeDevices: 0, totalRooms: 0 });
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    fetchUserProfile();
+    const showLoading = !hasLoadedRef.current;
+    fetchUserProfile(showLoading);
+    hasLoadedRef.current = true;
+
     const intervalId = setInterval(() => {
-      fetchUserProfile();
-    }, 3000);
+      fetchUserProfile(false);
+    }, 5000);
 
     const unsubscribe = navigation.addListener('focus', () => {
-      fetchUserProfile();
+      fetchUserProfile(false);
     });
 
     return () => {
@@ -64,9 +68,11 @@ export default function SettingsScreen({ navigation }) {
     };
   }, [navigation]);
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       const response = await apiClient.get('/api/users/me');
       setUser(response.data);
       setEditUsername(response.data.username);
@@ -159,7 +165,9 @@ export default function SettingsScreen({ navigation }) {
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 

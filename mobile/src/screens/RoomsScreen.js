@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -45,17 +45,24 @@ export default function RoomsScreen() {
   const [selectedType, setSelectedType] = useState('living_room');
   const [isSaving, setIsSaving] = useState(false);
 
+  const hasLoadedRef = useRef(false);
+
   useEffect(() => {
-    initializeData();
+    const showLoading = !hasLoadedRef.current;
+    initializeData(showLoading);
+    hasLoadedRef.current = true;
+
     const unsubscribe = navigation.addListener('focus', () => {
-      initializeData();
+      initializeData(false);
     });
     return unsubscribe;
   }, [navigation]);
 
-  const initializeData = async () => {
+  const initializeData = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       // 1. Fetch homes to get homeId
       const homesRes = await apiClient.get('/api/homes');
       if (homesRes.data && homesRes.data.length > 0) {
@@ -70,7 +77,9 @@ export default function RoomsScreen() {
       console.error('Failed to initialize rooms manager:', error);
       Alert.alert('Sync Error', 'Failed to retrieve home and room datasets');
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
