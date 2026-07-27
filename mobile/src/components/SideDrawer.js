@@ -40,9 +40,9 @@ export default function SideDrawer({
   const [activeVoiceModal, setActiveVoiceModal] = useState(null);
 
   const menuItems = [
-    { key: 'HomeTab', label: 'Dashboard', icon: 'home-outline', activeIcon: 'home', type: 'route' },
-    { key: 'SchedulesTab', label: 'Schedules', icon: 'clock-outline', activeIcon: 'clock', type: 'route' },
-    { key: 'RoomsTab', label: 'Room Management', icon: 'door-open', activeIcon: 'door-open', type: 'route' },
+    { key: 'HomeTab', label: 'Dashboard', image: require('../assets/dashboard_home.png'), type: 'route' },
+    { key: 'SchedulesTab', label: 'Schedules', image: require('../assets/schedules.png'), type: 'route' },
+    { key: 'RoomsTab', label: 'Room Management', image: require('../assets/room_management.png'), type: 'route' },
     { key: 'GoogleHome', label: 'Google Home', image: require('../assets/google_home.png'), type: 'modal' },
     { key: 'AmazonAlexa', label: 'Amazon Alexa', image: require('../assets/amazon_alexa.png'), type: 'modal' }
   ];
