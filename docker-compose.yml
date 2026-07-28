@@ -1,0 +1,42 @@
+version: "3.9"
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartnest_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://smartnest_user:smartnest_pass@db:5432/smartnest
+      - SECRET_KEY=local_dev_secret_key_change_in_production
+      - MQTT_BROKER=i26a1c71.ala.asia-southeast1.emqxsl.com
+      - MQTT_PORT=8883
+      - MQTT_USERNAME=smartnest_client
+      - MQTT_PASSWORD=D2m9ga8JynJDEM6
+      - ALLOWED_ORIGINS=*
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: smartnest_db
+    environment:
+      - POSTGRES_USER=smartnest_user
+      - POSTGRES_PASSWORD=smartnest_pass
+      - POSTGRES_DB=smartnest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartnest_user -d smartnest"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

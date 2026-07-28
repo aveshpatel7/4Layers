@@ -1,0 +1,70 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# Local databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Node / Mobile
+node_modules/
+mobile/
+.expo/
+web-build/
+dist/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.apk
+4layers.apk
+SmartNest.apk
+
+# Logs
+*.log
+logs/
+
+# Misc project files
+SESSION_HISTORY.md
+tasks/
+scratch/
+Plannings/
+*.mp4
+*.zip
+*.ino
+*.c
+*.html
+stitch_iot_*
+SmartNest_Provisioning_Firmware*
+Google_Sans_Flex/
+*.png
+*.svg
+*.winmd
+*.txt.bak
+check_*.py
+verify_*.py
+mock_*.py
+ai_studio_code.txt
+ANTIGRAVITY_PROMPTS.md
