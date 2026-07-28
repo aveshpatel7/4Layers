@@ -7,7 +7,7 @@ const USE_LOCAL_BACKEND = false; // Set to false for production cloud Render bac
 
 let baseURL = USE_LOCAL_BACKEND
   ? (Platform.OS === 'web' ? 'http://localhost:8000' : 'http://10.0.2.2:8000')
-  : 'https://smartnest-3jr4.onrender.com';
+  : 'https://edabtynvpy.ap-south-1.awsapprunner.com';
 
 console.log(`[SmartNest API Client] Initialized. Base URL: ${baseURL}`);
 
