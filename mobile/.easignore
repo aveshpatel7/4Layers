@@ -2,3 +2,7 @@ node_modules/
 .expo/
 web-build/
 dist/
+tmp/
+android/.gradle/
+android/app/build/
+android/build/
