@@ -43,7 +43,12 @@ app.include_router(voice_assistant.router)
 
 scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
 
+# Track already-fired schedules per minute to prevent duplicate firing
+_fired_schedules_this_minute: dict = {}  # {schedule_id: "HH:MM"}
+
 def check_schedules():
+    """Runs every 15 seconds. Fires schedules with max ~15 sec delay."""
+    global _fired_schedules_this_minute
     db = SessionLocal()
     try:
         # Calculate current IST local time
@@ -61,6 +66,10 @@ def check_schedules():
         enabled_schedules = db.query(models.Schedule).filter(models.Schedule.enabled == True).all()
         for schedule in enabled_schedules:
             if schedule.time == current_time_str:
+                # Prevent firing the same schedule twice in the same minute
+                if _fired_schedules_this_minute.get(schedule.id) == current_time_str:
+                    continue
+
                 days_list = [d.strip().lower() for d in schedule.days.split(',')]
                 if "daily" in days_list or current_day_str in days_list:
                     device = db.query(models.Device).filter(models.Device.id == schedule.device_id).first()
@@ -95,10 +104,60 @@ def check_schedules():
                             node_id=device.node_id,
                             state=requested_state
                         )
+                        # Mark as fired this minute
+                        _fired_schedules_this_minute[schedule.id] = current_time_str
                         print(f"[Scheduler] Fired schedule {schedule.id} for device {device.name} -> {schedule.action}")
+
+        # Cleanup old entries from _fired_schedules_this_minute
+        _fired_schedules_this_minute = {
+            k: v for k, v in _fired_schedules_this_minute.items() if v == current_time_str
+        }
         db.commit()
     except Exception as e:
         print("[Scheduler] Error running schedules job:", e)
+    finally:
+        db.close()
+
+
+DEVICE_OFFLINE_TIMEOUT_MINUTES = 3  # Mark offline if no message for 3 minutes
+
+def check_device_heartbeats():
+    """Runs every 2 minutes. Marks devices offline if last_seen is older than 3 minutes."""
+    db = SessionLocal()
+    try:
+        cutoff_time = datetime.datetime.utcnow() - datetime.timedelta(minutes=DEVICE_OFFLINE_TIMEOUT_MINUTES)
+        # Find devices that are marked online but haven't been seen recently
+        stale_devices = db.query(models.Device).filter(
+            models.Device.is_online == True,
+            models.Device.last_seen != None,
+            models.Device.last_seen < cutoff_time
+        ).all()
+
+        for device in stale_devices:
+            device.is_online = False
+            device.updated_at = datetime.datetime.utcnow()
+            db.add(device)
+
+            try:
+                owner_id = device.home.owner_id
+            except Exception:
+                owner_id = None
+
+            if owner_id:
+                alert_entry = models.Alert(
+                    user_id=owner_id,
+                    device_id=device.id,
+                    type="device_offline",
+                    message=f"Device '{device.name}' went OFFLINE (no heartbeat for {DEVICE_OFFLINE_TIMEOUT_MINUTES} min).",
+                    is_read=False
+                )
+                db.add(alert_entry)
+            print(f"[Heartbeat] Device '{device.name}' (node: {device.node_id}) marked OFFLINE — last seen: {device.last_seen}")
+
+        if stale_devices:
+            db.commit()
+    except Exception as e:
+        print("[Heartbeat] Error in heartbeat check:", e)
     finally:
         db.close()
 
@@ -129,10 +188,12 @@ def startup_event():
     mqtt.start_mqtt()
     print("MQTT background listener started.")
 
-    # Start schedules background worker
-    scheduler.add_job(check_schedules, 'interval', minutes=1)
+    # Start schedules background worker — runs every 15 sec for low-latency firing
+    scheduler.add_job(check_schedules, 'interval', seconds=15)
+    # Start device heartbeat checker — runs every 2 min to detect offline devices
+    scheduler.add_job(check_device_heartbeats, 'interval', minutes=2)
     scheduler.start()
-    print("Scheduler daemon process started.")
+    print("Scheduler daemon process started (schedule check: 15s, heartbeat: 2min).")
 
 @app.on_event("shutdown")
 def shutdown_event():
@@ -159,6 +220,3 @@ if __name__ == "__main__":
     # When run directly, start uvicorn server on port 8000
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
 
-# Deploy: 2026-07-28 20:33:12
-
-# Retry deploy: 2026-07-28 20:40:55
