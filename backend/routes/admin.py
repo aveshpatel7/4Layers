@@ -10,9 +10,8 @@ from typing import List, Optional
 import datetime
 import logging
 
-from database import get_db
-import models
-import mqtt
+from backend.database import get_db
+from backend import models, mqtt
 
 router = APIRouter(prefix="/api/admin", tags=["Admin Management"])
 logger = logging.getLogger(__name__)
@@ -32,8 +31,6 @@ class OtaUpdateRequest(BaseModel):
     firmware_version: str
 
 # --- Endpoints ---
-
-@app_router = router
 
 @router.get("/stats")
 def get_admin_stats(db: Session = Depends(get_db)):
