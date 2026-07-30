@@ -508,21 +508,25 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 12,
-    marginBottom: 4,
-    gap: 12
+    marginBottom: 4
   },
   menuItemActive: {
     backgroundColor: TOKENS.activeItemBg
   },
-  menuLabel: {
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  menuItemText: {
     fontSize: 14,
     fontWeight: '600',
     color: TOKENS.textSecondary
   },
-  menuLabelActive: {
+  menuItemTextActive: {
     color: TOKENS.accent,
     fontWeight: '700'
   },
