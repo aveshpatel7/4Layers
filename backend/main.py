@@ -230,6 +230,11 @@ def read_root():
         "docs_url": "/docs"
     }
 
+@app.get("/health")
+def health_check():
+    """App Runner Health Check Endpoint."""
+    return {"status": "ok", "timestamp": datetime.datetime.utcnow().isoformat()}
+
 @app.get("/privacy-policy", response_class=HTMLResponse)
 def privacy_policy():
     """Official Privacy Policy Page for Google Home Action & Alexa Certification."""
