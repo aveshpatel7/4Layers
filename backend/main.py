@@ -11,11 +11,11 @@ import datetime
 from backend.database import SessionLocal
 from backend import models
 
-# Initialize FastAPI App
+# Initialize FastAPI App (v1.0.1 Admin Production)
 app = FastAPI(
     title="SmartNest Home Automation Backend",
     description="A backend for managing users, IoT devices, and real-time state synchronization via MQTT.",
-    version="1.0.0"
+    version="1.0.1"
 )
 
 # Configure CORS Middleware using ALLOWED_ORIGINS env variables (e.g. for web panels, mobile clients)

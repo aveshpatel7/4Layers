@@ -3,11 +3,6 @@ name: Deploy to AWS App Runner
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'backend/**'
-      - 'web_admin/**'
-      - 'Dockerfile'
-      - 'requirements.txt'
   workflow_dispatch:
 
 env:
