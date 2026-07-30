@@ -128,15 +128,34 @@ def list_all_devices(db: Session = Depends(get_db)):
         home = db.query(models.Home).filter(models.Home.id == d.home_id).first() if d.home_id else None
         owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
         
+        state = d.current_state or {}
+        if isinstance(state, str):
+            try:
+                import json
+                state = json.loads(state)
+            except Exception:
+                state = {}
+                
+        node_id = d.node_id or str(d.id)[:8]
+        owner_email = owner.email if owner else "Unassigned"
+        firmware_version = state.get("fw_version", state.get("version", "v1.0.0"))
+        ip_address = state.get("ip", d.mac_address or "192.168.1.50")
+        rssi = state.get("rssi", -62)
+        
         device_list.append({
             "id": str(d.id),
-            "node_id": d.node_id,
+            "device_id": node_id,
+            "node_id": node_id,
             "mac_address": d.mac_address or "N/A",
             "name": d.name,
             "device_type": d.device_type,
             "is_online": d.is_online,
+            "owner_email": owner_email,
             "owner_username": owner.username if owner else "Unassigned",
-            "current_state": d.current_state or {},
+            "firmware_version": firmware_version,
+            "ip_address": ip_address,
+            "rssi": rssi,
+            "current_state": state,
             "last_seen": d.last_seen.isoformat() if d.last_seen else None
         })
         

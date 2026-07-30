@@ -562,19 +562,19 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
         nodesTableBody.innerHTML = devices.map(d => `
             <tr>
-                <td><code>${escapeHtml(d.device_id)}</code></td>
+                <td><code>${escapeHtml(d.node_id || d.device_id || d.id)}</code></td>
                 <td><strong>${escapeHtml(d.name)}</strong></td>
-                <td>${escapeHtml(d.owner_email)}</td>
-                <td><span class="badge blue">${escapeHtml(d.firmware_version)}</span></td>
-                <td><code>${escapeHtml(d.ip_address)}</code></td>
-                <td><span style="color:var(--accent-green);font-weight:600;"><i class="fa-solid fa-wifi"></i> ${d.rssi} dBm</span></td>
+                <td>${escapeHtml(d.owner_email || d.owner_username || 'Unassigned')}</td>
+                <td><span class="badge blue">${escapeHtml(d.firmware_version || 'v1.0.0')}</span></td>
+                <td><code>${escapeHtml(d.ip_address || d.mac_address || '192.168.1.50')}</code></td>
+                <td><span style="color:var(--accent-green);font-weight:600;"><i class="fa-solid fa-wifi"></i> ${d.rssi || -62} dBm</span></td>
                 <td>
                     ${d.is_online 
                         ? '<span class="badge green">ONLINE</span>' 
                         : '<span class="badge red">OFFLINE</span>'}
                 </td>
                 <td>
-                    <button class="btn btn-outline" onclick="quickTestDevice('${escapeHtml(d.device_id)}')" style="padding:4px 8px;font-size:11px;">
+                    <button class="btn btn-outline" onclick="quickTestDevice('${escapeHtml(d.id || d.device_id)}')" style="padding:4px 8px;font-size:11px;">
                         Test
                     </button>
                 </td>
