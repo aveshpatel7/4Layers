@@ -1,11 +1,11 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 from backend.database import engine, Base
 from backend.routes import users, devices, homes, rooms, schedules, alerts, history, voice_assistant, admin
-from backend import mqtt
+from backend import mqtt, admin_ui
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
 from backend.database import SessionLocal
@@ -44,22 +44,19 @@ app.include_router(history.router)
 app.include_router(voice_assistant.router)
 app.include_router(admin.router)
 
-# Web Admin Panel Route Handlers & Static Assets
-web_admin_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web_admin")
-if not os.path.exists(web_admin_dir):
-    web_admin_dir = os.path.abspath("web_admin")
-
+# Embedded Web Admin Console Routes (100% Zero Disk Path Dependency)
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 @app.get("/admin/", response_class=HTMLResponse, include_in_schema=False)
 def serve_admin_index():
-    index_file = os.path.join(web_admin_dir, "index.html")
-    if os.path.exists(index_file):
-        with open(index_file, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse("<h1>4Layers Admin Panel - Index Not Found</h1>", status_code=404)
+    return HTMLResponse(content=admin_ui.ADMIN_HTML)
 
-if os.path.exists(web_admin_dir):
-    app.mount("/admin/static", StaticFiles(directory=web_admin_dir), name="admin_static")
+@app.get("/admin/style.css", include_in_schema=False)
+def serve_admin_css():
+    return Response(content=admin_ui.ADMIN_CSS, media_type="text/css")
+
+@app.get("/admin/app.js", include_in_schema=False)
+def serve_admin_js():
+    return Response(content=admin_ui.ADMIN_JS, media_type="application/javascript")
 
 scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
 
