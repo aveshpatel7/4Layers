@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from backend.database import engine, Base
@@ -214,6 +215,57 @@ def read_root():
         "mqtt_broker": mqtt.MQTT_BROKER,
         "docs_url": "/docs"
     }
+
+@app.get("/privacy-policy", response_class=HTMLResponse)
+def privacy_policy():
+    """Official Privacy Policy Page for Google Home Action Certification."""
+    return """<!DOCTYPE html>
+<html>
+<head>
+    <title>4Layers Smart Home - Privacy Policy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 800px; margin: 0 auto; padding: 30px 20px; background-color: #f8fafc; }
+        .container { background: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h1 { color: #22c55e; font-size: 26px; border-bottom: 2px solid #22c55e; padding-bottom: 10px; margin-top: 0; }
+        h2 { color: #0f172a; font-size: 18px; margin-top: 25px; }
+        p, li { font-size: 14.5px; color: #475569; }
+        ul { padding-left: 20px; }
+        .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>4Layers Smart Home — Privacy Policy</h1>
+        <p>Last updated: July 30, 2026</p>
+        <p>4Layers Smart Home ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our 4Layers Smart Home Application, Google Home Action, Alexa Skill, and Cloud API Services.</p>
+
+        <h2>1. Information We Collect</h2>
+        <ul>
+            <li><b>Account Information:</b> Email address, username, and encrypted credentials for user authentication.</li>
+            <li><b>Device & Telemetry Data:</b> Smart home device states (ON/OFF, fan speeds, room assignments, connectivity status) and node identifiers.</li>
+            <li><b>Voice & Smart Home Commands:</b> Intent commands received via Google Assistant or Alexa to execute requested smart home actions (e.g. toggling relays).</li>
+        </ul>
+
+        <h2>2. How We Use Your Information</h2>
+        <ul>
+            <li>To execute user-requested smart home control commands (e.g., turning switches ON/OFF).</li>
+            <li>To synchronize real-time device status across your mobile app, Google Home, and Alexa integrations.</li>
+            <li>To maintain backend security and provide customer support.</li>
+        </ul>
+
+        <h2>3. Data Protection & Security</h2>
+        <p>All communication between your devices, smartphone app, Google Assistant, and our AWS cloud servers is encrypted using industry-standard TLS/SSL encryption. We do not sell, rent, or trade your personal data to third parties.</p>
+
+        <h2>4. Contact Us</h2>
+        <p>If you have any questions regarding this Privacy Policy or data privacy, please contact our support team at <b>support@4layers.in</b>.</p>
+
+        <div class="footer">
+            &copy; 2026 4Layers Home Automation Platform. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>"""
 
 if __name__ == "__main__":
     import uvicorn
