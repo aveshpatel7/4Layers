@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'backend/**'
+      - 'web_admin/**'
       - 'Dockerfile'
       - 'requirements.txt'
   workflow_dispatch:
@@ -59,8 +60,9 @@ jobs:
           cpu: 0.5
           memory: 1
           port: 8000
-          wait-for-service-stability-seconds: 300
+          wait-for-service-stability-seconds: 600
           copy-env-vars: |
+            PORT
             DATABASE_URL
             SECRET_KEY
             MQTT_BROKER
@@ -70,6 +72,7 @@ jobs:
             MQTT_KEEPALIVE
             ALLOWED_ORIGINS
         env:
+          PORT: "8000"
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           MQTT_BROKER: ${{ secrets.MQTT_BROKER }}
