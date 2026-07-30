@@ -218,7 +218,7 @@ def read_root():
 
 @app.get("/privacy-policy", response_class=HTMLResponse)
 def privacy_policy():
-    """Official Privacy Policy Page for Google Home Action Certification."""
+    """Official Privacy Policy Page for Google Home Action & Alexa Certification."""
     return """<!DOCTYPE html>
 <html>
 <head>
@@ -228,40 +228,63 @@ def privacy_policy():
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 800px; margin: 0 auto; padding: 30px 20px; background-color: #f8fafc; }
         .container { background: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         h1 { color: #22c55e; font-size: 26px; border-bottom: 2px solid #22c55e; padding-bottom: 10px; margin-top: 0; }
-        h2 { color: #0f172a; font-size: 18px; margin-top: 25px; }
+        h2 { color: #0f172a; font-size: 17px; margin-top: 22px; }
         p, li { font-size: 14.5px; color: #475569; }
         ul { padding-left: 20px; }
-        .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
+        a { color: #22c55e; text-decoration: none; font-weight: 600; }
+        a:hover { text-decoration: underline; }
+        .footer { margin-top: 35px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>4Layers Smart Home — Privacy Policy</h1>
-        <p>Last updated: July 30, 2026</p>
-        <p>4Layers Smart Home ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our 4Layers Smart Home Application, Google Home Action, Alexa Skill, and Cloud API Services.</p>
+        <p><b>Last Updated:</b> July 30, 2026</p>
+        <p>At 4Layers Smart Home ("we", "our", or "us"), we value your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use the 4Layers Smart Home mobile app, Cloud API, and integrations with Google Home and Amazon Alexa.</p>
 
         <h2>1. Information We Collect</h2>
+        <p>We may collect:</p>
         <ul>
-            <li><b>Account Information:</b> Email address, username, and encrypted credentials for user authentication.</li>
-            <li><b>Device & Telemetry Data:</b> Smart home device states (ON/OFF, fan speeds, room assignments, connectivity status) and node identifiers.</li>
-            <li><b>Voice & Smart Home Commands:</b> Intent commands received via Google Assistant or Alexa to execute requested smart home actions (e.g. toggling relays).</li>
+            <li><b>Account Information:</b> Such as your email address and account ID.</li>
+            <li><b>Smart Home Device Information:</b> Device names, status, fan speed, room assignments, and device identifiers.</li>
+            <li><b>Diagnostic & Network Data:</b> App usage, diagnostic logs, IP address, and connectivity information.</li>
+            <li><b>Voice Integration Commands:</b> Smart home commands received through Google Home or Amazon Alexa to perform requested actions. <i>We do not store voice recordings.</i></li>
         </ul>
 
         <h2>2. How We Use Your Information</h2>
+        <p>We use your information to:</p>
         <ul>
-            <li>To execute user-requested smart home control commands (e.g., turning switches ON/OFF).</li>
-            <li>To synchronize real-time device status across your mobile app, Google Home, and Alexa integrations.</li>
-            <li>To maintain backend security and provide customer support.</li>
+            <li>Authenticate your account and maintain security.</li>
+            <li>Control and synchronize your smart home devices across platforms.</li>
+            <li>Process voice commands from Google Home and Amazon Alexa.</li>
+            <li>Improve performance, security, and cloud service reliability.</li>
+            <li>Provide prompt customer support.</li>
         </ul>
 
-        <h2>3. Data Protection & Security</h2>
-        <p>All communication between your devices, smartphone app, Google Assistant, and our AWS cloud servers is encrypted using industry-standard TLS/SSL encryption. We do not sell, rent, or trade your personal data to third parties.</p>
+        <h2>3. Data Sharing</h2>
+        <p>We do not sell or rent your personal information. We may share information only with trusted service providers (such as AWS cloud infrastructure) necessary to operate our services or when required by law.</p>
 
-        <h2>4. Contact Us</h2>
-        <p>If you have any questions regarding this Privacy Policy or data privacy, please contact our support team at <b>support@4layers.in</b>.</p>
+        <h2>4. Data Security</h2>
+        <p>We protect your information using industry-standard security measures, including TLS/SSL encryption, secure cloud infrastructure, and access controls. While we work to protect your data, no method of transmission over the Internet is completely secure.</p>
+
+        <h2>5. Data Retention</h2>
+        <p>We retain your information only for as long as necessary to provide our services, comply with legal obligations, and maintain account functionality. You may request deletion of your account and associated data.</p>
+
+        <h2>6. Children's Privacy</h2>
+        <p>Our services are not intended for children under 13 years of age, and we do not knowingly collect personal information from children.</p>
+
+        <h2>7. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated revision date.</p>
+
+        <h2>8. Contact Us</h2>
+        <p>If you have any questions about this Privacy Policy, please contact us:</p>
+        <ul>
+            <li><b>Email:</b> <a href="mailto:support@4layers.in">support@4layers.in</a></li>
+            <li><b>Website:</b> <a href="https://4layers.in" target="_blank">https://4layers.in</a></li>
+        </ul>
 
         <div class="footer">
-            &copy; 2026 4Layers Home Automation Platform. All rights reserved.
+            &copy; 2026 4Layers. All rights reserved.
         </div>
     </div>
 </body>
