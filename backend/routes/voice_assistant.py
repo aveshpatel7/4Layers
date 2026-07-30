@@ -74,6 +74,24 @@ def oauth_authorize_submit(
     
     access_token = auth.create_access_token(data={"sub": str(user.id)})
     
+    # Record Google Home linking event for dynamic mobile UI state
+    try:
+        existing_alert = db.query(models.Alert).filter(
+            models.Alert.user_id == user.id,
+            models.Alert.type == "google_home_linked"
+        ).first()
+        if not existing_alert:
+            new_alert = models.Alert(
+                user_id=user.id,
+                type="google_home_linked",
+                message="Google Assistant successfully linked to your 4Layers account.",
+                is_read=True
+            )
+            db.add(new_alert)
+            db.commit()
+    except Exception as e:
+        print("[OAuth] Error saving linking alert:", e)
+
     if redirect_uri:
         delimiter = "&" if "?" in redirect_uri else "?"
         target_url = f"{redirect_uri}{delimiter}code={access_token}&state={state}"
@@ -97,6 +115,38 @@ def oauth_token_endpoint(
         "expires_in": 3600 * 24 * 30, # 30 days
         "refresh_token": token
     }
+
+@router.get("/api/voice/status")
+def get_voice_integration_status(current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    """Check if Google Home or Alexa account linking is active for current user."""
+    google_alert = db.query(models.Alert).filter(
+        models.Alert.user_id == current_user.id,
+        models.Alert.type == "google_home_linked"
+    ).first()
+
+    alexa_alert = db.query(models.Alert).filter(
+        models.Alert.user_id == current_user.id,
+        models.Alert.type == "alexa_linked"
+    ).first()
+
+    return {
+        "google_linked": google_alert is not None,
+        "alexa_linked": alexa_alert is not None
+    }
+
+@router.post("/api/voice/unlink")
+def unlink_voice_integration(payload: dict, current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    """Unlink Google Home or Alexa integration for current user."""
+    provider = payload.get("provider", "google")
+    target_type = "google_home_linked" if provider == "google" else "alexa_linked"
+
+    db.query(models.Alert).filter(
+        models.Alert.user_id == current_user.id,
+        models.Alert.type == target_type
+    ).delete()
+    db.commit()
+
+    return {"status": "success", "message": f"{provider} unlinked successfully"}
 
 # ----------------------------------------------------------------------
 # 2. Google Home Smart Home Fulfillment Endpoint
