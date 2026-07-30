@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 import json
 import re
@@ -77,7 +77,7 @@ def oauth_authorize_submit(
     if redirect_uri:
         delimiter = "&" if "?" in redirect_uri else "?"
         target_url = f"{redirect_uri}{delimiter}code={access_token}&state={state}"
-        return JSONResponse(content={"redirect": target_url, "access_token": access_token})
+        return RedirectResponse(url=target_url, status_code=302)
     
     return {"access_token": access_token, "token_type": "bearer"}
 
