@@ -229,9 +229,10 @@ export default function SideDrawer({
           onPress={onClose}
         />
       </View>
+    </Modal>
 
-      <Modal
-        visible={activeVoiceModal !== null}
+    <Modal
+      visible={activeVoiceModal !== null}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setActiveVoiceModal(null)}
