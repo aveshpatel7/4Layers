@@ -206,7 +206,7 @@ export default function SideDrawer({
 
             <View style={styles.drawerFooter}>
               <TouchableOpacity
-                style={styles.settingsBtn}
+                style={styles.settingsFooterBtn}
                 onPress={() => {
                   onClose();
                   if (navigation) navigation.navigate('SettingsTab', { screen: 'Settings' });
