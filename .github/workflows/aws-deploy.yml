@@ -48,14 +48,17 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          ROLE_ARN: ${{ secrets.APP_RUNNER_ROLE_ARN }}
         run: |
           IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           SERVICE_ARN=$(aws apprunner list-services --region ${{ env.AWS_REGION }} --query "ServiceSummaryList[?ServiceName=='${{ env.APP_RUNNER_SERVICE }}'].ServiceArn" --output text)
           echo "Found Service ARN: $SERVICE_ARN"
           echo "Target Image URI: $IMAGE_URI"
           if [ -n "$SERVICE_ARN" ]; then
-            OPERATION_ID=$(aws apprunner update-service --service-arn $SERVICE_ARN --source-configuration "ImageRepository={ImageIdentifier=$IMAGE_URI,ImageRepositoryType=ECR}" --region ${{ env.AWS_REGION }} --query "OperationId" --output text)
+            OPERATION_ID=$(aws apprunner update-service --service-arn $SERVICE_ARN --source-configuration "ImageRepository={ImageIdentifier=$IMAGE_URI,ImageRepositoryType=ECR,ImageConfiguration={Port='8000'}},AuthenticationConfiguration={AccessRoleArn='$ROLE_ARN'}" --region ${{ env.AWS_REGION }} --query "OperationId" --output text)
             echo "✅ AWS App Runner service updated with new image! Operation ID: $OPERATION_ID"
+            sleep 5
+            aws apprunner start-deployment --service-arn $SERVICE_ARN --region ${{ env.AWS_REGION }} || true
           else
             echo "⚠️ Could not find Service ARN for ${{ env.APP_RUNNER_SERVICE }}"
           fi
