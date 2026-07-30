@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
@@ -46,6 +46,13 @@ app.include_router(admin.router)
 
 # Mount Web Admin Static Directory
 web_admin_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web_admin")
+if not os.path.exists(web_admin_dir):
+    web_admin_dir = os.path.abspath("web_admin")
+
+@app.get("/admin", include_in_schema=False)
+def admin_redirect():
+    return RedirectResponse(url="/admin/", status_code=302)
+
 if os.path.exists(web_admin_dir):
     app.mount("/admin", StaticFiles(directory=web_admin_dir, html=True), name="admin")
 
