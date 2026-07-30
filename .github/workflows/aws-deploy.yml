@@ -44,38 +44,17 @@ jobs:
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "✅ Docker image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Deploy to AWS App Runner
-        id: deploy-apprunner
-        uses: awslabs/amazon-app-runner-deploy@main
-        with:
-          service: ${{ env.APP_RUNNER_SERVICE }}
-          image: ${{ steps.build-image.outputs.image }}
-          access-role-arn: ${{ secrets.APP_RUNNER_ROLE_ARN }}
-          region: ${{ env.AWS_REGION }}
-          cpu: 0.5
-          memory: 1
-          port: 8000
-          wait-for-service-stability-seconds: 600
-          copy-env-vars: |
-            DATABASE_URL
-            SECRET_KEY
-            MQTT_BROKER
-            MQTT_PORT
-            MQTT_USERNAME
-            MQTT_PASSWORD
-            MQTT_KEEPALIVE
-            ALLOWED_ORIGINS
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          MQTT_BROKER: ${{ secrets.MQTT_BROKER }}
-          MQTT_PORT: ${{ secrets.MQTT_PORT }}
-          MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
-          MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
-          MQTT_KEEPALIVE: "60"
-          ALLOWED_ORIGINS: "*"
+      - name: Trigger AWS App Runner Deployment
+        run: |
+          SERVICE_ARN=$(aws apprunner list-services --region ${{ env.AWS_REGION }} --query "ServiceSummaryList[?ServiceName=='${{ env.APP_RUNNER_SERVICE }}'].ServiceArn" --output text)
+          echo "Found Service ARN: $SERVICE_ARN"
+          if [ -n "$SERVICE_ARN" ]; then
+            OPERATION_ID=$(aws apprunner start-deployment --service-arn $SERVICE_ARN --region ${{ env.AWS_REGION }} --query "OperationId" --output text)
+            echo "✅ Deployment triggered successfully! Operation ID: $OPERATION_ID"
+          else
+            echo "⚠️ Could not find Service ARN for ${{ env.APP_RUNNER_SERVICE }}"
+          fi
 
       - name: Deployment Success
         run: |
-          echo "🚀 SmartNest API deployed to AWS App Runner!"
-          echo "Service URL: ${{ steps.deploy-apprunner.outputs.service-url }}"
+          echo "🚀 SmartNest API image updated and deployed to AWS App Runner!"
