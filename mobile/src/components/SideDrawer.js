@@ -139,8 +139,9 @@ export default function SideDrawer({
   };
 
   return (
-    <Modal
-      visible={visible}
+    <>
+      <Modal
+        visible={visible}
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
