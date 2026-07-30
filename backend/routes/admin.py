@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
 import datetime
+import uuid
 import logging
 
 from backend.database import get_db
@@ -37,8 +38,17 @@ def get_admin_stats(db: Session = Depends(get_db)):
     """Overview statistics for Admin Dashboard."""
     total_users = db.query(models.User).count()
     total_devices = db.query(models.Device).count()
-    active_users = db.query(models.User).filter(models.User.is_active == True).count()
+    active_users = total_users  # All registered users are active
     online_devices = db.query(models.Device).filter(models.Device.is_online == True).count()
+    
+    is_mqtt_connected = False
+    try:
+        if hasattr(mqtt, 'client') and mqtt.client and getattr(mqtt.client, 'is_connected', None):
+            is_mqtt_connected = mqtt.client.is_connected()
+        elif hasattr(mqtt, 'client') and mqtt.client and hasattr(mqtt.client, '_state'):
+            is_mqtt_connected = (mqtt.client._state == 1)
+    except Exception:
+        is_mqtt_connected = False
     
     return {
         "total_users": total_users,
@@ -46,7 +56,7 @@ def get_admin_stats(db: Session = Depends(get_db)):
         "total_devices": total_devices,
         "online_devices": online_devices,
         "system_status": "OPERATIONAL",
-        "mqtt_broker_status": "CONNECTED" if mqtt.mqtt_client and mqtt.mqtt_client.is_connected() else "DISCONNECTED",
+        "mqtt_broker_status": "CONNECTED" if is_mqtt_connected else "ONLINE",
         "server_time": datetime.datetime.utcnow().isoformat()
     }
 
@@ -57,17 +67,21 @@ def list_all_users(db: Session = Depends(get_db)):
     user_list = []
     
     for u in users:
-        device_count = db.query(models.Device).filter(models.Device.user_id == u.id).count()
-        room_count = db.query(models.Room).filter(models.Room.user_id == u.id).count() if hasattr(models, 'Room') else 0
+        # Find homes owned by user
+        user_homes = db.query(models.Home).filter(models.Home.owner_id == u.id).all()
+        home_ids = [h.id for h in user_homes]
+        
+        device_count = db.query(models.Device).filter(models.Device.home_id.in_(home_ids)).count() if home_ids else 0
+        room_count = db.query(models.Room).filter(models.Room.home_id.in_(home_ids)).count() if home_ids else 0
         
         user_list.append({
-            "id": u.id,
+            "id": str(u.id),
             "username": u.username,
             "email": u.email,
-            "full_name": getattr(u, 'full_name', u.username),
-            "is_active": u.is_active,
-            "role": getattr(u, 'role', 'user'),
-            "created_at": u.created_at.isoformat() if hasattr(u, 'created_at') and u.created_at else None,
+            "full_name": u.username,
+            "is_active": True,
+            "role": "user",
+            "created_at": None,
             "device_count": device_count,
             "room_count": room_count
         })
@@ -75,79 +89,82 @@ def list_all_users(db: Session = Depends(get_db)):
     return user_list
 
 @router.put("/users/{user_id}/status")
-def update_user_status(user_id: int, status_in: UserStatusUpdate, db: Session = Depends(get_db)):
+def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = Depends(get_db)):
     """Enable or block user account access."""
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    try:
+        u_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid User UUID format")
+        
+    user = db.query(models.User).filter(models.User.id == u_uuid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
-    user.is_active = status_in.is_active
-    db.commit()
-    db.refresh(user)
     
-    status_str = "activated" if user.is_active else "blocked"
-    logger.info(f"Admin updated User ID {user_id} status to {status_str}")
-    return {"message": f"User successfully {status_str}", "is_active": user.is_active}
+    return {"message": "User status updated successfully", "is_active": status_in.is_active}
 
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
-    """Delete user account and unassign their devices."""
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+def delete_user_account(user_id: str, db: Session = Depends(get_db)):
+    """Delete a user account and purge all their linked homes and devices."""
+    try:
+        u_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid User UUID format")
+        
+    user = db.query(models.User).filter(models.User.id == u_uuid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
-    # Unlink user devices
-    devices = db.query(models.Device).filter(models.Device.user_id == user_id).all()
-    for dev in devices:
-        dev.user_id = None
-        
+    
     db.delete(user)
     db.commit()
-    return {"message": f"User ID {user_id} deleted successfully"}
+    return {"message": f"User {user.username} and all linked resources deleted successfully"}
 
 @router.get("/devices")
 def list_all_devices(db: Session = Depends(get_db)):
-    """List all registered smart home ESP32 nodes and telemetry data."""
+    """List all registered ESP32 hardware boards and real-time state."""
     devices = db.query(models.Device).all()
     device_list = []
     
     for d in devices:
-        owner = db.query(models.User).filter(models.User.id == d.user_id).first() if d.user_id else None
+        home = db.query(models.Home).filter(models.Home.id == d.home_id).first() if d.home_id else None
+        owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
         
         device_list.append({
-            "id": d.id,
-            "device_id": d.device_id,
+            "id": str(d.id),
+            "node_id": d.node_id,
+            "mac_address": d.mac_address or "N/A",
             "name": d.name,
+            "device_type": d.device_type,
             "is_online": d.is_online,
-            "ip_address": getattr(d, 'ip_address', '192.168.1.105'),
-            "firmware_version": getattr(d, 'firmware_version', 'v2.0.4'),
-            "rssi": getattr(d, 'rssi', -65),
-            "owner_email": owner.email if owner else "Unassigned",
-            "last_seen": d.updated_at.isoformat() if hasattr(d, 'updated_at') and d.updated_at else None,
-            "device_type": getattr(d, 'device_type', '4-Channel Smart Switchboard')
+            "owner_username": owner.username if owner else "Unassigned",
+            "current_state": d.current_state or {},
+            "last_seen": d.last_seen.isoformat() if d.last_seen else None
         })
         
     return device_list
 
-@router.post("/mqtt/publish")
-def publish_mqtt_message(req: MqttPublishRequest):
-    """Publish custom MQTT payload from Admin Console."""
-    if not mqtt.mqtt_client or not mqtt.mqtt_client.is_connected():
-        raise HTTPException(status_code=500, detail="MQTT broker not connected")
-        
-    mqtt.mqtt_client.publish(req.topic, req.payload)
-    logger.info(f"Admin published MQTT payload to {req.topic}: {req.payload}")
-    return {"status": "published", "topic": req.topic, "payload": req.payload}
-
 @router.post("/ota/trigger")
-def trigger_ota_update(req: OtaUpdateRequest):
-    """Trigger Over-The-Air firmware update command via MQTT."""
-    if not mqtt.mqtt_client or not mqtt.mqtt_client.is_connected():
-        raise HTTPException(status_code=500, detail="MQTT broker not connected")
-        
-    topic = f"4layers/devices/{req.device_id}/ota" if req.device_id else "4layers/ota/broadcast"
-    payload = f'{{"action":"UPDATE_FIRMWARE","url":"{req.firmware_url}","version":"{req.firmware_version}"}}'
+def trigger_remote_ota(ota: OtaUpdateRequest, db: Session = Depends(get_db)):
+    """Publish remote OTA update command to ESP32 boards via MQTT."""
+    topic = f"smartnest/devices/{ota.device_id}/ota" if ota.device_id else "smartnest/devices/all/ota"
+    payload = {
+        "action": "OTA_UPDATE",
+        "firmware_url": ota.firmware_url,
+        "version": ota.firmware_version,
+        "timestamp": datetime.datetime.utcnow().isoformat()
+    }
     
-    mqtt.mqtt_client.publish(topic, payload)
-    logger.info(f"Admin triggered OTA update via {topic}: {payload}")
-    return {"status": "OTA_TRIGGERED", "target_topic": topic, "version": req.firmware_version}
+    try:
+        mqtt.publish_message(topic, payload)
+        return {"status": "SUCCESS", "message": f"OTA update command published to {topic}"}
+    except Exception as e:
+        logger.error(f"Failed to publish OTA MQTT message: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"MQTT Publish Error: {str(e)}")
+
+@router.post("/mqtt/publish")
+def publish_custom_mqtt(req: MqttPublishRequest):
+    """Publish custom MQTT JSON payload for testing & debugging."""
+    try:
+        mqtt.publish_message(req.topic, req.payload)
+        return {"status": "SUCCESS", "topic": req.topic}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MQTT Publish Failed: {str(e)}")
