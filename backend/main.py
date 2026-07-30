@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import os
 from backend.database import engine, Base
-from backend.routes import users, devices, homes, rooms, schedules, alerts, history, voice_assistant
+from backend.routes import users, devices, homes, rooms, schedules, alerts, history, voice_assistant, admin
 from backend import mqtt
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
@@ -41,6 +42,12 @@ app.include_router(schedules.router)
 app.include_router(alerts.router)
 app.include_router(history.router)
 app.include_router(voice_assistant.router)
+app.include_router(admin.router)
+
+# Mount Web Admin Static Directory
+web_admin_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web_admin")
+if os.path.exists(web_admin_dir):
+    app.mount("/admin", StaticFiles(directory=web_admin_dir, html=True), name="admin")
 
 scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
 

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4Layers Smart Home — Admin Management Console</title>
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand-header">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+                <div class="brand-info">
+                    <h2>4Layers</h2>
+                    <span class="brand-sub">Admin Console v2.0</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-tab="overview">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard Overview</span>
+                </button>
+                <button class="nav-item" data-tab="users">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>Users & Activity</span>
+                </button>
+                <button class="nav-item" data-tab="nodes">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span>MQTT Nodes Monitor</span>
+                </button>
+                <button class="nav-item" data-tab="flasher">
+                    <i class="fa-solid fa-bolt-lightning"></i>
+                    <span>Firmware & OTA Center</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot green"></span>
+                    <span class="status-text">AWS Live Operational</span>
+                </div>
+                <div class="credit-badge">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>$120 Credits Active</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Navbar -->
+            <header class="top-navbar">
+                <div class="page-title-group">
+                    <h1 id="active-tab-title">Dashboard Overview</h1>
+                    <p id="active-tab-subtitle">Real-time system operational stats and server metrics</p>
+                </div>
+                
+                <div class="top-actions">
+                    <div class="broker-badge" id="broker-status-badge">
+                        <i class="fa-solid fa-network-wired"></i>
+                        <span>MQTT Broker: Connected</span>
+                    </div>
+                    <button class="btn btn-primary" id="btn-refresh-data">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Refresh Data</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- TAB 1: OVERVIEW DASHBOARD -->
+            <section id="tab-overview" class="tab-pane active">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-icon blue">
+                            <i class="fa-solid fa-users"></i>
+                        </div>
+                        <div class="metric-info">
+                            <span class="metric-label">Total Users</span>
+                            <h3 id="stat-total-users">--</h3>
+                            <span class="metric-sub green" id="stat-active-users">-- active accounts</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon green">
+                            <i class="fa-solid fa-wifi"></i>
+                        </div>
+                        <div class="metric-info">
+                            <span class="metric-label">Online Devices</span>
+                            <h3 id="stat-online-devices">--</h3>
+                            <span class="metric-sub" id="stat-total-devices">-- registered boards</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon purple">
+                            <i class="fa-solid fa-server"></i>
+                        </div>
+                        <div class="metric-info">
+                            <span class="metric-label">Cloud Backend</span>
+                            <h3>AWS App Runner</h3>
+                            <span class="metric-sub green">FastAPI + PostgreSQL</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon orange">
+                            <i class="fa-solid fa-signal"></i>
+                        </div>
+                        <div class="metric-info">
+                            <span class="metric-label">MQTT Protocol</span>
+                            <h3>TLS 8883</h3>
+                            <span class="metric-sub green">EMQX Serverless</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Terminal Output / Activity Log -->
+                <div class="panel-card margin-top-20">
+                    <div class="panel-header">
+                        <h3><i class="fa-solid fa-terminal"></i> Live System Activity & Telemetry Log</h3>
+                        <span class="badge green">Live Stream</span>
+                    </div>
+                    <div class="terminal-box" id="live-terminal-log">
+                        <div class="term-line info">[SYSTEM] 4Layers Admin Dashboard connected to AWS Backend API.</div>
+                        <div class="term-line success">[MQTT] Connected to EMQX Broker (TLS Port 8883). Listening for telemetry packets...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: USERS MANAGEMENT & ACTIVITY -->
+            <section id="tab-users" class="tab-pane">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <div class="header-left">
+                            <h3><i class="fa-solid fa-users"></i> Registered Users Directory</h3>
+                            <p class="panel-sub">Manage client user accounts, active sessions, and linked devices</p>
+                        </div>
+                        <div class="header-right">
+                            <input type="text" id="user-search-input" class="search-input" placeholder="Search by name or email...">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table" id="users-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User Information</th>
+                                    <th>Email Address</th>
+                                    <th>Linked Devices</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <tr>
+                                    <td colspan="6" class="text-center">Loading registered users from backend...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: MQTT NODES MONITOR -->
+            <section id="tab-nodes" class="tab-pane">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <div class="header-left">
+                            <h3><i class="fa-solid fa-microchip"></i> Live ESP32 Hardware Nodes Monitor</h3>
+                            <p class="panel-sub">Real-time status, firmware versions, and WiFi signal strength</p>
+                        </div>
+                        <div class="header-right">
+                            <button class="btn btn-outline" id="btn-open-mqtt-tester">
+                                <i class="fa-solid fa-paper-plane"></i> Send Test Command
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table" id="nodes-table">
+                            <thead>
+                                <tr>
+                                    <th>Node ID</th>
+                                    <th>Board Name</th>
+                                    <th>Owner</th>
+                                    <th>Firmware</th>
+                                    <th>IP Address</th>
+                                    <th>WiFi Signal (RSSI)</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nodes-table-body">
+                                <tr>
+                                    <td colspan="8" class="text-center">Scanning active MQTT nodes...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: FIRMWARE & OTA CENTER -->
+            <section id="tab-flasher" class="tab-pane">
+                <div class="flasher-grid">
+                    <!-- Remote OTA Update Card -->
+                    <div class="panel-card">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-cloud-arrow-up"></i> Remote MQTT OTA Firmware Updater</h3>
+                        </div>
+                        <p class="card-desc">Push over-the-air firmware updates to registered ESP32 boards remotely.</p>
+                        
+                        <form id="ota-form" class="admin-form">
+                            <div class="form-group">
+                                <label>Target Node / Device ID</label>
+                                <select id="ota-target-device" class="form-select">
+                                    <option value="">Broadcast to All Online Devices</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Firmware Version Tag</label>
+                                <input type="text" id="ota-firmware-version" class="form-input" value="v2.0.5" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Firmware File URL (.bin)</label>
+                                <input type="url" id="ota-firmware-url" class="form-input" value="https://edabtynvpy.ap-south-1.awsapprunner.com/firmware/latest.bin" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-accent full-width">
+                                <i class="fa-solid fa-paper-plane"></i> Trigger OTA Remote Update
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- WebSerial Browser USB Flasher Card -->
+                    <div class="panel-card">
+                        <div class="panel-header">
+                            <h3><i class="fa-brands fa-usb"></i> WebSerial Browser USB Flasher</h3>
+                            <span class="badge blue">Direct Browser USB</span>
+                        </div>
+                        <p class="card-desc">Connect ESP32 via USB cable to Chrome/Edge to flash firmware binary directly!</p>
+
+                        <div class="webserial-box">
+                            <div class="webserial-status" id="serial-status-text">
+                                <i class="fa-solid fa-plug"></i> USB Cable Disconnected
+                            </div>
+
+                            <button class="btn btn-primary full-width" id="btn-connect-usb">
+                                <i class="fa-solid fa-link"></i> Connect ESP32 via USB COM Port
+                            </button>
+
+                            <div class="form-group margin-top-15">
+                                <label>Select Firmware File (.bin)</label>
+                                <input type="file" id="local-bin-file" accept=".bin" class="form-file">
+                            </div>
+
+                            <button class="btn btn-green full-width" id="btn-flash-usb" disabled>
+                                <i class="fa-solid fa-bolt"></i> Flash Firmware to ESP32
+                            </button>
+
+                            <div class="progress-bar-container margin-top-15" id="flash-progress-bar" style="display:none;">
+                                <div class="progress-fill" id="flash-progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL: Custom MQTT Command Tester -->
+    <div class="modal-overlay" id="mqtt-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-paper-plane"></i> Send Test MQTT Payload</h3>
+                <button class="modal-close" id="btn-close-mqtt-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>MQTT Topic</label>
+                    <input type="text" id="test-mqtt-topic" class="form-input" value="4layers/devices/4LAYERS-NODE-001/command">
+                </div>
+                <div class="form-group">
+                    <label>Payload (JSON)</label>
+                    <textarea id="test-mqtt-payload" class="form-textarea" rows="4">{"channel": 1, "status": "ON"}</textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btn-cancel-mqtt-modal">Cancel</button>
+                <button class="btn btn-primary" id="btn-send-mqtt-payload">Publish Payload</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
