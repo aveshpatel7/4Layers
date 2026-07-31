@@ -845,6 +845,7 @@ const normalizeTimeInput = (raw) => {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
     </View>
   );
 }
