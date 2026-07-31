@@ -17,7 +17,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
 import BrandLogo from '../components/BrandLogo';
-import WheelColumn from '../components/WheelPicker';
+import WheelColumn from '../components/WheelColumn';
 
 const TOKENS = {
   bg: '#0E0E0E',
@@ -1183,7 +1183,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    height: 132,
+    height: 250,
     position: 'relative',
     overflow: 'hidden',
   },
