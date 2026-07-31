@@ -17,6 +17,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
 import BrandLogo from '../components/BrandLogo';
+import WheelColumn from '../components/WheelPicker';
 
 const TOKENS = {
   bg: '#0E0E0E',
@@ -727,122 +728,41 @@ const normalizeTimeInput = (raw) => {
               <View style={styles.wheelSelectionHighlight} pointerEvents="none" />
 
               {/* 1. Day / Frequency Column */}
-              <View style={[styles.wheelColumnBox, { flex: 1.4 }]}>
-                <ScrollView
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={44}
-                  decelerationRate="fast"
-                  onMomentumScrollEnd={handleDayScrollEnd}
-                  onScrollEndDrag={handleDayScrollEnd}
-                  contentContainerStyle={styles.wheelScrollPadding}
-                >
-                  {DAY_OPTIONS.map((opt) => {
-                    const isSel = selectedDayOptionLabel === opt.label;
-                    return (
-                      <TouchableOpacity
-                        key={opt.label}
-                        style={styles.wheelCell}
-                        onPress={() => handleSelectDayOption(opt)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]} numberOfLines={1}>
-                          {opt.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              <WheelColumn
+                data={DAY_OPTIONS.map(o => ({ label: o.label, value: o.label }))}
+                selectedValue={selectedDayOptionLabel}
+                onValueChange={(val) => {
+                  const opt = DAY_OPTIONS.find(o => o.label === val);
+                  if (opt) handleSelectDayOption(opt);
+                }}
+                flex={1.4}
+              />
 
               {/* 2. Hours Column */}
-              <View style={[styles.wheelColumnBox, { flex: 1 }]}>
-                <ScrollView
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={44}
-                  decelerationRate="fast"
-                  onMomentumScrollEnd={handleHourScrollEnd}
-                  onScrollEndDrag={handleHourScrollEnd}
-                  contentContainerStyle={styles.wheelScrollPadding}
-                >
-                  {HOURS_LIST.map((h) => {
-                    const isSel = wheelHour === h;
-                    return (
-                      <TouchableOpacity
-                        key={h}
-                        style={styles.wheelCell}
-                        onPress={() => updateTimeFromWheel(h, wheelMinute, wheelPeriod)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
-                          {h}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              <WheelColumn
+                data={HOURS_LIST.map(h => ({ label: h, value: h }))}
+                selectedValue={wheelHour}
+                onValueChange={(val) => updateTimeFromWheel(val, wheelMinute, wheelPeriod)}
+                flex={1}
+              />
 
               <Text style={styles.wheelColon}>:</Text>
 
               {/* 3. Minutes Column */}
-              <View style={[styles.wheelColumnBox, { flex: 1 }]}>
-                <ScrollView
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={44}
-                  decelerationRate="fast"
-                  onMomentumScrollEnd={handleMinuteScrollEnd}
-                  onScrollEndDrag={handleMinuteScrollEnd}
-                  contentContainerStyle={styles.wheelScrollPadding}
-                >
-                  {MINUTES_LIST.map((m) => {
-                    const isSel = wheelMinute === m;
-                    return (
-                      <TouchableOpacity
-                        key={m}
-                        style={styles.wheelCell}
-                        onPress={() => updateTimeFromWheel(wheelHour, m, wheelPeriod)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
-                          {m}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              <WheelColumn
+                data={MINUTES_LIST.map(m => ({ label: m, value: m }))}
+                selectedValue={wheelMinute}
+                onValueChange={(val) => updateTimeFromWheel(wheelHour, val, wheelPeriod)}
+                flex={1}
+              />
 
               {/* 4. Period Column (AM/PM) */}
-              <View style={[styles.wheelColumnBox, { flex: 0.9 }]}>
-                <ScrollView
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={44}
-                  decelerationRate="fast"
-                  onMomentumScrollEnd={handlePeriodScrollEnd}
-                  onScrollEndDrag={handlePeriodScrollEnd}
-                  contentContainerStyle={styles.wheelScrollPadding}
-                >
-                  {['AM', 'PM'].map((p) => {
-                    const isSel = wheelPeriod === p;
-                    return (
-                      <TouchableOpacity
-                        key={p}
-                        style={styles.wheelCell}
-                        onPress={() => updateTimeFromWheel(wheelHour, wheelMinute, p)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
-                          {p}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              <WheelColumn
+                data={[{ label: 'AM', value: 'AM' }, { label: 'PM', value: 'PM' }]}
+                selectedValue={wheelPeriod}
+                onValueChange={(val) => updateTimeFromWheel(wheelHour, wheelMinute, val)}
+                flex={0.9}
+              />
             </View>
 
             <TouchableOpacity
