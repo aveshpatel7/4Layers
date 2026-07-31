@@ -108,6 +108,7 @@ export default function SchedulesScreen() {
   const [wheelPeriod, setWheelPeriod] = useState('AM');
   const [selectedDays, setSelectedDays] = useState(['mon', 'tue', 'wed', 'thu', 'fri']);
   const [selectedDayOptionLabel, setSelectedDayOptionLabel] = useState('Weekdays');
+  const [timePickerModalVisible, setTimePickerModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSelectDayOption = (opt) => {
@@ -125,6 +126,30 @@ export default function SchedulesScreen() {
     const hhStr = hourNum.toString().padStart(2, '0');
     const mmStr = m.toString().padStart(2, '0');
     setScheduleTime(`${hhStr}:${mmStr}`);
+  };
+
+  const handleDayScrollEnd = (e) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const idx = Math.max(0, Math.min(DAY_OPTIONS.length - 1, Math.round(y / 44)));
+    handleSelectDayOption(DAY_OPTIONS[idx]);
+  };
+
+  const handleHourScrollEnd = (e) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const idx = Math.max(0, Math.min(HOURS_LIST.length - 1, Math.round(y / 44)));
+    updateTimeFromWheel(HOURS_LIST[idx], wheelMinute, wheelPeriod);
+  };
+
+  const handleMinuteScrollEnd = (e) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const idx = Math.max(0, Math.min(MINUTES_LIST.length - 1, Math.round(y / 44)));
+    updateTimeFromWheel(wheelHour, MINUTES_LIST[idx], wheelPeriod);
+  };
+
+  const handlePeriodScrollEnd = (e) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const idx = Math.max(0, Math.min(1, Math.round(y / 44)));
+    updateTimeFromWheel(wheelHour, wheelMinute, ['AM', 'PM'][idx]);
   };
 
   const handleOpenCreateModal = () => {
@@ -604,166 +629,25 @@ const normalizeTimeInput = (raw) => {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>Execution Time & Repeat Schedule</Text>
-              <View style={styles.wheelPickerCard}>
-                {/* Header Badge Displaying Current Selection */}
-                <View style={styles.wheelHeaderBadge}>
-                  <MaterialCommunityIcons name="calendar-clock" size={18} color={TOKENS.accent} style={{ marginRight: 6 }} />
-                  <Text style={styles.wheelHeaderDayText}>{selectedDayOptionLabel}</Text>
-                  <Text style={styles.wheelHeaderDot}>•</Text>
-                  <Text style={styles.wheelHeaderTimeText}>
-                    {wheelHour}:{wheelMinute} <Text style={styles.wheelHeaderPeriodText}>{wheelPeriod}</Text>
-                  </Text>
-                </View>
-
-                {/* Column Titles Bar ABOVE the Wheel Box */}
-                <View style={styles.wheelHeaderLabelsRow}>
-                  <Text style={[styles.wheelColTitleHeader, { flex: 1.4 }]}>REPEAT / DAY</Text>
-                  <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>HOUR</Text>
-                  <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>MIN</Text>
-                  <Text style={[styles.wheelColTitleHeader, { flex: 0.9 }]}>AM/PM</Text>
-                </View>
-
-                {/* 4 Wheel Picker Columns Container */}
-                <View style={styles.wheelColumnsContainer}>
-                  {/* Center Selection Highlight Lens */}
-                  <View style={styles.wheelSelectionHighlight} pointerEvents="none" />
-
-                  {/* 1. Day / Frequency Column */}
-                  <View style={[styles.wheelColumnBox, { flex: 1.4 }]}>
-                    <ScrollView
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator={false}
-                      snapToInterval={44}
-                      decelerationRate="fast"
-                      contentContainerStyle={styles.wheelScrollPadding}
-                    >
-                      {DAY_OPTIONS.map((opt) => {
-                        const isSel = selectedDayOptionLabel === opt.label;
-                        return (
-                          <TouchableOpacity
-                            key={opt.label}
-                            style={styles.wheelCell}
-                            onPress={() => handleSelectDayOption(opt)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]} numberOfLines={1}>
-                              {opt.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
+              <Text style={styles.label}>Execution Time & Repeat</Text>
+              <TouchableOpacity
+                style={styles.timeSelectorCard}
+                onPress={() => setTimePickerModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.timeSelectorLeftGroup}>
+                  <View style={styles.timeSelectorIconCircle}>
+                    <MaterialCommunityIcons name="calendar-clock" size={20} color={TOKENS.accent} />
                   </View>
-
-                  {/* 2. Hours Column */}
-                  <View style={[styles.wheelColumnBox, { flex: 1 }]}>
-                    <ScrollView
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator={false}
-                      snapToInterval={44}
-                      decelerationRate="fast"
-                      contentContainerStyle={styles.wheelScrollPadding}
-                    >
-                      {HOURS_LIST.map((h) => {
-                        const isSel = wheelHour === h;
-                        return (
-                          <TouchableOpacity
-                            key={h}
-                            style={styles.wheelCell}
-                            onPress={() => updateTimeFromWheel(h, wheelMinute, wheelPeriod)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
-                              {h}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-
-                  <Text style={styles.wheelColon}>:</Text>
-
-                  {/* 3. Minutes Column */}
-                  <View style={[styles.wheelColumnBox, { flex: 1 }]}>
-                    <ScrollView
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator={false}
-                      snapToInterval={44}
-                      decelerationRate="fast"
-                      contentContainerStyle={styles.wheelScrollPadding}
-                    >
-                      {MINUTES_LIST.map((m) => {
-                        const isSel = wheelMinute === m;
-                        return (
-                          <TouchableOpacity
-                            key={m}
-                            style={styles.wheelCell}
-                            onPress={() => updateTimeFromWheel(wheelHour, m, wheelPeriod)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
-                              {m}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-
-                  {/* 4. Period Column (AM/PM) */}
-                  <View style={[styles.wheelColumnBox, { flex: 0.9 }]}>
-                    <ScrollView
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator={false}
-                      snapToInterval={44}
-                      decelerationRate="fast"
-                      contentContainerStyle={styles.wheelScrollPadding}
-                    >
-                      {['AM', 'PM'].map((p) => {
-                        const isSel = wheelPeriod === p;
-                        return (
-                          <TouchableOpacity
-                            key={p}
-                            style={styles.wheelCell}
-                            onPress={() => updateTimeFromWheel(wheelHour, wheelMinute, p)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
-                              {p}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
+                  <View>
+                    <Text style={styles.timeSelectorMainText}>
+                      {selectedDayOptionLabel} • {wheelHour}:{wheelMinute} {wheelPeriod}
+                    </Text>
+                    <Text style={styles.timeSelectorSubText}>Tap to set execution time & repeat days</Text>
                   </View>
                 </View>
-              </View>
-
-              <Text style={styles.label}>Weekly Schedule</Text>
-              <View style={styles.weekdaysContainer}>
-                {WEEKDAYS.map((day) => {
-                  const isSelected = selectedDays.includes(day.key);
-                  return (
-                    <TouchableOpacity
-                      key={day.key}
-                      style={[
-                        styles.dayChip,
-                        isSelected && styles.dayChipSelected
-                      ]}
-                      onPress={() => toggleDaySelection(day.key)}
-                    >
-                      <Text style={[
-                        styles.dayChipText,
-                        isSelected && styles.dayChipTextSelected
-                      ]}>
-                        {day.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                <MaterialCommunityIcons name="chevron-right" size={22} color={TOKENS.textSecondary} />
+              </TouchableOpacity>
 
               <View style={styles.actionButtons}>
                 <TouchableOpacity
@@ -790,6 +674,177 @@ const normalizeTimeInput = (raw) => {
           </View>
         </View>
       </Modal>
+
+      {/* Dedicated Time Picker Wheel Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={timePickerModalVisible}
+        onRequestClose={() => setTimePickerModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.wheelModalCard}>
+            <View style={styles.wheelModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="clock-edit-outline" size={20} color={TOKENS.accent} style={{ marginRight: 8 }} />
+                <Text style={styles.wheelModalTitle}>Set Execution Time</Text>
+              </View>
+              <TouchableOpacity onPress={() => setTimePickerModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Header Badge Displaying Current Selection */}
+            <View style={styles.wheelHeaderBadge}>
+              <MaterialCommunityIcons name="calendar-clock" size={18} color={TOKENS.accent} style={{ marginRight: 6 }} />
+              <Text style={styles.wheelHeaderDayText}>{selectedDayOptionLabel}</Text>
+              <Text style={styles.wheelHeaderDot}>•</Text>
+              <Text style={styles.wheelHeaderTimeText}>
+                {wheelHour}:{wheelMinute} <Text style={styles.wheelHeaderPeriodText}>{wheelPeriod}</Text>
+              </Text>
+            </View>
+
+            {/* Column Titles Bar ABOVE the Wheel Box */}
+            <View style={styles.wheelHeaderLabelsRow}>
+              <Text style={[styles.wheelColTitleHeader, { flex: 1.4 }]}>REPEAT / DAY</Text>
+              <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>HOUR</Text>
+              <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>MIN</Text>
+              <Text style={[styles.wheelColTitleHeader, { flex: 0.9 }]}>AM/PM</Text>
+            </View>
+
+            {/* 4 Wheel Picker Columns Container */}
+            <View style={styles.wheelColumnsContainer}>
+              {/* Center Selection Highlight Lens */}
+              <View style={styles.wheelSelectionHighlight} pointerEvents="none" />
+
+              {/* 1. Day / Frequency Column */}
+              <View style={[styles.wheelColumnBox, { flex: 1.4 }]}>
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={44}
+                  decelerationRate="fast"
+                  onMomentumScrollEnd={handleDayScrollEnd}
+                  onScrollEndDrag={handleDayScrollEnd}
+                  contentContainerStyle={styles.wheelScrollPadding}
+                >
+                  {DAY_OPTIONS.map((opt) => {
+                    const isSel = selectedDayOptionLabel === opt.label;
+                    return (
+                      <TouchableOpacity
+                        key={opt.label}
+                        style={styles.wheelCell}
+                        onPress={() => handleSelectDayOption(opt)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]} numberOfLines={1}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* 2. Hours Column */}
+              <View style={[styles.wheelColumnBox, { flex: 1 }]}>
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={44}
+                  decelerationRate="fast"
+                  onMomentumScrollEnd={handleHourScrollEnd}
+                  onScrollEndDrag={handleHourScrollEnd}
+                  contentContainerStyle={styles.wheelScrollPadding}
+                >
+                  {HOURS_LIST.map((h) => {
+                    const isSel = wheelHour === h;
+                    return (
+                      <TouchableOpacity
+                        key={h}
+                        style={styles.wheelCell}
+                        onPress={() => updateTimeFromWheel(h, wheelMinute, wheelPeriod)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
+                          {h}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              <Text style={styles.wheelColon}>:</Text>
+
+              {/* 3. Minutes Column */}
+              <View style={[styles.wheelColumnBox, { flex: 1 }]}>
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={44}
+                  decelerationRate="fast"
+                  onMomentumScrollEnd={handleMinuteScrollEnd}
+                  onScrollEndDrag={handleMinuteScrollEnd}
+                  contentContainerStyle={styles.wheelScrollPadding}
+                >
+                  {MINUTES_LIST.map((m) => {
+                    const isSel = wheelMinute === m;
+                    return (
+                      <TouchableOpacity
+                        key={m}
+                        style={styles.wheelCell}
+                        onPress={() => updateTimeFromWheel(wheelHour, m, wheelPeriod)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
+                          {m}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* 4. Period Column (AM/PM) */}
+              <View style={[styles.wheelColumnBox, { flex: 0.9 }]}>
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={44}
+                  decelerationRate="fast"
+                  onMomentumScrollEnd={handlePeriodScrollEnd}
+                  onScrollEndDrag={handlePeriodScrollEnd}
+                  contentContainerStyle={styles.wheelScrollPadding}
+                >
+                  {['AM', 'PM'].map((p) => {
+                    const isSel = wheelPeriod === p;
+                    return (
+                      <TouchableOpacity
+                        key={p}
+                        style={styles.wheelCell}
+                        onPress={() => updateTimeFromWheel(wheelHour, wheelMinute, p)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.wheelCellText, isSel && styles.wheelCellTextSelected]}>
+                          {p}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.doneWheelBtn}
+              onPress={() => setTimePickerModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.doneWheelBtnText}>Set Time & Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
     </View>
   );
 }
@@ -1068,6 +1123,74 @@ const styles = StyleSheet.create({
     padding: 12,
     color: TOKENS.textPrimary,
     fontSize: 14
+  },
+  timeSelectorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#171717',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  timeSelectorLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeSelectorIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  timeSelectorMainText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  timeSelectorSubText: {
+    fontSize: 11,
+    color: TOKENS.textSecondary,
+    marginTop: 2,
+  },
+  wheelModalCard: {
+    width: '92%',
+    maxWidth: 420,
+    backgroundColor: TOKENS.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 20,
+  },
+  wheelModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  wheelModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: TOKENS.textPrimary,
+  },
+  doneWheelBtn: {
+    backgroundColor: TOKENS.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  doneWheelBtnText: {
+    color: TOKENS.bg,
+    fontSize: 15,
+    fontWeight: '900',
   },
   wheelPickerCard: {
     backgroundColor: '#141414',
