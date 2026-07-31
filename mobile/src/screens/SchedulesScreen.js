@@ -56,36 +56,8 @@ const DAY_OPTIONS = [
 ];
 
 const getUniqueDevices = (devList, roomList = []) => {
-  const channelMap = new Map();
-
-  for (const dev of devList) {
-    // Determine channel key (ch_1..ch_7 or node_id)
-    let channelKey = dev.node_id || dev.id;
-    let cleanName = dev.name;
-
-    if (dev.node_id && dev.node_id.includes('_')) {
-      const suffix = dev.node_id.split('_').pop();
-      const s = parseInt(suffix, 10);
-      channelKey = `ch_${suffix}`;
-      if (s === 5) cleanName = 'Fan';
-      else if (s === 6 || s === 7) cleanName = 'Master Switch';
-      else if (s >= 1 && s <= 4) cleanName = `Switch ${s}`;
-    } else if (dev.name?.toLowerCase().includes('fan')) {
-      cleanName = 'Fan';
-      channelKey = 'ch_5';
-    } else if (dev.name?.toLowerCase().includes('master')) {
-      cleanName = 'Master Switch';
-      channelKey = 'ch_6';
-    }
-
-    if (!channelMap.has(channelKey)) {
-      channelMap.set(channelKey, { ...dev, name: cleanName, channelKey });
-    }
-  }
-
-  const unique = Array.from(channelMap.values());
-
-  return unique.sort((a, b) => {
+  if (!devList || !Array.isArray(devList)) return [];
+  return [...devList].sort((a, b) => {
     const sA = a.node_id?.includes('_') ? parseInt(a.node_id.split('_').pop(), 10) || 0 : 0;
     const sB = b.node_id?.includes('_') ? parseInt(b.node_id.split('_').pop(), 10) || 0 : 0;
     return sA - sB;
@@ -198,12 +170,19 @@ export default function SchedulesScreen() {
     const hh24 = rawHours.toString().padStart(2, '0');
     setScheduleTime(`${hh24}:${mStr}`);
 
+    setSelectedRoomId('ALL');
+    if (devices.length > 0) {
+      setSelectedDeviceId(devices[0].id);
+      setSelectedDeviceIds([devices[0].id]);
+    }
+
     setModalVisible(true);
   };
 
   const filteredDevices = useMemo(() => {
-    if (selectedRoomId === 'ALL') return devices;
-    return devices.filter(d => d.room_id === selectedRoomId);
+    if (!selectedRoomId || selectedRoomId === 'ALL') return devices;
+    const roomFiltered = devices.filter(d => d.room_id === selectedRoomId);
+    return roomFiltered.length > 0 ? roomFiltered : devices;
   }, [devices, selectedRoomId]);
 
   useEffect(() => {
