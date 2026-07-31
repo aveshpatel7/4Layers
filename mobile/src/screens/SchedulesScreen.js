@@ -127,6 +127,30 @@ export default function SchedulesScreen() {
     setScheduleTime(`${hhStr}:${mmStr}`);
   };
 
+  const handleOpenCreateModal = () => {
+    const now = new Date();
+    let rawHours = now.getHours();
+    const rawMinutes = now.getMinutes();
+
+    const period = rawHours >= 12 ? 'PM' : 'AM';
+    let displayHour = rawHours % 12;
+    if (displayHour === 0) displayHour = 12;
+
+    const hStr = displayHour.toString().padStart(2, '0');
+    const mStr = rawMinutes.toString().padStart(2, '0');
+
+    setWheelHour(hStr);
+    setWheelMinute(mStr);
+    setWheelPeriod(period);
+    setSelectedDayOptionLabel('Everyday');
+    setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+
+    const hh24 = rawHours.toString().padStart(2, '0');
+    setScheduleTime(`${hh24}:${mStr}`);
+
+    setModalVisible(true);
+  };
+
   const filteredDevices = useMemo(() => {
     if (selectedRoomId === 'ALL') return devices;
     return devices.filter(d => d.room_id === selectedRoomId);
@@ -378,7 +402,7 @@ const normalizeTimeInput = (raw) => {
           <BrandLogo size="small" />
           <Text style={styles.title}>Schedules</Text>
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity style={styles.addButton} onPress={handleOpenCreateModal}>
           <MaterialCommunityIcons name="plus" size={18} color={TOKENS.bg} />
           <Text style={styles.addButtonText}>Create</Text>
         </TouchableOpacity>
