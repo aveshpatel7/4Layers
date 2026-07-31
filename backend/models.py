@@ -94,6 +94,7 @@ class Schedule(Base):
     time = Column(String, nullable=False)  # "HH:MM" (e.g. "08:30" or "22:00")
     days = Column(String, nullable=False)  # CSV representation e.g. "mon,tue,wed" or "daily"
     enabled = Column(Boolean, default=True, server_default=text("true"), nullable=False)
+    actions_json = Column(JSON, nullable=True)  # List of actions e.g. [{"device_id": "...", "action": "ON"}]
     created_at = Column(DateTime, default=datetime.datetime.utcnow, server_default=text("timezone('utc', now())"), nullable=False)
 
     # Relationships

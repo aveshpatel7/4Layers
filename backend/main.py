@@ -93,9 +93,15 @@ def check_schedules():
 
             days_list = [d.strip().lower() for d in schedule.days.split(',')]
             if "daily" in days_list or "everyday" in days_list or current_day_str in days_list:
-                    device = db.query(models.Device).filter(models.Device.id == schedule.device_id).first()
+                # Execute all target actions in parallel/sequence (multi-switch support)
+                actions_list = schedule.actions_json if (schedule.actions_json and isinstance(schedule.actions_json, list)) else [{"device_id": str(schedule.device_id), "action": schedule.action}]
+
+                for act_item in actions_list:
+                    target_dev_id = act_item.get("device_id")
+                    target_act = act_item.get("action", schedule.action or "ON")
+                    device = db.query(models.Device).filter(models.Device.id == target_dev_id).first()
                     if device:
-                        requested_state = { "status": schedule.action }
+                        requested_state = { "status": target_act }
                         previous_state = device.current_state or {}
 
                         # Update device current_state in DB so API & UI sync
@@ -116,7 +122,7 @@ def check_schedules():
                             user_id=schedule.user_id,
                             device_id=device.id,
                             type="schedule_run",
-                            message=f"Schedule auto-toggled appliance '{device.name}' to {schedule.action} state.",
+                            message=f"Schedule auto-toggled appliance '{device.name}' to {target_act} state.",
                             is_read=False
                         )
                         db.add(alert_entry)
@@ -125,9 +131,10 @@ def check_schedules():
                             node_id=device.node_id,
                             state=requested_state
                         )
-                        # Mark as fired this minute
-                        _fired_schedules_this_minute[schedule.id] = current_time_str
-                        print(f"[Scheduler] Fired schedule {schedule.id} for device {device.name} -> {schedule.action}")
+                        print(f"[Scheduler] Fired multi-switch schedule {schedule.id} for device {device.name} -> {target_act}")
+
+                # Mark schedule as fired this minute
+                _fired_schedules_this_minute[schedule.id] = current_time_str
 
         # Cleanup old entries from _fired_schedules_this_minute
         _fired_schedules_this_minute = {

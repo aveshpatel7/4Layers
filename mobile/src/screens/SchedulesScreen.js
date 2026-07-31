@@ -102,6 +102,7 @@ export default function SchedulesScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState('ALL');
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState([]);
   const [selectedAction, setSelectedAction] = useState('ON');
   const [scheduleTime, setScheduleTime] = useState('08:00'); // HH:MM
   const [wheelHour, setWheelHour] = useState('08');
@@ -111,6 +112,20 @@ export default function SchedulesScreen() {
   const [selectedDayOptionLabel, setSelectedDayOptionLabel] = useState('Weekdays');
   const [timePickerModalVisible, setTimePickerModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const toggleDeviceSelection = (id) => {
+    if (selectedDeviceIds.includes(id)) {
+      if (selectedDeviceIds.length > 1) {
+        setSelectedDeviceIds(selectedDeviceIds.filter(dId => dId !== id));
+      }
+    } else {
+      if (selectedDeviceIds.length < 6) {
+        setSelectedDeviceIds([...selectedDeviceIds, id]);
+      } else {
+        Alert.alert('Limit Reached', 'You can select up to 6 switches in a single schedule.');
+      }
+    }
+  };
 
   const handleSelectDayOption = (opt) => {
     setSelectedDayOptionLabel(opt.label);
@@ -287,8 +302,10 @@ const normalizeTimeInput = (raw) => {
 };
 
   const handleCreateSchedule = async () => {
-    if (!selectedDeviceId) {
-      Alert.alert('Validation Error', 'Please select a device');
+    const targetIds = selectedDeviceIds.length > 0 ? selectedDeviceIds : (selectedDeviceId ? [selectedDeviceId] : []);
+
+    if (targetIds.length === 0) {
+      Alert.alert('Validation Error', 'Please select at least one appliance/switch');
       return;
     }
 
@@ -304,12 +321,18 @@ const normalizeTimeInput = (raw) => {
     try {
       setIsSaving(true);
       const daysCSV = selectedDays.join(',');
+      const actionsPayload = targetIds.map(dId => ({
+        device_id: dId,
+        action: selectedAction
+      }));
+
       await apiClient.post('/api/schedules', {
-        device_id: selectedDeviceId,
+        device_id: targetIds[0],
         action: selectedAction,
         time: formattedTime,
         days: daysCSV,
-        enabled: true
+        enabled: true,
+        actions: actionsPayload
       });
 
       setModalVisible(false);
@@ -319,7 +342,7 @@ const normalizeTimeInput = (raw) => {
       // Refresh list
       const schedsRes = await apiClient.get('/api/schedules');
       setSchedules(schedsRes.data);
-      Alert.alert('Success', 'Automation schedule successfully created');
+      Alert.alert('Success', `Automation rule created for ${targetIds.length} switch(es)!`);
     } catch (error) {
       console.error('Failed to create schedule:', error);
       Alert.alert('Error', error.response?.data?.detail || 'Failed to save schedule');
@@ -581,7 +604,12 @@ const normalizeTimeInput = (raw) => {
                 </>
               )}
 
-              <Text style={styles.label}>Select Appliance / Switch</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 8 }}>
+                <Text style={[styles.label, { marginTop: 0, marginBottom: 0 }]}>Select Appliance / Switch</Text>
+                <Text style={{ fontSize: 11, color: TOKENS.accent, fontWeight: '800' }}>
+                  {selectedDeviceIds.length} Selected (Max 6)
+                </Text>
+              </View>
               {filteredDevices.length === 0 ? (
                 <Text style={styles.warningText}>No devices available in this room.</Text>
               ) : (
@@ -591,7 +619,7 @@ const normalizeTimeInput = (raw) => {
                   contentContainerStyle={styles.deviceChipsRow}
                 >
                   {filteredDevices.map((dev) => {
-                    const isSelected = selectedDeviceId === dev.id;
+                    const isSelected = selectedDeviceIds.includes(dev.id);
                     const devIcon = dev.type === 'fan' ? 'fan' : dev.type === 'light' ? 'lightbulb-outline' : 'power';
                     const room = rooms.find(r => r.id === dev.room_id);
                     const labelText = room && selectedRoomId === 'ALL' && rooms.length > 1 ? `${dev.name} (${room.name})` : dev.name;
@@ -603,11 +631,11 @@ const normalizeTimeInput = (raw) => {
                           styles.deviceChip,
                           isSelected && styles.deviceChipSelected
                         ]}
-                        onPress={() => setSelectedDeviceId(dev.id)}
+                        onPress={() => toggleDeviceSelection(dev.id)}
                         activeOpacity={0.8}
                       >
                         <MaterialCommunityIcons
-                          name={devIcon}
+                          name={isSelected ? 'check-circle' : devIcon}
                           size={16}
                           color={isSelected ? TOKENS.bg : TOKENS.textSecondary}
                         />

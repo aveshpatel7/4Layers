@@ -26,13 +26,18 @@ def create_schedule(
             detail="Device not found or access denied"
         )
         
+    actions_data = None
+    if schedule_data.actions and isinstance(schedule_data.actions, list):
+        actions_data = schedule_data.actions
+
     new_schedule = models.Schedule(
         user_id=current_user.id,
         device_id=schedule_data.device_id,
         action=schedule_data.action,
         time=schedule_data.time,
         days=schedule_data.days.lower(),
-        enabled=schedule_data.enabled
+        enabled=schedule_data.enabled,
+        actions_json=actions_data
     )
     
     db.add(new_schedule)

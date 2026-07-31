@@ -143,6 +143,7 @@ class ScheduleBase(BaseModel):
     time: str = Field(..., description="HH:MM format")
     days: str = Field(..., description="e.g. mon,tue,wed or daily")
     enabled: bool = True
+    actions: Optional[List[Dict[str, Any]]] = Field(None, description="Optional multi-switch action list e.g. [{'device_id': '...', 'action': 'ON'}]")
 
 class ScheduleCreate(ScheduleBase):
     pass
@@ -152,10 +153,12 @@ class ScheduleUpdate(BaseModel):
     time: Optional[str] = None
     days: Optional[str] = None
     enabled: Optional[bool] = None
+    actions: Optional[List[Dict[str, Any]]] = None
 
 class ScheduleResponse(ScheduleBase):
     id: UUID
     user_id: UUID
+    actions_json: Optional[List[Dict[str, Any]]] = None
     created_at: datetime.datetime
 
     model_config = {
