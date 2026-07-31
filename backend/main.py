@@ -93,12 +93,17 @@ def check_schedules():
 
             days_list = [d.strip().lower() for d in schedule.days.split(',')]
             if "daily" in days_list or "everyday" in days_list or current_day_str in days_list:
-                # Execute all target actions in parallel/sequence (multi-switch support)
+                # Execute all target actions (multi-switch support)
                 actions_list = schedule.actions_json if (schedule.actions_json and isinstance(schedule.actions_json, list)) else [{"device_id": str(schedule.device_id), "action": schedule.action}]
+                print(f"[Scheduler] Processing schedule {schedule.id} with {len(actions_list)} multi-switch actions...")
 
-                for act_item in actions_list:
+                import time
+                for idx, act_item in enumerate(actions_list):
                     target_dev_id = act_item.get("device_id")
                     target_act = act_item.get("action", schedule.action or "ON")
+                    if not target_dev_id:
+                        continue
+
                     device = db.query(models.Device).filter(models.Device.id == target_dev_id).first()
                     if device:
                         requested_state = { "status": target_act }
@@ -131,7 +136,8 @@ def check_schedules():
                             node_id=device.node_id,
                             state=requested_state
                         )
-                        print(f"[Scheduler] Fired multi-switch schedule {schedule.id} for device {device.name} -> {target_act}")
+                        print(f"[Scheduler] Action {idx+1}/{len(actions_list)} Fired: Schedule {schedule.id} -> Device '{device.name}' (node_id: {device.node_id}) set to {target_act}")
+                        time.sleep(0.05)  # 50ms delay between consecutive MQTT publishes to prevent hardware rx buffer drops
 
                 # Mark schedule as fired this minute
                 _fired_schedules_this_minute[schedule.id] = current_time_str
