@@ -692,7 +692,7 @@ const normalizeTimeInput = (raw) => {
         visible={timePickerModalVisible}
         onRequestClose={() => setTimePickerModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.wheelModalOverlay}>
           <View style={styles.wheelModalCard}>
             <View style={styles.wheelModalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -949,6 +949,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'flex-end'
   },
+  wheelModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
   modalContent: {
     backgroundColor: TOKENS.surface,
     borderTopLeftRadius: 20,
@@ -1091,13 +1098,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   wheelModalCard: {
-    width: '92%',
-    maxWidth: 420,
+    width: '90%',
+    maxWidth: 400,
+    alignSelf: 'center',
     backgroundColor: TOKENS.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     padding: 20,
+    overflow: 'hidden',
   },
   wheelModalHeader: {
     flexDirection: 'row',
@@ -1182,16 +1191,17 @@ const styles = StyleSheet.create({
   wheelColumnsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     height: 150,
     width: '100%',
+    paddingHorizontal: 10,
     position: 'relative',
     overflow: 'hidden',
   },
   wheelSelectionHighlight: {
     position: 'absolute',
-    left: 4,
-    right: 4,
+    left: 8,
+    right: 8,
     top: 53,
     height: 44,
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
