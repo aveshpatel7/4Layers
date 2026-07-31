@@ -1,12 +1,12 @@
-import React, { useRef, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React, { useRef, useCallback, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 
-const ITEM_HEIGHT = 50;
-const CONTAINER_HEIGHT = 250;
+const ITEM_HEIGHT = 44;
+const CONTAINER_HEIGHT = 150;
 
-const WheelColumn = ({ data, selectedValue, onValueChange, width = 80 }) => {
+const WheelColumn = ({ data, selectedValue, onValueChange, flex, width }) => {
   const flatListRef = useRef(null);
-  const initialIndex = Math.max(0, data.findIndex(item => item.value === selectedValue));
+  const initialIndex = Math.max(0, data.findIndex(item => item.value === selectedValue || item.label === selectedValue));
 
   const getItemLayout = useCallback((_, index) => ({
     length: ITEM_HEIGHT,
@@ -16,26 +16,53 @@ const WheelColumn = ({ data, selectedValue, onValueChange, width = 80 }) => {
 
   const handleMomentumScrollEnd = useCallback((event) => {
     const y = event.nativeEvent.contentOffset.y;
-    const index = Math.round(y / ITEM_HEIGHT);
-    if (index >= 0 && index < data.length) {
-      onValueChange(data[index].value);
+    const index = Math.max(0, Math.min(data.length - 1, Math.round(y / ITEM_HEIGHT)));
+    if (data[index]) {
+      const val = data[index].value !== undefined ? data[index].value : data[index];
+      onValueChange(val);
     }
   }, [data, onValueChange]);
 
-  const renderItem = useCallback(({ item }) => (
-    <View style={styles.itemContainer}>
-      <Text style={[styles.itemText, item.value === selectedValue && styles.selectedItemText]}>
-        {item.label}
-      </Text>
-    </View>
-  ), [selectedValue]);
+  useEffect(() => {
+    if (flatListRef.current && initialIndex >= 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
+      }, 60);
+    }
+  }, [initialIndex]);
+
+  const renderItem = useCallback(({ item }) => {
+    const itemVal = item.value !== undefined ? item.value : item;
+    const itemLabel = item.label !== undefined ? item.label : item;
+    const isSelected = itemVal === selectedValue || itemLabel === selectedValue;
+
+    return (
+      <TouchableOpacity
+        style={styles.itemContainer}
+        onPress={() => onValueChange(itemVal)}
+        activeOpacity={0.7}
+      >
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.itemText,
+            isSelected && styles.selectedItemText
+          ]}
+        >
+          {itemLabel}
+        </Text>
+      </TouchableOpacity>
+    );
+  }, [selectedValue, onValueChange]);
+
+  const styleProps = flex !== undefined ? { flex } : { width: width || 70 };
 
   return (
-    <View style={[styles.wrapper, { width }]}>
+    <View style={[styles.wrapper, styleProps]}>
       <FlatList
         ref={flatListRef}
         data={data}
-        keyExtractor={(item) => item.value.toString()}
+        keyExtractor={(item, idx) => (item.value !== undefined ? item.value.toString() : item.toString() + idx)}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
@@ -51,17 +78,34 @@ const WheelColumn = ({ data, selectedValue, onValueChange, width = 80 }) => {
           }, 100);
         }}
       />
-      <View style={styles.highlightBox} pointerEvents="none" />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: { height: CONTAINER_HEIGHT, width: 80, justifyContent: 'center', alignItems: 'center' },
-  itemContainer: { height: ITEM_HEIGHT, justifyContent: 'center', alignItems: 'center' },
-  itemText: { fontSize: 18, color: '#888', fontWeight: '500' },
-  selectedItemText: { color: '#22C55E', fontSize: 20, fontWeight: 'bold' },
-  highlightBox: { position: 'absolute', top: (CONTAINER_HEIGHT - ITEM_HEIGHT) / 2, height: ITEM_HEIGHT, width: '100%', borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(34, 197, 94, 0.4)', backgroundColor: 'rgba(34, 197, 94, 0.12)', borderRadius: 10 }
+  wrapper: {
+    height: CONTAINER_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemContainer: {
+    height: ITEM_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  itemText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  selectedItemText: {
+    color: '#22C55E',
+    fontSize: 18,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
 });
 
 export default WheelColumn;
