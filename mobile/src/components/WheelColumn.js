@@ -1,12 +1,33 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 
 const ITEM_HEIGHT = 44;
 const CONTAINER_HEIGHT = 150;
+const REPEATS = 60; // 60 cycles for smooth infinite scrolling
 
-const WheelColumn = ({ data, selectedValue, onValueChange, flex, width }) => {
+const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isInfinite = true }) => {
   const flatListRef = useRef(null);
-  const initialIndex = Math.max(0, data.findIndex(item => item.value === selectedValue || item.label === selectedValue));
+  const baseLength = data.length;
+
+  const expandedData = useMemo(() => {
+    if (!isInfinite || baseLength <= 1) return data;
+    const result = [];
+    for (let r = 0; r < REPEATS; r++) {
+      result.push(...data);
+    }
+    return result;
+  }, [data, isInfinite, baseLength]);
+
+  const baseIndex = useMemo(() => {
+    return Math.max(0, data.findIndex(item => {
+      const val = item.value !== undefined ? item.value : item;
+      const label = item.label !== undefined ? item.label : item;
+      return val === selectedValue || label === selectedValue;
+    }));
+  }, [data, selectedValue]);
+
+  const middleCycle = isInfinite ? Math.floor(REPEATS / 2) : 0;
+  const initialIndex = isInfinite ? (middleCycle * baseLength + baseIndex) : baseIndex;
 
   const getItemLayout = useCallback((_, index) => ({
     length: ITEM_HEIGHT,
@@ -16,12 +37,31 @@ const WheelColumn = ({ data, selectedValue, onValueChange, flex, width }) => {
 
   const handleMomentumScrollEnd = useCallback((event) => {
     const y = event.nativeEvent.contentOffset.y;
-    const index = Math.max(0, Math.min(data.length - 1, Math.round(y / ITEM_HEIGHT)));
-    if (data[index]) {
-      const val = data[index].value !== undefined ? data[index].value : data[index];
-      onValueChange(val);
+    const rawIndex = Math.round(y / ITEM_HEIGHT);
+
+    if (isInfinite && baseLength > 0) {
+      const normalizedIndex = ((rawIndex % baseLength) + baseLength) % baseLength;
+      const selectedObj = data[normalizedIndex];
+      if (selectedObj) {
+        const val = selectedObj.value !== undefined ? selectedObj.value : selectedObj;
+        onValueChange(val);
+      }
+
+      // Silent recenter if user scrolls near boundary limits
+      if (rawIndex < baseLength * 5 || rawIndex > baseLength * (REPEATS - 5)) {
+        const resetOffset = (middleCycle * baseLength + normalizedIndex) * ITEM_HEIGHT;
+        setTimeout(() => {
+          flatListRef.current?.scrollToOffset({ offset: resetOffset, animated: false });
+        }, 50);
+      }
+    } else {
+      const clampedIndex = Math.max(0, Math.min(data.length - 1, rawIndex));
+      if (data[clampedIndex]) {
+        const val = data[clampedIndex].value !== undefined ? data[clampedIndex].value : data[clampedIndex];
+        onValueChange(val);
+      }
     }
-  }, [data, onValueChange]);
+  }, [data, isInfinite, baseLength, onValueChange, middleCycle]);
 
   useEffect(() => {
     if (flatListRef.current && initialIndex >= 0) {
@@ -61,8 +101,8 @@ const WheelColumn = ({ data, selectedValue, onValueChange, flex, width }) => {
     <View style={[styles.wrapper, styleProps]}>
       <FlatList
         ref={flatListRef}
-        data={data}
-        keyExtractor={(item, idx) => (item.value !== undefined ? item.value.toString() : item.toString() + idx)}
+        data={expandedData}
+        keyExtractor={(item, idx) => (item.value !== undefined ? `${item.value}_${idx}` : `${item}_${idx}`)}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
