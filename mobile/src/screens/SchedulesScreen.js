@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -128,29 +128,38 @@ export default function SchedulesScreen() {
     setScheduleTime(`${hhStr}:${mmStr}`);
   };
 
-  const handleDayScrollEnd = (e) => {
+  const handleDayScrollEnd = useCallback((e) => {
     const y = e.nativeEvent.contentOffset.y;
     const idx = Math.max(0, Math.min(DAY_OPTIONS.length - 1, Math.round(y / 44)));
-    handleSelectDayOption(DAY_OPTIONS[idx]);
-  };
+    if (DAY_OPTIONS[idx]) {
+      handleSelectDayOption(DAY_OPTIONS[idx]);
+    }
+  }, []);
 
-  const handleHourScrollEnd = (e) => {
+  const handleHourScrollEnd = useCallback((e) => {
     const y = e.nativeEvent.contentOffset.y;
     const idx = Math.max(0, Math.min(HOURS_LIST.length - 1, Math.round(y / 44)));
-    updateTimeFromWheel(HOURS_LIST[idx], wheelMinute, wheelPeriod);
-  };
+    if (HOURS_LIST[idx]) {
+      updateTimeFromWheel(HOURS_LIST[idx], wheelMinute, wheelPeriod);
+    }
+  }, [wheelMinute, wheelPeriod]);
 
-  const handleMinuteScrollEnd = (e) => {
+  const handleMinuteScrollEnd = useCallback((e) => {
     const y = e.nativeEvent.contentOffset.y;
     const idx = Math.max(0, Math.min(MINUTES_LIST.length - 1, Math.round(y / 44)));
-    updateTimeFromWheel(wheelHour, MINUTES_LIST[idx], wheelPeriod);
-  };
+    if (MINUTES_LIST[idx]) {
+      updateTimeFromWheel(wheelHour, MINUTES_LIST[idx], wheelPeriod);
+    }
+  }, [wheelHour, wheelPeriod]);
 
-  const handlePeriodScrollEnd = (e) => {
+  const handlePeriodScrollEnd = useCallback((e) => {
     const y = e.nativeEvent.contentOffset.y;
     const idx = Math.max(0, Math.min(1, Math.round(y / 44)));
-    updateTimeFromWheel(wheelHour, wheelMinute, ['AM', 'PM'][idx]);
-  };
+    const p = ['AM', 'PM'][idx];
+    if (p) {
+      updateTimeFromWheel(wheelHour, wheelMinute, p);
+    }
+  }, [wheelHour, wheelMinute]);
 
   const handleOpenCreateModal = () => {
     const now = new Date();
