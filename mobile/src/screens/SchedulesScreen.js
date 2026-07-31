@@ -15,6 +15,7 @@ import {
   StatusBar
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import apiClient from '../api/client';
 import BrandLogo from '../components/BrandLogo';
 import WheelColumn from '../components/WheelColumn';
@@ -176,18 +177,23 @@ export default function SchedulesScreen() {
       setSelectedDeviceIds([devices[0].id]);
     }
 
+    console.log('[Schedules DEBUG] handleOpenCreateModal - Total Devices:', devices.length, 'selectedRoomId:', selectedRoomId);
     setModalVisible(true);
   };
 
   const filteredDevices = useMemo(() => {
     if (!selectedRoomId || selectedRoomId === 'ALL') return devices;
     const roomFiltered = devices.filter(d => d.room_id === selectedRoomId);
-    return roomFiltered.length > 0 ? roomFiltered : devices;
+    const result = roomFiltered.length > 0 ? roomFiltered : devices;
+    console.log('[Schedules DEBUG] filteredDevices recalculated:', result.length, 'for room:', selectedRoomId);
+    return result;
   }, [devices, selectedRoomId]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
   const fetchData = async () => {
     try {
@@ -197,14 +203,17 @@ export default function SchedulesScreen() {
         apiClient.get('/api/devices'),
         apiClient.get('/api/rooms').catch(() => ({ data: [] }))
       ]);
+      console.log('[Schedules DEBUG] Raw GET /api/devices response count:', devsRes.data?.length);
       setSchedules(schedsRes.data);
       const roomList = roomsRes.data || [];
       setRooms(roomList);
       
       const sorted = getUniqueDevices(devsRes.data || [], roomList);
+      console.log('[Schedules DEBUG] Processed devices count:', sorted.length);
       setDevices(sorted);
       if (sorted.length > 0) {
         setSelectedDeviceId(sorted[0].id);
+        setSelectedDeviceIds([sorted[0].id]);
       }
     } catch (error) {
       console.error('Failed to load schedules dataset:', error);
