@@ -36,6 +36,17 @@ def create_room(
     db.refresh(new_room)
     return new_room
 
+@router.get("", response_model=List[schemas.RoomResponse])
+def get_all_user_rooms(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieve all rooms across all homes owned by the user."""
+    user_home_ids = [h.id for h in current_user.homes]
+    if not user_home_ids:
+        return []
+    return db.query(models.Room).filter(models.Room.home_id.in_(user_home_ids)).all()
+
 @router.get("/home/{home_id}", response_model=List[schemas.RoomResponse])
 def get_rooms(
     home_id: UUID,

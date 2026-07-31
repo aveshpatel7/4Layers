@@ -208,6 +208,14 @@ def startup_event():
 
     # Create database tables if they do not exist
     Base.metadata.create_all(bind=engine)
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE schedules ADD COLUMN IF NOT EXISTS actions_json JSON;"))
+            conn.commit()
+            print("PostgreSQL migration: Verified actions_json column in schedules table.")
+    except Exception as m_err:
+        print("PostgreSQL migration notice:", m_err)
     print("Database tables initialized.")
 
     # Start MQTT connection and client background loop
