@@ -13,7 +13,8 @@ from backend import models
 # Authentication Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "smartnest_super_secret_key_change_me_in_production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+# Set token expiration to 1 Year (525,600 minutes) so users stay logged in like SmartLife/Tuya apps
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "525600"))
 
 # OAuth2PasswordBearer extracts token from authorization header.
 # We point tokenUrl to the login endpoint.
