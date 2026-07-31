@@ -736,6 +736,7 @@ const normalizeTimeInput = (raw) => {
                   if (opt) handleSelectDayOption(opt);
                 }}
                 flex={1.4}
+                isLooping={false}
               />
 
               {/* 2. Hours Column */}
@@ -744,6 +745,7 @@ const normalizeTimeInput = (raw) => {
                 selectedValue={wheelHour}
                 onValueChange={(val) => updateTimeFromWheel(val, wheelMinute, wheelPeriod)}
                 flex={1}
+                isLooping={true}
               />
 
               <Text style={styles.wheelColon}>:</Text>
@@ -754,6 +756,7 @@ const normalizeTimeInput = (raw) => {
                 selectedValue={wheelMinute}
                 onValueChange={(val) => updateTimeFromWheel(wheelHour, val, wheelPeriod)}
                 flex={1}
+                isLooping={true}
               />
 
               {/* 4. Period Column (AM/PM) */}
@@ -762,6 +765,7 @@ const normalizeTimeInput = (raw) => {
                 selectedValue={wheelPeriod}
                 onValueChange={(val) => updateTimeFromWheel(wheelHour, wheelMinute, val)}
                 flex={0.9}
+                isLooping={false}
               />
             </View>
 

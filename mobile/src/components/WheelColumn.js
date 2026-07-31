@@ -3,20 +3,20 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native
 
 const ITEM_HEIGHT = 44;
 const CONTAINER_HEIGHT = 150;
-const REPEATS = 60; // 60 cycles for smooth infinite scrolling
+const REPEATS = 60; // 60 cycles for smooth infinite looping on Hours & Minutes
 
-const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isInfinite = true }) => {
+const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isLooping = false }) => {
   const flatListRef = useRef(null);
   const baseLength = data.length;
 
   const expandedData = useMemo(() => {
-    if (!isInfinite || baseLength <= 1) return data;
+    if (!isLooping || baseLength <= 1) return data;
     const result = [];
     for (let r = 0; r < REPEATS; r++) {
       result.push(...data);
     }
     return result;
-  }, [data, isInfinite, baseLength]);
+  }, [data, isLooping, baseLength]);
 
   const baseIndex = useMemo(() => {
     return Math.max(0, data.findIndex(item => {
@@ -26,8 +26,8 @@ const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isInfini
     }));
   }, [data, selectedValue]);
 
-  const middleCycle = isInfinite ? Math.floor(REPEATS / 2) : 0;
-  const initialIndex = isInfinite ? (middleCycle * baseLength + baseIndex) : baseIndex;
+  const middleCycle = isLooping ? Math.floor(REPEATS / 2) : 0;
+  const initialIndex = isLooping ? (middleCycle * baseLength + baseIndex) : baseIndex;
 
   const getItemLayout = useCallback((_, index) => ({
     length: ITEM_HEIGHT,
@@ -39,7 +39,7 @@ const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isInfini
     const y = event.nativeEvent.contentOffset.y;
     const rawIndex = Math.round(y / ITEM_HEIGHT);
 
-    if (isInfinite && baseLength > 0) {
+    if (isLooping && baseLength > 0) {
       const normalizedIndex = ((rawIndex % baseLength) + baseLength) % baseLength;
       const selectedObj = data[normalizedIndex];
       if (selectedObj) {
@@ -61,7 +61,7 @@ const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isInfini
         onValueChange(val);
       }
     }
-  }, [data, isInfinite, baseLength, onValueChange, middleCycle]);
+  }, [data, isLooping, baseLength, onValueChange, middleCycle]);
 
   useEffect(() => {
     if (flatListRef.current && initialIndex >= 0) {
