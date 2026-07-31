@@ -64,7 +64,7 @@ scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
 _fired_schedules_this_minute: dict = {}  # {schedule_id: "HH:MM"}
 
 def check_schedules():
-    """Runs every 15 seconds. Fires schedules with max ~15 sec delay."""
+    """Runs every 1 second. Fires schedules with zero delay (<1 sec)."""
     global _fired_schedules_this_minute
     db = SessionLocal()
     try:
@@ -80,15 +80,19 @@ def check_schedules():
         current_time_str = now_local.strftime("%H:%M")
         current_day_str = now_local.strftime("%a").lower()
 
-        enabled_schedules = db.query(models.Schedule).filter(models.Schedule.enabled == True).all()
-        for schedule in enabled_schedules:
-            if schedule.time == current_time_str:
-                # Prevent firing the same schedule twice in the same minute
-                if _fired_schedules_this_minute.get(schedule.id) == current_time_str:
-                    continue
+        # Query only enabled schedules matching current HH:MM directly from DB for ultra-fast performance
+        enabled_schedules = db.query(models.Schedule).filter(
+            models.Schedule.enabled == True,
+            models.Schedule.time == current_time_str
+        ).all()
 
-                days_list = [d.strip().lower() for d in schedule.days.split(',')]
-                if "daily" in days_list or current_day_str in days_list:
+        for schedule in enabled_schedules:
+            # Prevent firing the same schedule twice in the same minute
+            if _fired_schedules_this_minute.get(schedule.id) == current_time_str:
+                continue
+
+            days_list = [d.strip().lower() for d in schedule.days.split(',')]
+            if "daily" in days_list or "everyday" in days_list or current_day_str in days_list:
                     device = db.query(models.Device).filter(models.Device.id == schedule.device_id).first()
                     if device:
                         requested_state = { "status": schedule.action }
@@ -203,12 +207,12 @@ def startup_event():
     mqtt.start_mqtt()
     print("MQTT background listener started.")
 
-    # Start schedules background worker — runs every 15 sec for low-latency firing
-    scheduler.add_job(check_schedules, 'interval', seconds=15)
+    # Start schedules background worker — runs every 1 sec for zero-delay instant firing (<1s)
+    scheduler.add_job(check_schedules, 'interval', seconds=1)
     # Start device heartbeat checker — runs every 2 min to detect offline devices
     scheduler.add_job(check_device_heartbeats, 'interval', minutes=2)
     scheduler.start()
-    print("Scheduler daemon process started (schedule check: 15s, heartbeat: 2min).")
+    print("Scheduler daemon process started (schedule check: 1s, heartbeat: 2min).")
 
 @app.on_event("shutdown")
 def shutdown_event():
