@@ -187,15 +187,6 @@ export default function AppNavigator() {
     [state.userToken]
   );
 
-  if (state.isLoading) {
-    // Spinner screen while loading token status
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0D0D0D' }}>
-        <ActivityIndicator size="large" color="#22C55E" />
-      </View>
-    );
-  }
-
   const [activeBannerInvite, setActiveBannerInvite] = useState(null);
 
   useEffect(() => {
@@ -241,6 +232,15 @@ export default function AppNavigator() {
       console.warn('Failed to reject invite via banner:', e);
     }
   };
+
+  if (state.isLoading) {
+    // Spinner screen while loading token status
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0D0D0D' }}>
+        <ActivityIndicator size="large" color="#22C55E" />
+      </View>
+    );
+  }
 
   return (
     <AuthContext.Provider value={authContextValue}>
