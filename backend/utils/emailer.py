@@ -1,12 +1,13 @@
 import os
 import smtplib
+import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import logging
 
 logger = logging.getLogger("Emailer")
 
-SMTP_HOST = os.getenv("SMTP_HOST", "mail.4layers.in")
+SMTP_HOST = os.getenv("SMTP_HOST", "103.235.104.192")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "invites@4layers.in")
 SMTP_PASS = os.getenv("SMTP_PASS", "qbwF8zyXtCKcmzvFeSsn")
@@ -43,9 +44,13 @@ def send_invitation_email(to_email: str, inviter_name: str, node_id: str) -> boo
         part_html = MIMEText(html_content, "html")
         msg.attach(part_html)
 
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=12)
         server.ehlo()
-        server.starttls()
+        server.starttls(context=context)
         server.ehlo()
         server.login(SMTP_USER, SMTP_PASS)
         server.sendmail(SMTP_USER, to_email, msg.as_string())
