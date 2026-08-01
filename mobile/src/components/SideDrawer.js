@@ -72,7 +72,7 @@ export default function SideDrawer({
     { key: 'HomeTab', label: 'Dashboard', image: require('../assets/dashboard_home.png'), type: 'route' },
     { key: 'SchedulesTab', label: 'Schedules', image: require('../assets/schedules.png'), type: 'route' },
     { key: 'RoomsTab', label: 'Room Management', image: require('../assets/room_management.png'), type: 'route' },
-    { key: 'FamilyMembersTab', label: 'Family Members', iconName: 'account-group-outline', type: 'route' },
+    { key: 'FamilyMembersTab', label: 'Add Members', iconName: 'account-plus-outline', type: 'route' },
     { key: 'GoogleHome', label: 'Google Home', image: require('../assets/google_home.png'), type: 'modal' },
     { key: 'AmazonAlexa', label: 'Amazon Alexa', image: require('../assets/amazon_alexa.png'), type: 'modal' }
   ];
