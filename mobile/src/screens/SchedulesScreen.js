@@ -384,6 +384,23 @@ const normalizeTimeInput = (raw) => {
     return room && rooms.length > 1 ? `${dev.name} (${room.name})` : dev.name;
   };
 
+  const getScheduleDevicesLabel = (schedule) => {
+    if (schedule.actions_json && Array.isArray(schedule.actions_json) && schedule.actions_json.length > 0) {
+      const names = schedule.actions_json.map(act => {
+        const dId = act.device_id;
+        const dev = devices.find(d => d.id === dId);
+        if (!dev) return null;
+        const room = rooms.find(r => r.id === dev.room_id);
+        return room && rooms.length > 1 ? `${dev.name} (${room.name})` : dev.name;
+      }).filter(Boolean);
+
+      if (names.length > 0) {
+        return names.join(', ');
+      }
+    }
+    return getDeviceName(schedule.device_id);
+  };
+
   const toggleDaySelection = (dayKey) => {
     if (selectedDays.includes(dayKey)) {
       setSelectedDays(prev => prev.filter(k => k !== dayKey));
@@ -487,8 +504,8 @@ const normalizeTimeInput = (raw) => {
                   color={item.action === 'ON' ? TOKENS.accent : TOKENS.error} 
                   style={{ marginRight: 6 }}
                 />
-                <Text style={styles.scheduleDeviceName} numberOfLines={1}>
-                  Turn <Text style={{ color: item.action === 'ON' ? TOKENS.accent : TOKENS.error, fontWeight: 'bold' }}>{item.action}</Text> {getDeviceName(item.device_id)}
+                <Text style={styles.scheduleDeviceName} numberOfLines={2}>
+                  Turn <Text style={{ color: item.action === 'ON' ? TOKENS.accent : TOKENS.error, fontWeight: 'bold' }}>{item.action}</Text> {getScheduleDevicesLabel(item)}
                 </Text>
               </View>
 
