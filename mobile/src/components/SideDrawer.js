@@ -41,13 +41,23 @@ export default function SideDrawer({
   const [activeVoiceModal, setActiveVoiceModal] = useState(null);
   const [voiceStatus, setVoiceStatus] = useState({ google_linked: false, alexa_linked: false });
   const [isUnlinking, setIsUnlinking] = useState(false);
+  const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
 
-  const fetchVoiceStatus = async () => {
+  useEffect(() => {
+    if (visible) {
+      fetchVoiceStatus();
+      fetchPendingCount();
+    }
+  }, [visible]);
+
+  const fetchPendingCount = async () => {
     try {
-      const res = await apiClient.get('/api/voice/status');
-      setVoiceStatus(res.data);
-    } catch (err) {
-      console.warn("Failed to fetch voice status:", err);
+      const res = await apiClient.get('/api/nodes/pending-invites');
+      if (Array.isArray(res.data)) {
+        setPendingInvitesCount(res.data.length);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch pending invites count in SideDrawer:", e);
     }
   };
 
@@ -208,6 +218,11 @@ export default function SideDrawer({
                       <Text style={[styles.menuItemText, isActive && styles.menuItemTextActive]}>
                         {item.label}
                       </Text>
+                      {item.key === 'FamilyMembersTab' && pendingInvitesCount > 0 && (
+                        <View style={styles.badgeDot}>
+                          <Text style={styles.badgeDotText}>{pendingInvitesCount}</Text>
+                        </View>
+                      )}
                     </View>
                     <MaterialCommunityIcons
                       name="chevron-right"
@@ -481,6 +496,21 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 6
+  },
+  badgeDot: {
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8
+  },
+  badgeDotText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900'
   },
   profileCard: {
     flexDirection: 'row',

@@ -7,8 +7,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 
-// Global Drawer Wrapper
+// Global Drawer Wrapper & Banner
 import GlobalDrawerWrapper from '../components/GlobalDrawerWrapper';
+import InAppBanner from '../components/InAppBanner';
 
 // Auth Context
 import { AuthContext } from '../context/AuthContext';
@@ -195,6 +196,52 @@ export default function AppNavigator() {
     );
   }
 
+  const [activeBannerInvite, setActiveBannerInvite] = useState(null);
+
+  useEffect(() => {
+    if (!state.userToken) return;
+
+    // Background check for pending sharing invitations
+    const checkInvites = async () => {
+      try {
+        const res = await apiClient.get('/api/nodes/pending-invites');
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          const newest = res.data[0];
+          setActiveBannerInvite(newest);
+        } else {
+          setActiveBannerInvite(null);
+        }
+      } catch (err) {
+        // Silent ignore
+      }
+    };
+
+    checkInvites();
+    const interval = setInterval(checkInvites, 6000);
+    return () => clearInterval(interval);
+  }, [state.userToken]);
+
+  const handleBannerAccept = async (inviteId) => {
+    try {
+      await apiClient.post(`/api/nodes/invitations/${inviteId}/accept`);
+      setActiveBannerInvite(null);
+      if (navigationRef.current) {
+        navigationRef.current.navigate('HomeTab', { screen: 'FamilyMembers' });
+      }
+    } catch (e) {
+      console.warn('Failed to accept invite via banner:', e);
+    }
+  };
+
+  const handleBannerReject = async (inviteId) => {
+    try {
+      await apiClient.post(`/api/nodes/invitations/${inviteId}/reject`);
+      setActiveBannerInvite(null);
+    } catch (e) {
+      console.warn('Failed to reject invite via banner:', e);
+    }
+  };
+
   return (
     <AuthContext.Provider value={authContextValue}>
       <NavigationContainer ref={navigationRef}>
@@ -212,6 +259,18 @@ export default function AppNavigator() {
         ) : (
           // User IS logged in - Wrapped in GlobalDrawerWrapper for universal swipe-right-to-open
           <GlobalDrawerWrapper navigationRef={navigationRef}>
+            <InAppBanner
+              visible={!!activeBannerInvite}
+              inviteData={activeBannerInvite}
+              onAccept={handleBannerAccept}
+              onReject={handleBannerReject}
+              onPressBanner={() => {
+                setActiveBannerInvite(null);
+                if (navigationRef.current) {
+                  navigationRef.current.navigate('HomeTab', { screen: 'FamilyMembers' });
+                }
+              }}
+            />
             <Tab.Navigator
               screenOptions={({ route }) => ({
                 tabBarIcon: ({ color, size }) => {

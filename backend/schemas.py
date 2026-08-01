@@ -62,11 +62,16 @@ class RoomResponse(RoomBase):
     home_id: UUID
     name: str
     room_type: str
+    is_shared: Optional[bool] = False
     created_at: datetime.datetime
 
     model_config = {
         "from_attributes": True
     }
+
+
+class PushTokenCreate(BaseModel):
+    push_token: str
 
 
 # --- Device Schemas ---
@@ -221,4 +226,13 @@ class NodeShareActionResponse(BaseModel):
     status: str  # "added" or "invite_sent"
     message: str
     member: Optional[NodeMemberResponse] = None
+
+
+class PendingInviteItemResponse(BaseModel):
+    invite_id: UUID
+    node_id: str
+    room_name: str
+    inviter_username: str
+    inviter_email: str
+    created_at: datetime.datetime
 

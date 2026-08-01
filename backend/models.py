@@ -12,6 +12,7 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    expo_push_token = Column(String, nullable=True)
 
     # Relationships
     homes = relationship("Home", back_populates="owner", cascade="all, delete-orphan")

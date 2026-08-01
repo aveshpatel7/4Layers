@@ -41,11 +41,21 @@ def get_all_user_rooms(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve all rooms across homes owned by or shared with the user."""
     user_home_ids = [h.id for h in current_user.homes]
     owned_rooms = []
     if user_home_ids:
         owned_rooms = db.query(models.Room).filter(models.Room.home_id.in_(user_home_ids)).all()
+
+    result_list = []
+    for r in owned_rooms:
+        result_list.append(schemas.RoomResponse(
+            id=r.id,
+            home_id=r.home_id,
+            name=r.name,
+            room_type=r.room_type,
+            is_shared=False,
+            created_at=r.created_at
+        ))
 
     # Shared nodes for current_user
     shared_shares = db.query(models.NodeShare).filter(
@@ -53,7 +63,6 @@ def get_all_user_rooms(
     ).all()
     shared_node_ids = [s.node_id for s in shared_shares if s.node_id]
 
-    shared_rooms = []
     if shared_node_ids:
         from sqlalchemy import or_
         conditions = []
@@ -63,9 +72,21 @@ def get_all_user_rooms(
         shared_devices = db.query(models.Device).filter(or_(*conditions)).all()
         shared_room_ids = list(set([d.room_id for d in shared_devices if d.room_id]))
         if shared_room_ids:
-            shared_rooms = db.query(models.Room).filter(models.Room.id.in_(shared_room_ids)).all()
+            s_rooms = db.query(models.Room).filter(models.Room.id.in_(shared_room_ids)).all()
+            for r in s_rooms:
+                is_owned = r.home and r.home.owner_id == current_user.id
+                if not is_owned:
+                    room_name = r.name if r.name.endswith(" (Shared)") else f"{r.name} (Shared)"
+                    result_list.append(schemas.RoomResponse(
+                        id=r.id,
+                        home_id=r.home_id,
+                        name=room_name,
+                        room_type=r.room_type,
+                        is_shared=True,
+                        created_at=r.created_at
+                    ))
 
-    room_map = {r.id: r for r in owned_rooms + shared_rooms}
+    room_map = {r.id: r for r in result_list}
     return list(room_map.values())
 
 @router.get("/home/{home_id}", response_model=List[schemas.RoomResponse])

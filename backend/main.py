@@ -219,8 +219,9 @@ def startup_event():
         from sqlalchemy import text
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE schedules ADD COLUMN IF NOT EXISTS actions_json JSON;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS expo_push_token VARCHAR;"))
             conn.commit()
-            print("PostgreSQL migration: Verified actions_json column in schedules table.")
+            print("PostgreSQL migration: Verified actions_json and expo_push_token columns.")
     except Exception as m_err:
         print("PostgreSQL migration notice:", m_err)
     print("Database tables initialized.")

@@ -162,3 +162,14 @@ def get_mqtt_config(current_user: models.User = Depends(auth.get_current_user)):
         "username": mqtt.MQTT_USERNAME,
         "password": mqtt.MQTT_PASSWORD
     }
+
+@router.post("/push-token", status_code=status.HTTP_200_OK)
+def update_push_token(
+    token_data: schemas.PushTokenCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Save Expo Push Token for the authenticated user."""
+    current_user.expo_push_token = token_data.push_token
+    db.commit()
+    return {"message": "Push token updated successfully"}
