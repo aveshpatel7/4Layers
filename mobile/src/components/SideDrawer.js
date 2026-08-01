@@ -50,6 +50,15 @@ export default function SideDrawer({
     }
   }, [visible]);
 
+  const fetchVoiceStatus = async () => {
+    try {
+      const res = await apiClient.get('/api/voice/status');
+      setVoiceStatus(res.data || { google_linked: false, alexa_linked: false });
+    } catch (err) {
+      console.warn("Failed to fetch voice status:", err);
+    }
+  };
+
   const fetchPendingCount = async () => {
     try {
       const res = await apiClient.get('/api/nodes/pending-invites');
