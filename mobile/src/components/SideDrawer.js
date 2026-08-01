@@ -44,6 +44,12 @@ export default function SideDrawer({
   const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
 
   useEffect(() => {
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (visible) {
       fetchVoiceStatus();
       fetchPendingCount();

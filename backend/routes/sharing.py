@@ -22,6 +22,8 @@ def _get_room_name_for_node(db: Session, node_id: str) -> str:
         return dev.name
     return f"Node ({node_id})"
 
+from sqlalchemy import func
+
 @router.post("/{node_id}/share", response_model=schemas.NodeShareActionResponse)
 def share_node(
     node_id: str,
@@ -30,13 +32,18 @@ def share_node(
     db: Session = Depends(get_db)
 ):
     """
-    Share a node with another user via email.
+    Share a node with another user via email or username.
     Creates a PendingInvitation with status='pending' and triggers push notification.
     """
-    target_email = share_data.email.strip().lower()
+    raw_input = share_data.email.strip().lower()
+    target_input = raw_input[1:] if raw_input.startswith("@") else raw_input
     
-    # Check if target email belongs to an existing registered user
-    target_user = db.query(models.User).filter(models.User.email == target_email).first()
+    # Check if target input belongs to an existing registered user by email OR username
+    target_user = db.query(models.User).filter(
+        (func.lower(models.User.email) == target_input) | (func.lower(models.User.username) == target_input)
+    ).first()
+
+    target_email = target_user.email.strip().lower() if target_user else target_input
 
     if target_user and target_user.id == current_user.id:
         raise HTTPException(
@@ -69,7 +76,7 @@ def share_node(
     # Check if already pending invitation
     existing_invite = db.query(models.PendingInvitation).filter(
         models.PendingInvitation.node_id == node_id,
-        models.PendingInvitation.invited_email == target_email,
+        func.lower(models.PendingInvitation.invited_email) == target_email,
         models.PendingInvitation.status == "pending"
     ).first()
 
@@ -86,6 +93,8 @@ def share_node(
 
     room_name = _get_room_name_for_node(db, node_id)
     inviter_name = current_user.username or current_user.email
+
+    print(f"[NodeSharing API] Invite created: node_id='{node_id}', invited_email='{target_email}', by='{inviter_name}'")
 
     # Trigger Push Notification if target_user exists and has push token
     if target_user and target_user.expo_push_token:
@@ -126,10 +135,18 @@ def get_pending_invites_received(
     db: Session = Depends(get_db)
 ):
     """Retrieve all pending node invitations received by the current user."""
+    user_email_clean = current_user.email.strip().lower()
+    user_name_clean = current_user.username.strip().lower() if current_user.username else ""
+
+    print(f"[NodeSharing API] GET /api/nodes/pending-invites requested by user={current_user.username} ({user_email_clean})")
+
     invites = db.query(models.PendingInvitation).filter(
-        models.PendingInvitation.invited_email == current_user.email.strip().lower(),
+        (func.lower(models.PendingInvitation.invited_email) == user_email_clean) |
+        (func.lower(models.PendingInvitation.invited_email) == user_name_clean),
         models.PendingInvitation.status == "pending"
     ).order_by(models.PendingInvitation.created_at.desc()).all()
+
+    print(f"[NodeSharing API] Returning {len(invites)} pending invites for {current_user.username} ({user_email_clean})")
 
     items = []
     for inv in invites:
@@ -157,9 +174,13 @@ def accept_invitation(
     db: Session = Depends(get_db)
 ):
     """Accept a pending node invitation."""
+    user_email_clean = current_user.email.strip().lower()
+    user_name_clean = current_user.username.strip().lower() if current_user.username else ""
+
     invite = db.query(models.PendingInvitation).filter(
         models.PendingInvitation.id == invite_id,
-        models.PendingInvitation.invited_email == current_user.email.strip().lower(),
+        (func.lower(models.PendingInvitation.invited_email) == user_email_clean) |
+        (func.lower(models.PendingInvitation.invited_email) == user_name_clean),
         models.PendingInvitation.status == "pending"
     ).first()
 
@@ -186,6 +207,8 @@ def accept_invitation(
     invite.status = "accepted"
     db.commit()
 
+    print(f"[NodeSharing API] Invitation {invite_id} ACCEPTED by {current_user.username}")
+
     return {"message": "Invitation accepted successfully!", "node_id": invite.node_id}
 
 
@@ -196,9 +219,13 @@ def reject_invitation(
     db: Session = Depends(get_db)
 ):
     """Reject a pending node invitation."""
+    user_email_clean = current_user.email.strip().lower()
+    user_name_clean = current_user.username.strip().lower() if current_user.username else ""
+
     invite = db.query(models.PendingInvitation).filter(
         models.PendingInvitation.id == invite_id,
-        models.PendingInvitation.invited_email == current_user.email.strip().lower(),
+        (func.lower(models.PendingInvitation.invited_email) == user_email_clean) |
+        (func.lower(models.PendingInvitation.invited_email) == user_name_clean),
         models.PendingInvitation.status == "pending"
     ).first()
 
@@ -210,6 +237,8 @@ def reject_invitation(
 
     invite.status = "rejected"
     db.commit()
+
+    print(f"[NodeSharing API] Invitation {invite_id} REJECTED by {current_user.username}")
 
     return {"message": "Invitation rejected successfully"}
 

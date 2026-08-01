@@ -192,7 +192,30 @@ export default function AppNavigator() {
   useEffect(() => {
     if (!state.userToken) return;
 
-    // Background check for pending sharing invitations
+    // 1. Register Push Token with Backend
+    const registerPushToken = async () => {
+      try {
+        let pushToken = null;
+        try {
+          const Notifications = require('expo-notifications');
+          const tokenRes = await Notifications.getExpoPushTokenAsync().catch(() => null);
+          pushToken = tokenRes?.data;
+        } catch (tokErr) {
+          // Native push fallback notice
+        }
+
+        if (pushToken) {
+          await apiClient.post('/api/users/push-token', { push_token: pushToken });
+          console.log('[PushToken] Registered push token with backend:', pushToken);
+        }
+      } catch (err) {
+        console.warn('[PushToken] Registration notice:', err);
+      }
+    };
+
+    registerPushToken();
+
+    // 2. Foreground check for pending sharing invitations
     const checkInvites = async () => {
       try {
         const res = await apiClient.get('/api/nodes/pending-invites');
@@ -208,7 +231,7 @@ export default function AppNavigator() {
     };
 
     checkInvites();
-    const interval = setInterval(checkInvites, 6000);
+    const interval = setInterval(checkInvites, 5000);
     return () => clearInterval(interval);
   }, [state.userToken]);
 
