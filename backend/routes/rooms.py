@@ -41,11 +41,32 @@ def get_all_user_rooms(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve all rooms across all homes owned by the user."""
+    """Retrieve all rooms across homes owned by or shared with the user."""
     user_home_ids = [h.id for h in current_user.homes]
-    if not user_home_ids:
-        return []
-    return db.query(models.Room).filter(models.Room.home_id.in_(user_home_ids)).all()
+    owned_rooms = []
+    if user_home_ids:
+        owned_rooms = db.query(models.Room).filter(models.Room.home_id.in_(user_home_ids)).all()
+
+    # Shared nodes for current_user
+    shared_shares = db.query(models.NodeShare).filter(
+        models.NodeShare.shared_with_user_id == current_user.id
+    ).all()
+    shared_node_ids = [s.node_id for s in shared_shares if s.node_id]
+
+    shared_rooms = []
+    if shared_node_ids:
+        from sqlalchemy import or_
+        conditions = []
+        for nid in shared_node_ids:
+            conditions.append(models.Device.node_id == nid)
+            conditions.append(models.Device.node_id.like(f"{nid}_%"))
+        shared_devices = db.query(models.Device).filter(or_(*conditions)).all()
+        shared_room_ids = list(set([d.room_id for d in shared_devices if d.room_id]))
+        if shared_room_ids:
+            shared_rooms = db.query(models.Room).filter(models.Room.id.in_(shared_room_ids)).all()
+
+    room_map = {r.id: r for r in owned_rooms + shared_rooms}
+    return list(room_map.values())
 
 @router.get("/home/{home_id}", response_model=List[schemas.RoomResponse])
 def get_rooms(

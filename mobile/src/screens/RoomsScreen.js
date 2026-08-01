@@ -68,19 +68,15 @@ export default function RoomsScreen({ navigation: navProp }) {
       if (showLoading) {
         setIsLoading(true);
       }
-      // 1. Fetch homes to get homeId
+      // 1. Fetch homes to set homeId for creating new rooms
       const homesRes = await apiClient.get('/api/homes');
       if (homesRes.data && homesRes.data.length > 0) {
-        const hId = homesRes.data[0].id;
-        setHomeId(hId);
-        // 2. Fetch rooms
-        await fetchRooms(hId);
-      } else {
-        Alert.alert('Configuration Error', 'No active home registered to user profile.');
+        setHomeId(homesRes.data[0].id);
       }
+      // 2. Fetch all accessible rooms (owned + shared)
+      await fetchRooms();
     } catch (error) {
       console.error('Failed to initialize rooms manager:', error);
-      Alert.alert('Sync Error', 'Failed to retrieve home and room datasets');
     } finally {
       if (showLoading) {
         setIsLoading(false);
@@ -88,10 +84,10 @@ export default function RoomsScreen({ navigation: navProp }) {
     }
   };
 
-  const fetchRooms = async (hId) => {
+  const fetchRooms = async () => {
     try {
-      const response = await apiClient.get(`/api/rooms/home/${hId}`);
-      setRooms(response.data);
+      const response = await apiClient.get('/api/rooms');
+      setRooms(response.data || []);
     } catch (error) {
       console.error('Failed to fetch rooms list:', error);
     }

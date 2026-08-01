@@ -100,18 +100,39 @@ def get_devices(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve all devices owned by the authenticated user across all their homes (max 6 channels per board)."""
-    devices = db.query(models.Device).join(models.Home).filter(
+    """Retrieve all devices owned by or shared with the authenticated user (max 6 channels per board)."""
+    # 1. Owned devices
+    owned_devices = db.query(models.Device).join(models.Home).filter(
         models.Home.owner_id == current_user.id
-    ).order_by(models.Device.node_id.asc()).all()
+    ).all()
+
+    # 2. Shared nodes for current_user
+    shared_shares = db.query(models.NodeShare).filter(
+        models.NodeShare.shared_with_user_id == current_user.id
+    ).all()
+    shared_node_ids = [s.node_id for s in shared_shares if s.node_id]
+
+    shared_devices = []
+    if shared_node_ids:
+        from sqlalchemy import or_
+        conditions = []
+        for nid in shared_node_ids:
+            conditions.append(models.Device.node_id == nid)
+            conditions.append(models.Device.node_id.like(f"{nid}_%"))
+        shared_devices = db.query(models.Device).filter(or_(*conditions)).all()
+
+    # Combine and deduplicate by device ID
+    device_map = {d.id: d for d in owned_devices + shared_devices}
 
     valid_devices = []
-    for d in devices:
+    for d in device_map.values():
         if d.node_id and "_" in d.node_id:
             suffix = d.node_id.rsplit('_', 1)[-1]
             if suffix.isdigit() and int(suffix) > 6:
                 continue
         valid_devices.append(d)
+    
+    valid_devices.sort(key=lambda x: x.node_id or "")
     return valid_devices
 
 @router.delete("/{device_id}", status_code=status.HTTP_200_OK)

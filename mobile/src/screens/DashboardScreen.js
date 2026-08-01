@@ -106,30 +106,26 @@ export default function DashboardScreen({ navigation }) {
 
   const fetchRoomsMapping = async () => {
     try {
-      const homesRes = await apiClient.get('/api/homes');
-      if (homesRes.data && homesRes.data.length > 0) {
-        const homeId = homesRes.data[0].id;
-        const roomsRes = await apiClient.get(`/api/rooms/home/${homeId}`);
-        if (roomsRes.data && roomsRes.data.length > 0) {
-          const mapping = {};
-          roomsRes.data.forEach(r => {
-            mapping[r.id] = r.name;
-          });
-          setRoomMapping(mapping);
-          setDbRooms(roomsRes.data);
-          
-          // Auto-select first room if none is selected, or if selected room was deleted
-          const roomIds = roomsRes.data.map(r => r.id);
-          setSelectedRoom(prev => {
-            if (!prev || !roomIds.includes(prev)) {
-              return roomsRes.data[0].id;
-            }
-            return prev;
-          });
-        } else {
-          setDbRooms([]);
-          setSelectedRoom("");
-        }
+      const roomsRes = await apiClient.get('/api/rooms');
+      if (roomsRes.data && roomsRes.data.length > 0) {
+        const mapping = {};
+        roomsRes.data.forEach(r => {
+          mapping[r.id] = r.name;
+        });
+        setRoomMapping(mapping);
+        setDbRooms(roomsRes.data);
+        
+        // Auto-select first room if none is selected, or if selected room was deleted
+        const roomIds = roomsRes.data.map(r => r.id);
+        setSelectedRoom(prev => {
+          if (!prev || !roomIds.includes(prev)) {
+            return roomsRes.data[0].id;
+          }
+          return prev;
+        });
+      } else {
+        setDbRooms([]);
+        setSelectedRoom("");
       }
     } catch (e) {
       console.warn("Failed to fetch room mapping:", e);
@@ -496,7 +492,7 @@ export default function DashboardScreen({ navigation }) {
   const isSecurityArmed = !!isArmed;
   const ROOM_TABS = dbRooms.map((r) => ({ id: r.id, label: r.name }));
 
-  const currentRoomName = dbRooms.find(r => r.id === selectedRoom)?.name || 'Living Room';
+  const currentRoomName = dbRooms.find(r => r.id === selectedRoom)?.name || (dbRooms.length === 0 ? 'No Rooms Found' : 'Select Room');
 
   return <SafeAreaView style={styles.safeContainer} {...swipePanResponder.panHandlers}>
       <StatusBar barStyle="light-content" backgroundColor={TOKENS.bg} />
