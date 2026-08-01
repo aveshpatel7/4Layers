@@ -34,6 +34,7 @@ const TOKENS = {
 
 export default function FamilyMembersScreen({ navigation }) {
   const [devices, setDevices] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const [members, setMembers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,20 +45,26 @@ export default function FamilyMembersScreen({ navigation }) {
   const [emailInput, setEmailInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch registered devices to extract unique nodes
+  // Fetch registered devices & rooms to extract unique rooms/nodes
   const fetchNodesAndDevices = async () => {
     try {
       setIsLoading(true);
-      const res = await apiClient.get('/api/devices');
-      const devList = res.data || [];
+      const [devsRes, roomsRes] = await Promise.all([
+        apiClient.get('/api/devices'),
+        apiClient.get('/api/rooms').catch(() => ({ data: [] }))
+      ]);
+
+      const devList = devsRes.data || [];
+      const roomList = roomsRes.data || [];
       setDevices(devList);
+      setRooms(roomList);
 
       // Extract unique base node IDs
       const uniqueNodes = new Set();
       devList.forEach(d => {
         let baseNode = d.node_id || d.id;
         if (baseNode && baseNode.includes('_')) {
-          baseNode = baseNode.rsplit ? baseNode.rsplit('_', 1)[0] : baseNode.split('_')[0];
+          baseNode = baseNode.split('_')[0];
         }
         if (baseNode) uniqueNodes.add(baseNode);
       });
@@ -68,14 +75,12 @@ export default function FamilyMembersScreen({ navigation }) {
         setSelectedNodeId(initialNode);
         await fetchMembers(initialNode);
       } else {
-        // Fallback default node
         const defaultNode = 'ESP32_NODE_1';
         setSelectedNodeId(defaultNode);
         await fetchMembers(defaultNode);
       }
     } catch (err) {
       console.error('[FamilyMembers] Error loading devices:', err);
-      // Fallback node fetch
       const defaultNode = 'ESP32_NODE_1';
       setSelectedNodeId(defaultNode);
       await fetchMembers(defaultNode);
@@ -96,6 +101,32 @@ export default function FamilyMembersScreen({ navigation }) {
     } finally {
       setIsRefreshingMembers(false);
     }
+  };
+
+  const getNodeDisplayName = (nodeId) => {
+    if (!nodeId) return 'Main Room';
+
+    // Find any device associated with this node ID
+    const matchingDev = devices.find(d => {
+      let bNode = d.node_id || d.id;
+      if (bNode && bNode.includes('_')) bNode = bNode.split('_')[0];
+      return bNode === nodeId || d.node_id === nodeId;
+    });
+
+    if (matchingDev && matchingDev.room_id) {
+      const room = rooms.find(r => r.id === matchingDev.room_id);
+      if (room) return room.name;
+    }
+
+    if (matchingDev && matchingDev.name) {
+      return matchingDev.name;
+    }
+
+    if (nodeId.includes('-')) {
+      const suffix = nodeId.split('-').pop();
+      return `Room (${suffix})`;
+    }
+    return nodeId;
   };
 
   useFocusEffect(
@@ -215,13 +246,14 @@ export default function FamilyMembersScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Hardware Node Selector Row */}
+      {/* Room Selector Row */}
       {uniqueNodeList.length > 0 && (
         <View style={styles.nodeSelectorContainer}>
-          <Text style={styles.sectionSublabel}>SELECT HARDWARE BOARD / NODE:</Text>
+          <Text style={styles.sectionSublabel}>SELECT ROOM TO SHARE:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nodeChipsRow}>
             {uniqueNodeList.map((nodeId) => {
               const isSelected = selectedNodeId === nodeId;
+              const roomName = getNodeDisplayName(nodeId);
               return (
                 <TouchableOpacity
                   key={nodeId}
@@ -230,12 +262,12 @@ export default function FamilyMembersScreen({ navigation }) {
                   activeOpacity={0.8}
                 >
                   <MaterialCommunityIcons
-                    name="router-wireless"
+                    name="door"
                     size={16}
                     color={isSelected ? TOKENS.bg : TOKENS.accent}
                   />
                   <Text style={[styles.nodeChipText, isSelected && styles.nodeChipTextSelected]}>
-                    {nodeId}
+                    {roomName}
                   </Text>
                 </TouchableOpacity>
               );
@@ -264,7 +296,7 @@ export default function FamilyMembersScreen({ navigation }) {
               <MaterialCommunityIcons name="account-group-outline" size={56} color={TOKENS.textSecondary} />
               <Text style={styles.emptyTitle}>No Members Shared Yet</Text>
               <Text style={styles.emptySub}>
-                Invite members or housemates to control devices on node <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{selectedNodeId}</Text>.
+                Invite members or housemates to control devices in <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
               </Text>
               <TouchableOpacity
                 style={styles.emptyAddBtn}
@@ -343,7 +375,7 @@ export default function FamilyMembersScreen({ navigation }) {
             </View>
 
             <Text style={styles.modalSubtext}>
-              Enter the email address of the member you want to grant access to node <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{selectedNodeId}</Text>.
+              Enter the email address of the member you want to grant access to <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
             </Text>
 
             <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
