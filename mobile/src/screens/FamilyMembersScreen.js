@@ -142,7 +142,7 @@ export default function FamilyMembersScreen({ navigation }) {
       fetchMembers(selectedNodeId);
     } catch (err) {
       console.error('[FamilyMembers] Error sharing node:', err);
-      const errMsg = err.response?.data?.detail || 'Failed to add family member.';
+      const errMsg = err.response?.data?.detail || 'Failed to add member.';
       Alert.alert('Error', errMsg);
     } finally {
       setIsSubmitting(false);
@@ -202,7 +202,7 @@ export default function FamilyMembersScreen({ navigation }) {
 
         <View style={styles.headerCenterGroup}>
           <BrandLogo size="small" />
-          <Text style={styles.headerTitle} numberOfLines={1}>Family Members</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>Add Members</Text>
         </View>
 
         <TouchableOpacity
@@ -248,7 +248,7 @@ export default function FamilyMembersScreen({ navigation }) {
       {isLoading ? (
         <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color={TOKENS.accent} />
-          <Text style={styles.loadingText}>Syncing family members...</Text>
+          <Text style={styles.loadingText}>Syncing members...</Text>
         </View>
       ) : (
         <View style={styles.body}>
@@ -264,7 +264,7 @@ export default function FamilyMembersScreen({ navigation }) {
               <MaterialCommunityIcons name="account-group-outline" size={56} color={TOKENS.textSecondary} />
               <Text style={styles.emptyTitle}>No Members Shared Yet</Text>
               <Text style={styles.emptySub}>
-                Invite family members or housemates to control devices on node <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{selectedNodeId}</Text>.
+                Invite members or housemates to control devices on node <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{selectedNodeId}</Text>.
               </Text>
               <TouchableOpacity
                 style={styles.emptyAddBtn}
@@ -272,7 +272,7 @@ export default function FamilyMembersScreen({ navigation }) {
                 activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="email-plus-outline" size={18} color={TOKENS.bg} />
-                <Text style={styles.emptyAddBtnText}>Invite Family Member</Text>
+                <Text style={styles.emptyAddBtnText}>Invite Member</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -335,7 +335,7 @@ export default function FamilyMembersScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <MaterialCommunityIcons name="account-plus-outline" size={22} color={TOKENS.accent} style={{ marginRight: 8 }} />
-                <Text style={styles.modalTitle}>Add Family Member</Text>
+                <Text style={styles.modalTitle}>Add Member</Text>
               </View>
               <TouchableOpacity onPress={() => setAddModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
@@ -343,7 +343,7 @@ export default function FamilyMembersScreen({ navigation }) {
             </View>
 
             <Text style={styles.modalSubtext}>
-              Enter the email address of the family member you want to grant access to node <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{selectedNodeId}</Text>.
+              Enter the email address of the member you want to grant access to node <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{selectedNodeId}</Text>.
             </Text>
 
             <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
