@@ -259,21 +259,19 @@ export default function FamilyMembersScreen({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
           activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialCommunityIcons name="arrow-left" size={22} color={TOKENS.textPrimary} />
         </TouchableOpacity>
 
-        <View style={styles.headerCenterGroup}>
-          <BrandLogo size="small" />
-          <Text style={styles.headerTitle} numberOfLines={1}>Add Members</Text>
-        </View>
+        <Text style={styles.headerTitle} numberOfLines={1}>Add Members</Text>
 
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => setAddModalVisible(true)}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="account-plus-outline" size={18} color={TOKENS.bg} />
+          <MaterialCommunityIcons name="account-plus-outline" size={16} color={TOKENS.bg} />
           <Text style={styles.addBtnText}>Add Member</Text>
         </TouchableOpacity>
       </View>
@@ -394,12 +392,9 @@ export default function FamilyMembersScreen({ navigation }) {
                     </View>
 
                     <View style={styles.memberDetails}>
-                      <Text style={styles.memberEmail} numberOfLines={1}>
-                        {displayName}
-                      </Text>
-                      <View style={styles.badgeRow}>
-                        <Text style={styles.usernameText}>
-                          {item.email}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <Text style={styles.memberEmail} numberOfLines={1}>
+                          {displayName}
                         </Text>
                         <View style={[styles.statusBadge, isPending ? styles.badgePending : styles.badgeActive]}>
                           <Text style={[styles.statusBadgeText, isPending ? styles.textPending : styles.textActive]}>
@@ -511,37 +506,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 15,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: TOKENS.border
+    borderBottomColor: TOKENS.border,
+    minHeight: 56
   },
   backBtn: {
     padding: 6,
-    marginRight: 4
-  },
-  headerCenterGroup: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 12,
-    marginRight: 8,
-    gap: 8
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   headerTitle: {
-    fontSize: 17,
+    flex: 1,
+    fontSize: 18,
     fontWeight: '800',
     color: TOKENS.textPrimary,
     letterSpacing: 0.5,
-    flexShrink: 1
+    marginHorizontal: 12
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: TOKENS.accent,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 8,
-    marginRight: 4,
     gap: 4
   },
   addBtnText: {
