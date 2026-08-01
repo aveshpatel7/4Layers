@@ -202,3 +202,23 @@ class MqttConfigResponse(BaseModel):
     broker_port: int
     username: str
     password: str
+
+
+# --- Node Sharing Schemas ---
+class NodeShareCreate(BaseModel):
+    email: EmailStr
+
+class NodeMemberResponse(BaseModel):
+    id: UUID
+    user_id: Optional[UUID] = None
+    email: str
+    username: Optional[str] = None
+    status: str  # "active" or "pending"
+    access_level: str = "user"
+    created_at: datetime.datetime
+
+class NodeShareActionResponse(BaseModel):
+    status: str  # "added" or "invite_sent"
+    message: str
+    member: Optional[NodeMemberResponse] = None
+

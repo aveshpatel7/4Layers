@@ -114,3 +114,31 @@ class Alert(Base):
 
     # Relationships
     device = relationship("Device")
+
+
+class NodeShare(Base):
+    __tablename__ = "node_shares"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    node_id = Column(String, index=True, nullable=False)
+    shared_with_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    access_level = Column(String, default="user", server_default=text("'user'"), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, server_default=text("timezone('utc', now())"), nullable=False)
+
+    # Relationships
+    shared_with_user = relationship("User")
+
+
+class PendingInvitation(Base):
+    __tablename__ = "pending_invitations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    node_id = Column(String, index=True, nullable=False)
+    invited_email = Column(String, index=True, nullable=False)
+    invited_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String, default="pending", server_default=text("'pending'"), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, server_default=text("timezone('utc', now())"), nullable=False)
+
+    # Relationships
+    invited_by_user = relationship("User")
+

@@ -27,6 +27,7 @@ import SchedulesScreen from '../screens/SchedulesScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import RoomSelectionScreen from '../screens/RoomSelectionScreen';
 import ConfigureBoardScreen from '../screens/ConfigureBoardScreen';
+import FamilyMembersScreen from '../screens/FamilyMembersScreen';
 
 const AuthStack = createStackNavigator();
 const HomeStack = createStackNavigator();
@@ -46,6 +47,11 @@ function HomeStackScreen() {
         name="DevicesHome" 
         component={DashboardScreen} 
         options={{ headerShown: false }} 
+      />
+      <HomeStack.Screen 
+        name="FamilyMembers" 
+        component={FamilyMembersScreen} 
+        options={{ title: 'Family Members' }} 
       />
       <HomeStack.Screen 
         name="AddDevice" 

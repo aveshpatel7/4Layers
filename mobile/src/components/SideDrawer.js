@@ -72,6 +72,7 @@ export default function SideDrawer({
     { key: 'HomeTab', label: 'Dashboard', image: require('../assets/dashboard_home.png'), type: 'route' },
     { key: 'SchedulesTab', label: 'Schedules', image: require('../assets/schedules.png'), type: 'route' },
     { key: 'RoomsTab', label: 'Room Management', image: require('../assets/room_management.png'), type: 'route' },
+    { key: 'FamilyMembersTab', label: 'Family Members', iconName: 'account-group-outline', type: 'route' },
     { key: 'GoogleHome', label: 'Google Home', image: require('../assets/google_home.png'), type: 'modal' },
     { key: 'AmazonAlexa', label: 'Amazon Alexa', image: require('../assets/amazon_alexa.png'), type: 'modal' }
   ];
@@ -111,6 +112,9 @@ export default function SideDrawer({
     if (itemKey === 'RoomsTab') {
       return activeRouteName === 'RoomsTab' || activeRouteName === 'Rooms';
     }
+    if (itemKey === 'FamilyMembersTab') {
+      return activeRouteName === 'FamilyMembersTab' || activeRouteName === 'FamilyMembers';
+    }
     if (itemKey === 'SettingsTab') {
       return activeRouteName === 'SettingsTab' || activeRouteName === 'Settings';
     }
@@ -129,6 +133,8 @@ export default function SideDrawer({
       if (navigation && item.key) {
         if (item.key === 'RoomsTab' || item.key === 'Rooms') {
           navigation.navigate('HomeTab', { screen: 'Rooms' });
+        } else if (item.key === 'FamilyMembersTab' || item.key === 'FamilyMembers') {
+          navigation.navigate('HomeTab', { screen: 'FamilyMembers' });
         } else if (item.key === 'HomeTab') {
           navigation.navigate('HomeTab', { screen: 'DevicesHome' });
         } else {
@@ -185,11 +191,20 @@ export default function SideDrawer({
                     activeOpacity={0.7}
                   >
                     <View style={styles.menuItemLeft}>
-                      <Image
-                        source={item.image}
-                        style={{ width: 22, height: 22, marginRight: 12 }}
-                        resizeMode="contain"
-                      />
+                      {item.image ? (
+                        <Image
+                          source={item.image}
+                          style={{ width: 22, height: 22, marginRight: 12 }}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <MaterialCommunityIcons
+                          name={item.iconName || "account-group"}
+                          size={22}
+                          color={isActive ? TOKENS.accent : TOKENS.textSecondary}
+                          style={{ marginRight: 12 }}
+                        />
+                      )}
                       <Text style={[styles.menuItemText, isActive && styles.menuItemTextActive]}>
                         {item.label}
                       </Text>

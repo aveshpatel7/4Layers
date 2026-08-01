@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 from backend.database import engine, Base
-from backend.routes import users, devices, homes, rooms, schedules, alerts, history, voice_assistant, admin
+from backend.routes import users, devices, homes, rooms, schedules, alerts, history, voice_assistant, admin, sharing
 from backend import mqtt, admin_ui
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
@@ -43,6 +43,7 @@ app.include_router(alerts.router)
 app.include_router(history.router)
 app.include_router(voice_assistant.router)
 app.include_router(admin.router)
+app.include_router(sharing.router)
 
 # Embedded Web Admin Console Routes (100% Zero Disk Path Dependency)
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)

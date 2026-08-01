@@ -37,6 +37,32 @@ def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # Check for pending node invitations matching this email
+    pending_invites = db.query(models.PendingInvitation).filter(
+        models.PendingInvitation.invited_email == user_data.email.strip().lower(),
+        models.PendingInvitation.status == "pending"
+    ).all()
+
+    for invite in pending_invites:
+        existing_share = db.query(models.NodeShare).filter(
+            models.NodeShare.node_id == invite.node_id,
+            models.NodeShare.shared_with_user_id == new_user.id
+        ).first()
+
+        if not existing_share:
+            new_share = models.NodeShare(
+                node_id=invite.node_id,
+                shared_with_user_id=new_user.id,
+                access_level="user"
+            )
+            db.add(new_share)
+
+        invite.status = "completed"
+
+    if pending_invites:
+        db.commit()
+
     return new_user
 
 @router.post("/login", response_model=schemas.TokenResponse, dependencies=[Depends(auth_rate_limiter)])
