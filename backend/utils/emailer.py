@@ -51,8 +51,12 @@ def send_invitation_email(to_email: str, inviter_name: str, node_id: str) -> boo
         server.sendmail(SMTP_USER, to_email, msg.as_string())
         server.quit()
 
-        logger.info(f"Invitation email successfully sent to {to_email}")
+        logger.info(f"[Emailer] Invitation email successfully sent to {to_email}")
+        print(f"[Emailer] SUCCESS: Invitation email sent to {to_email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send invitation email to {to_email}: {e}")
+        import traceback
+        err_detail = traceback.format_exc()
+        logger.error(f"[Emailer] Failed to send invitation email to {to_email}: {e}\n{err_detail}")
+        print(f"[Emailer] SMTP ERROR for {to_email}: {e}\n{err_detail}")
         return False
