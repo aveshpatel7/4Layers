@@ -10,7 +10,7 @@ logger = logging.getLogger("Emailer")
 SMTP_HOST = os.getenv("SMTP_HOST", "103.235.104.192")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "invites@4layers.in")
-SMTP_PASS = os.getenv("SMTP_PASS", "qbwF8zyXtCKcmzvFeSsn")
+SMTP_PASS = os.getenv("SMTP_PASS", "qbwF8zyXTCKcmzvFeSsn")
 
 def send_invitation_email(to_email: str, inviter_name: str, node_id: str) -> bool:
     """
