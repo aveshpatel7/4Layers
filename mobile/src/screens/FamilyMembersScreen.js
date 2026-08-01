@@ -192,16 +192,17 @@ export default function FamilyMembersScreen({ navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backBtn}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="arrow-left" size={22} color={TOKENS.textPrimary} />
-          </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={22} color={TOKENS.textPrimary} />
+        </TouchableOpacity>
+
+        <View style={styles.headerCenterGroup}>
           <BrandLogo size="small" />
-          <Text style={styles.headerTitle}>Family Members</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>Family Members</Text>
         </View>
 
         <TouchableOpacity
@@ -409,24 +410,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.border
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
   },
   backBtn: {
     padding: 6,
     marginRight: 4
   },
+  headerCenterGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    marginRight: 8,
+    gap: 8
+  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: TOKENS.textPrimary,
-    letterSpacing: 0.5
+    letterSpacing: 0.5,
+    flexShrink: 1
   },
   addBtn: {
     flexDirection: 'row',
@@ -435,6 +440,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    marginRight: 4,
     gap: 4
   },
   addBtnText: {
