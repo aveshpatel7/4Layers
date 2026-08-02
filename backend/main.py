@@ -45,19 +45,25 @@ app.include_router(voice_assistant.router)
 app.include_router(admin.router)
 app.include_router(sharing.router)
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0"
+}
+
 # Embedded Web Admin Console Routes (100% Zero Disk Path Dependency)
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 @app.get("/admin/", response_class=HTMLResponse, include_in_schema=False)
 def serve_admin_index():
-    return HTMLResponse(content=admin_ui.ADMIN_HTML)
+    return HTMLResponse(content=admin_ui.ADMIN_HTML, headers=NO_CACHE_HEADERS)
 
 @app.get("/admin/style.css", include_in_schema=False)
 def serve_admin_css():
-    return Response(content=admin_ui.ADMIN_CSS, media_type="text/css")
+    return Response(content=admin_ui.ADMIN_CSS, media_type="text/css", headers=NO_CACHE_HEADERS)
 
 @app.get("/admin/app.js", include_in_schema=False)
 def serve_admin_js():
-    return Response(content=admin_ui.ADMIN_JS, media_type="application/javascript")
+    return Response(content=admin_ui.ADMIN_JS, media_type="application/javascript", headers=NO_CACHE_HEADERS)
 
 scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
 
