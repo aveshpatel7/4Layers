@@ -14,19 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.0.8">
+    <link rel="stylesheet" href="/admin/style.css?v=2.0.9">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <div class="brand-logo">
-                    <i class="fa-solid fa-layer-group"></i>
-                </div>
+                <img src="/admin/logo.png" alt="4Layers Logo" class="brand-logo-img">
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Admin Console v2.0.8</span>
+                    <span class="brand-sub">Admin Console v2.0.9</span>
                 </div>
             </div>
 
@@ -316,7 +314,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.0.8"></script>
+    <script src="/admin/app.js?v=2.0.9"></script>
 </body>
 </html>
 """
@@ -345,7 +343,7 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .admin-layout { display: flex; min-height: 100vh; }
 .sidebar { width: 260px; background: rgba(15, 23, 42, 0.95); border-right: 1px solid var(--border-color); padding: 24px 16px; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(10px); }
 .brand-header { display: flex; align-items: center; gap: 14px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
-.brand-logo { width: 42px; height: 42px; min-width: 42px; min-height: 42px; flex-shrink: 0; background: linear-gradient(135deg, var(--accent-green), #10b981); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #000; box-shadow: 0 0 15px rgba(34, 197, 94, 0.4); }
+.brand-logo-img { width: 40px; height: 40px; min-width: 40px; min-height: 40px; flex-shrink: 0; border-radius: 10px; object-fit: cover; box-shadow: 0 0 14px rgba(34, 197, 94, 0.4); border: 1px solid rgba(34, 197, 94, 0.3); }
 .brand-info { display: flex; flex-direction: column; gap: 2px; }
 .brand-info h2 { font-size: 18px; font-weight: 800; color: var(--text-primary); letter-spacing: 0.5px; margin: 0; line-height: 1.2; }
 .brand-sub { font-size: 11.5px; color: var(--text-secondary); font-weight: 500; white-space: nowrap; line-height: 1.2; }

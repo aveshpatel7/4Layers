@@ -65,6 +65,14 @@ def serve_admin_css():
 def serve_admin_js():
     return Response(content=admin_ui.ADMIN_JS, media_type="application/javascript", headers=NO_CACHE_HEADERS)
 
+ADMIN_LOGO_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mobile", "assets", "icon.png")
+
+@app.get("/admin/logo.png", include_in_schema=False)
+def serve_admin_logo():
+    if os.path.exists(ADMIN_LOGO_PATH):
+        return FileResponse(ADMIN_LOGO_PATH, media_type="image/png", headers=NO_CACHE_HEADERS)
+    return Response(status_code=404)
+
 scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
 
 # Track already-fired schedules per minute to prevent duplicate firing
