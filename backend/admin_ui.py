@@ -14,7 +14,7 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.0.6">
+    <link rel="stylesheet" href="/admin/style.css?v=2.0.7">
 </head>
 <body>
     <div class="admin-layout">
@@ -25,7 +25,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                     <i class="fa-solid fa-layer-group"></i>
                     <span>4Layers Smart Home</span>
                 </div>
-                <span class="brand-sub">Admin Console v2.0.6</span>
+                <span class="brand-sub">Admin Console v2.0.7</span>
             </div>
 
             <nav class="sidebar-nav">
@@ -314,7 +314,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.0.6"></script>
+    <script src="/admin/app.js?v=2.0.7"></script>
 </body>
 </html>
 """
@@ -522,16 +522,16 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     <br><small style="color:var(--text-secondary)">@${escapeHtml(u.username)}</small>
                 </td>
                 <td>${escapeHtml(u.email)}</td>
-                <td>
-                    <span class="badge blue">${u.device_count} Devices</span>
-                    <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--text-secondary)">${u.room_count} Rooms</span>
+                <td style="white-space:nowrap;">
+                    <span class="badge blue">${u.device_count || 0} Devices</span>
+                    <span class="badge gray" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);margin-left:4px;">${u.room_count || 0} Rooms</span>
                 </td>
                 <td>
                     ${u.is_active 
                         ? '<span class="badge green">Active</span>' 
                         : '<span class="badge red">Blocked</span>'}
                 </td>
-                <td>
+                <td style="white-space:nowrap;">
                     <button class="btn ${u.is_active ? 'btn-danger' : 'btn-primary'}" onclick="toggleUserStatus(${u.id}, ${!u.is_active})" style="padding:4px 10px;font-size:11px;">
                         ${u.is_active ? 'Block' : 'Unblock'}
                     </button>
@@ -563,10 +563,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        nodesTableBody.innerHTML = devices.map(d => `
+        nodesTableBody.innerHTML = devices.map(d => {
+            const cleanNodeId = (d.node_id || d.device_id || d.id || '').replace(/\s*-\s*/g, '-').trim();
+            return `
             <tr>
-                <td><code>${escapeHtml(d.node_id || d.device_id || d.id)}</code></td>
-                <td><strong>${escapeHtml(d.name)}</strong></td>
+                <td><code>${escapeHtml(cleanNodeId)}</code></td>
+                <td><strong>ESP32 Board (${escapeHtml(cleanNodeId)})</strong></td>
                 <td>${escapeHtml(d.owner_email || d.owner_username || 'Unassigned')}</td>
                 <td><span class="badge blue">${escapeHtml(d.firmware_version || 'v1.0.0')}</span></td>
                 <td><code>${escapeHtml(d.ip_address || d.mac_address || '192.168.1.50')}</code></td>
@@ -577,12 +579,13 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                         : '<span class="badge red">OFFLINE</span>'}
                 </td>
                 <td>
-                    <button class="btn btn-outline" onclick="quickTestDevice('${escapeHtml(d.id || d.device_id)}')" style="padding:4px 8px;font-size:11px;">
+                    <button class="btn btn-outline" onclick="quickTestDevice('${escapeHtml(cleanNodeId)}')" style="padding:4px 8px;font-size:11px;">
                         Test
                     </button>
                 </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
     }
 
     function populateOtaDropdown(devices) {
@@ -590,7 +593,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         otaTargetDevice.innerHTML = `<option value="">Broadcast to All Online Boards (${onlineBoardsCount} online)</option>`;
         devices.forEach(d => {
             const opt = document.createElement('option');
-            const nodeId = d.node_id || d.device_id;
+            const nodeId = (d.node_id || d.device_id || '').replace(/\s*-\s*/g, '-').trim();
             opt.value = nodeId;
             opt.textContent = `${nodeId} (${d.switch_count || 6}-Ch Board) - ${d.is_online ? 'Online' : 'Offline'}`;
             otaTargetDevice.appendChild(opt);

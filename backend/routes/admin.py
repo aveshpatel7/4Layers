@@ -35,6 +35,8 @@ class OtaUpdateRequest(BaseModel):
 
 from sqlalchemy import func
 
+import re
+
 @router.get("/stats")
 def get_admin_stats(db: Session = Depends(get_db)):
     """Overview statistics for Admin Dashboard."""
@@ -45,7 +47,7 @@ def get_admin_stats(db: Session = Depends(get_db)):
     online_base_nodes = set()
     for d in devices:
         raw_id = d.node_id or str(d.id)[:8]
-        base_id = raw_id.split('_')[0]
+        base_id = re.sub(r'\s*-\s*', '-', raw_id.split('_')[0].strip())
         base_nodes.add(base_id)
         if d.is_online:
             online_base_nodes.add(base_id)
@@ -138,11 +140,11 @@ def list_all_devices(db: Session = Depends(get_db)):
     """List all registered ESP32 physical hardware boards grouped by base node_id."""
     devices = db.query(models.Device).all()
     
-    # Group devices by base_node_id (strip _1, _2 suffixes)
+    # Group devices by base_node_id (strip _1, _2 suffixes and extra hyphen spaces)
     grouped_nodes = {}
     for d in devices:
         raw_id = d.node_id or str(d.id)[:8]
-        base_id = raw_id.split('_')[0]
+        base_id = re.sub(r'\s*-\s*', '-', raw_id.split('_')[0].strip())
         if base_id not in grouped_nodes:
             grouped_nodes[base_id] = []
         grouped_nodes[base_id].append(d)
