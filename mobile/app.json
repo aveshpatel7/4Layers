@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "com.smartnest.app",
+      "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/4layers_logo.png",
         "backgroundColor": "#000000"

@@ -27,17 +27,17 @@ def oauth_authorize_page(request: Request, client_id: str = "", redirect_uri: st
         <style>
             body {{ font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #0E0E0E; color: #E5E2E1; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }}
             .card {{ background: #1C1B1B; padding: 32px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
-            h2 {{ color: #00E676; margin-top: 0; text-align: center; font-size: 24px; }}
+            h2 {{ color: #22C55E; margin-top: 0; text-align: center; font-size: 24px; }}
             p {{ color: #9CA3AF; text-align: center; font-size: 14px; margin-bottom: 24px; }}
             input {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #161515; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; box-sizing: border-box; }}
-            button {{ width: 100%; padding: 14px; background: #00E676; border: none; border-radius: 12px; color: #000; font-weight: bold; font-size: 16px; cursor: pointer; }}
-            button:hover {{ background: #00c853; }}
+            button {{ width: 100%; padding: 14px; background: #22C55E; border: none; border-radius: 12px; color: #000; font-weight: bold; font-size: 16px; cursor: pointer; }}
+            button:hover {{ background: #16a34a; }}
             .logo {{ text-align: center; font-size: 28px; font-weight: bold; margin-bottom: 8px; color: #fff; }}
         </style>
     </head>
     <body>
         <div class="card">
-            <div class="logo">4Layers <span style="color:#00E676;">IoT</span></div>
+            <div class="logo">4Layers <span style="color:#22C55E;">IoT</span></div>
             <p>Link your account with Google Assistant & Alexa</p>
             <form action="/oauth/authorize" method="post">
                 <input type="hidden" name="redirect_uri" value="{redirect_uri}">
