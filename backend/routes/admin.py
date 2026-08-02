@@ -33,13 +33,16 @@ class OtaUpdateRequest(BaseModel):
 
 # --- Endpoints ---
 
+from sqlalchemy import func
+
 @router.get("/stats")
 def get_admin_stats(db: Session = Depends(get_db)):
     """Overview statistics for Admin Dashboard."""
     total_users = db.query(models.User).count()
-    total_devices = db.query(models.Device).count()
+    total_nodes = db.query(func.count(func.distinct(models.Device.node_id))).scalar() or 0
+    online_nodes = db.query(func.count(func.distinct(models.Device.node_id))).filter(models.Device.is_online == True).scalar() or 0
+    total_switches = db.query(models.Device).count()
     active_users = total_users  # All registered users are active
-    online_devices = db.query(models.Device).filter(models.Device.is_online == True).count()
     
     is_mqtt_connected = False
     try:
@@ -53,8 +56,9 @@ def get_admin_stats(db: Session = Depends(get_db)):
     return {
         "total_users": total_users,
         "active_users": active_users,
-        "total_devices": total_devices,
-        "online_devices": online_devices,
+        "total_devices": total_nodes,
+        "online_devices": online_nodes,
+        "total_switches": total_switches,
         "system_status": "OPERATIONAL",
         "mqtt_broker_status": "CONNECTED" if is_mqtt_connected else "ONLINE",
         "server_time": datetime.datetime.utcnow().isoformat()
@@ -120,46 +124,63 @@ def delete_user_account(user_id: str, db: Session = Depends(get_db)):
 
 @router.get("/devices")
 def list_all_devices(db: Session = Depends(get_db)):
-    """List all registered ESP32 hardware boards and real-time state."""
+    """List all registered ESP32 physical hardware boards grouped by node_id."""
     devices = db.query(models.Device).all()
-    device_list = []
     
+    # Group devices by node_id
+    grouped_nodes = {}
     for d in devices:
-        home = db.query(models.Home).filter(models.Home.id == d.home_id).first() if d.home_id else None
-        owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
-        
-        state = d.current_state or {}
-        if isinstance(state, str):
-            try:
-                import json
-                state = json.loads(state)
-            except Exception:
-                state = {}
-                
         node_id = d.node_id or str(d.id)[:8]
+        if node_id not in grouped_nodes:
+            grouped_nodes[node_id] = []
+        grouped_nodes[node_id].append(d)
+
+    node_list = []
+    for node_id, node_devs in grouped_nodes.items():
+        first_dev = node_devs[0]
+        home = db.query(models.Home).filter(models.Home.id == first_dev.home_id).first() if first_dev.home_id else None
+        owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
+
+        is_online = any(dev.is_online for dev in node_devs)
+
+        merged_state = {}
+        for dev in node_devs:
+            st = dev.current_state or {}
+            if isinstance(st, str):
+                try:
+                    import json
+                    st = json.loads(st)
+                except Exception:
+                    st = {}
+            merged_state.update(st)
+
         owner_email = owner.email if owner else "Unassigned"
-        firmware_version = state.get("fw_version", state.get("version", "v1.0.0"))
-        ip_address = state.get("ip", d.mac_address or "192.168.1.50")
-        rssi = state.get("rssi", -62)
-        
-        device_list.append({
-            "id": str(d.id),
+        firmware_version = merged_state.get("fw_version", merged_state.get("version", "v1.0.0"))
+        ip_address = merged_state.get("ip", first_dev.mac_address or "192.168.1.50")
+        rssi = merged_state.get("rssi", -62)
+
+        last_seen_times = [dev.last_seen for dev in node_devs if dev.last_seen]
+        latest_last_seen = max(last_seen_times).isoformat() if last_seen_times else None
+
+        node_list.append({
+            "id": str(first_dev.id),
             "device_id": node_id,
             "node_id": node_id,
-            "mac_address": d.mac_address or "N/A",
-            "name": d.name,
-            "device_type": d.device_type,
-            "is_online": d.is_online,
+            "mac_address": first_dev.mac_address or "N/A",
+            "name": f"ESP32 Hardware Board ({node_id})",
+            "device_type": f"{len(node_devs)}-Channel Relay Board",
+            "switch_count": len(node_devs),
+            "is_online": is_online,
             "owner_email": owner_email,
             "owner_username": owner.username if owner else "Unassigned",
             "firmware_version": firmware_version,
             "ip_address": ip_address,
             "rssi": rssi,
-            "current_state": state,
-            "last_seen": d.last_seen.isoformat() if d.last_seen else None
+            "current_state": merged_state,
+            "last_seen": latest_last_seen
         })
         
-    return device_list
+    return node_list
 
 @router.post("/ota/trigger")
 def trigger_remote_ota(ota: OtaUpdateRequest, db: Session = Depends(get_db)):

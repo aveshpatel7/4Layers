@@ -250,7 +250,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                                 <input type="url" id="ota-firmware-url" class="form-input" value="https://edabtynvpy.ap-south-1.awsapprunner.com/firmware/latest.bin" required>
                             </div>
 
-                            <button type="submit" class="btn btn-accent full-width">
+                            <button type="submit" id="ota-trigger-btn" class="btn btn-accent full-width">
                                 <i class="fa-solid fa-paper-plane"></i> Trigger OTA Remote Update
                             </button>
                         </form>
@@ -588,13 +588,32 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     }
 
     function populateOtaDropdown(devices) {
-        otaTargetDevice.innerHTML = `<option value="">Broadcast to All Online Devices (${devices.filter(d=>d.is_online).length} online)</option>`;
+        const onlineBoardsCount = devices.filter(d => d.is_online).length;
+        otaTargetDevice.innerHTML = `<option value="">Broadcast to All Online Boards (${onlineBoardsCount} online)</option>`;
         devices.forEach(d => {
             const opt = document.createElement('option');
-            opt.value = d.device_id;
-            opt.textContent = `${d.name} (${d.device_id}) - ${d.is_online ? 'Online' : 'Offline'}`;
+            const nodeId = d.node_id || d.device_id;
+            opt.value = nodeId;
+            opt.textContent = `${nodeId} (${d.switch_count || 6}-Ch Board) - ${d.is_online ? 'Online' : 'Offline'}`;
             otaTargetDevice.appendChild(opt);
         });
+    }
+
+    const otaFirmwareUrlInput = document.getElementById('ota-firmware-url');
+    const otaTriggerBtn = document.getElementById('ota-trigger-btn');
+
+    function updateOtaButtonState() {
+        if (otaTriggerBtn && otaFirmwareUrlInput) {
+            const hasUrl = otaFirmwareUrlInput.value.trim().length > 0;
+            otaTriggerBtn.disabled = !hasUrl;
+            otaTriggerBtn.style.opacity = hasUrl ? '1' : '0.5';
+            otaTriggerBtn.style.cursor = hasUrl ? 'pointer' : 'not-allowed';
+        }
+    }
+
+    if (otaFirmwareUrlInput) {
+        otaFirmwareUrlInput.addEventListener('input', updateOtaButtonState);
+        updateOtaButtonState();
     }
 
     userSearchInput.addEventListener('input', (e) => {
@@ -688,6 +707,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     const data = await res.json();
                     const fullUrl = window.location.origin + data.latest_url;
                     document.getElementById('ota-firmware-url').value = fullUrl;
+                    updateOtaButtonState();
                     logTerminal(`Firmware binary uploaded! URL: ${fullUrl}`, 'success');
                     alert(`Firmware binary '${file.name}' uploaded successfully!\nURL updated to: ${fullUrl}`);
                 } else {
