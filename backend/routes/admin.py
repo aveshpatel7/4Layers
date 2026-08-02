@@ -187,3 +187,31 @@ def publish_custom_mqtt(req: MqttPublishRequest):
         return {"status": "SUCCESS", "topic": req.topic}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"MQTT Publish Failed: {str(e)}")
+
+import os
+import shutil
+
+FIRMWARE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "firmware")
+os.makedirs(FIRMWARE_DIR, exist_ok=True)
+
+@router.post("/firmware/upload")
+async def upload_firmware_file(file: UploadFile = File(...)):
+    """Upload a new .bin firmware file for OTA updates."""
+    if not file.filename.endswith(".bin"):
+        raise HTTPException(status_code=400, detail="Only .bin firmware files are supported")
+
+    filename = file.filename
+    target_path = os.path.join(FIRMWARE_DIR, filename)
+    latest_path = os.path.join(FIRMWARE_DIR, "latest.bin")
+
+    with open(target_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    shutil.copyfile(target_path, latest_path)
+
+    return {
+        "status": "SUCCESS",
+        "filename": filename,
+        "latest_url": "/firmware/latest.bin",
+        "named_url": f"/firmware/{filename}"
+    }

@@ -240,6 +240,11 @@ ADMIN_HTML = """<!DOCTYPE html>
                                 <input type="text" id="ota-firmware-version" class="form-input" value="v2.0.5" required>
                             </div>
 
+                             <div class="form-group">
+                                <label>Upload New Firmware Binary (.bin)</label>
+                                <input type="file" id="ota-file-input" class="form-input" accept=".bin">
+                            </div>
+
                             <div class="form-group">
                                 <label>Firmware File URL (.bin)</label>
                                 <input type="url" id="ota-firmware-url" class="form-input" value="https://edabtynvpy.ap-south-1.awsapprunner.com/firmware/latest.bin" required>
@@ -666,6 +671,33 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             alert(`OTA Error: ${err.message}`);
         }
     });
+
+    const otaFileInput = document.getElementById('ota-file-input');
+    if (otaFileInput) {
+        otaFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                const res = await fetch('/api/admin/firmware/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const fullUrl = window.location.origin + data.latest_url;
+                    document.getElementById('ota-firmware-url').value = fullUrl;
+                    logTerminal(`Firmware binary uploaded! URL: ${fullUrl}`, 'success');
+                    alert(`Firmware binary '${file.name}' uploaded successfully!\nURL updated to: ${fullUrl}`);
+                } else {
+                    alert('Failed to upload firmware binary file.');
+                }
+            } catch (err) {
+                alert(`Upload error: ${err.message}`);
+            }
+        });
+    }
 
     btnOpenMqttTester.addEventListener('click', () => mqttModal.classList.add('active'));
     btnCloseMqttModal.addEventListener('click', () => mqttModal.classList.remove('active'));

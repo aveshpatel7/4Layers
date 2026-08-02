@@ -197,6 +197,13 @@ def check_device_heartbeats():
         db.close()
 
 # FastAPI Event Handlers
+from fastapi.staticfiles import StaticFiles
+
+# Create and mount static firmware directory for OTA downloads
+FIRMWARE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "firmware")
+os.makedirs(FIRMWARE_DIR, exist_ok=True)
+app.mount("/firmware", StaticFiles(directory=FIRMWARE_DIR), name="firmware")
+
 @app.on_event("startup")
 def startup_event():
     # Verify environment variables security
