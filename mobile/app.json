@@ -9,16 +9,17 @@
     "splash": {
       "image": "./assets/4layers_logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#000000"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/4layers_logo.png"
     },
     "android": {
       "package": "com.smartnest.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/4layers_logo.png",
-        "backgroundColor": "#141414"
+        "backgroundColor": "#000000"
       },
       "usesCleartextTraffic": true,
       "permissions": [
