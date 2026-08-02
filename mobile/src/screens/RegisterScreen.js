@@ -3,7 +3,7 @@ import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Touchable
 import { Text, TextInput, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
-import logoImg from '../../assets/icon.png';
+import logoImg from '../../assets/4layers_logo.png';
 
 export default function RegisterScreen({ navigation }) {
   const theme = useTheme();
@@ -40,15 +40,8 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
-    if (!validateEmail(email)) {
-      setSnackMsg('Invalid email format.');
-      setSnackIsError(true);
-      setShowSnackbar(true);
-      return;
-    }
-
-    if (password.length < 6) {
-      setSnackMsg('Password must be at least 6 characters.');
+    if (!validateEmail(email.trim())) {
+      setSnackMsg('Please enter a valid email address.');
       setSnackIsError(true);
       setShowSnackbar(true);
       return;
@@ -56,6 +49,13 @@ export default function RegisterScreen({ navigation }) {
 
     if (password !== confirmPassword) {
       setSnackMsg('Passwords do not match.');
+      setSnackIsError(true);
+      setShowSnackbar(true);
+      return;
+    }
+
+    if (password.length < 6) {
+      setSnackMsg('Password must be at least 6 characters.');
       setSnackIsError(true);
       setShowSnackbar(true);
       return;
@@ -80,10 +80,10 @@ export default function RegisterScreen({ navigation }) {
       
       setTimeout(() => {
         navigation.navigate('Login');
-      }, 2000);
+      }, 1500);
     } catch (error) {
-      console.error('[Register] Initialization Error:', error);
-      const detail = error.response?.data?.detail || 'Registration failed. Username or email taken.';
+      console.error('[Register] Sync Error:', error);
+      const detail = error.response?.data?.detail || 'Registration failed. Try again.';
       setSnackIsError(true);
       setSnackMsg(detail);
       setShowSnackbar(true);
@@ -101,7 +101,7 @@ export default function RegisterScreen({ navigation }) {
         {/* Top Header Section with simple clean logo */}
         <View style={styles.headerSection}>
           <View style={styles.logoContainer}>
-            <Image source={logoImg} style={{ width: '100%', height: '100%', borderRadius: 14 }} resizeMode="cover" />
+            <Image source={logoImg} style={{ width: 64, height: 64 }} resizeMode="contain" />
           </View>
           
           <Text style={styles.title}>4Layers</Text>

@@ -65,12 +65,15 @@ def serve_admin_css():
 def serve_admin_js():
     return Response(content=admin_ui.ADMIN_JS, media_type="application/javascript", headers=NO_CACHE_HEADERS)
 
-ADMIN_LOGO_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mobile", "assets", "icon.png")
+ADMIN_LOGO_PATH_BACKEND = os.path.join(os.path.dirname(os.path.abspath(__file__)), "4layers_logo.png")
+ADMIN_LOGO_PATH_MOBILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mobile", "assets", "4layers_logo.png")
 
 @app.get("/admin/logo.png", include_in_schema=False)
 def serve_admin_logo():
-    if os.path.exists(ADMIN_LOGO_PATH):
-        return FileResponse(ADMIN_LOGO_PATH, media_type="image/png", headers=NO_CACHE_HEADERS)
+    if os.path.exists(ADMIN_LOGO_PATH_BACKEND):
+        return FileResponse(ADMIN_LOGO_PATH_BACKEND, media_type="image/png", headers=NO_CACHE_HEADERS)
+    elif os.path.exists(ADMIN_LOGO_PATH_MOBILE):
+        return FileResponse(ADMIN_LOGO_PATH_MOBILE, media_type="image/png", headers=NO_CACHE_HEADERS)
     return Response(status_code=404)
 
 scheduler = BackgroundScheduler(timezone="Asia/Kolkata")

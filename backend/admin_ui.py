@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.0.9">
+    <link rel="stylesheet" href="/admin/style.css?v=2.1.1">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png" alt="4Layers Logo" class="brand-logo-img">
+                <img src="/admin/logo.png" alt="4Layers Logo" style="height: 35px; width: auto; margin-right: 10px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Admin Console v2.0.9</span>
+                    <span class="brand-sub">Smart Admin Console v2.1.1</span>
                 </div>
             </div>
 
@@ -314,7 +314,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.0.9"></script>
+    <script src="/admin/app.js?v=2.1.1"></script>
 </body>
 </html>
 """

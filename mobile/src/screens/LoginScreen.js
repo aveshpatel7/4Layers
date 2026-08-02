@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
-import logoImg from '../../assets/icon.png';
+import logoImg from '../../assets/4layers_logo.png';
 
 export default function LoginScreen({ navigation }) {
   const theme = useTheme();
@@ -76,7 +76,7 @@ export default function LoginScreen({ navigation }) {
         {/* Top Header Section with simple modern logo */}
         <View style={styles.headerSection}>
           <View style={styles.logoContainer}>
-            <Image source={logoImg} style={{ width: '100%', height: '100%', borderRadius: 14 }} resizeMode="cover" />
+            <Image source={logoImg} style={{ width: 64, height: 64 }} resizeMode="contain" />
           </View>
           
           <Text style={styles.title}>4Layers</Text>
