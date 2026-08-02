@@ -14,7 +14,7 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.0.7">
+    <link rel="stylesheet" href="/admin/style.css?v=2.0.8">
 </head>
 <body>
     <div class="admin-layout">
@@ -23,9 +23,11 @@ ADMIN_HTML = """<!DOCTYPE html>
             <div class="brand-header">
                 <div class="brand-logo">
                     <i class="fa-solid fa-layer-group"></i>
-                    <span>4Layers Smart Home</span>
                 </div>
-                <span class="brand-sub">Admin Console v2.0.7</span>
+                <div class="brand-info">
+                    <h2>4Layers</h2>
+                    <span class="brand-sub">Admin Console v2.0.8</span>
+                </div>
             </div>
 
             <nav class="sidebar-nav">
@@ -314,7 +316,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.0.7"></script>
+    <script src="/admin/app.js?v=2.0.8"></script>
 </body>
 </html>
 """
@@ -342,10 +344,11 @@ ADMIN_CSS = """/* 4Layers Admin Console - Glassmorphic Dark Theme System */
 body { background-color: var(--bg-dark); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
 .admin-layout { display: flex; min-height: 100vh; }
 .sidebar { width: 260px; background: rgba(15, 23, 42, 0.95); border-right: 1px solid var(--border-color); padding: 24px 16px; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(10px); }
-.brand-header { display: flex; align-items: center; gap: 12px; padding-bottom: 24px; border-bottom: 1px solid var(--border-color); }
-.brand-logo { width: 42px; height: 42px; background: linear-gradient(135deg, var(--accent-green), #10b981); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #000; box-shadow: 0 0 15px rgba(34, 197, 94, 0.4); }
-.brand-info h2 { font-size: 18px; font-weight: 800; color: var(--text-primary); letter-spacing: 0.5px; }
-.brand-sub { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+.brand-header { display: flex; align-items: center; gap: 14px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+.brand-logo { width: 42px; height: 42px; min-width: 42px; min-height: 42px; flex-shrink: 0; background: linear-gradient(135deg, var(--accent-green), #10b981); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #000; box-shadow: 0 0 15px rgba(34, 197, 94, 0.4); }
+.brand-info { display: flex; flex-direction: column; gap: 2px; }
+.brand-info h2 { font-size: 18px; font-weight: 800; color: var(--text-primary); letter-spacing: 0.5px; margin: 0; line-height: 1.2; }
+.brand-sub { font-size: 11.5px; color: var(--text-secondary); font-weight: 500; white-space: nowrap; line-height: 1.2; }
 .sidebar-nav { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: transparent; border: none; color: var(--text-secondary); font-size: 14px; font-weight: 600; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s ease; text-align: left; }
 .nav-item i { font-size: 16px; width: 20px; }
@@ -357,10 +360,11 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .status-dot.green { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
 .credit-badge { display: flex; align-items: center; gap: 8px; background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; }
 .main-content { flex-grow: 1; padding: 32px; background: radial-gradient(circle at top right, rgba(34, 197, 94, 0.05), transparent 40%); overflow-y: auto; }
-.top-navbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+.top-navbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 20px; flex-wrap: wrap; }
+.page-title-group { flex: 1; min-width: 200px; }
 .page-title-group h1 { font-size: 24px; font-weight: 800; }
 .page-title-group p { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
-.top-actions { display: flex; align-items: center; gap: 14px; }
+.top-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .broker-badge { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--accent-green); padding: 8px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .tab-pane { display: none; }
 .tab-pane.active { display: block; }
