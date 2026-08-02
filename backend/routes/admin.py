@@ -39,10 +39,21 @@ from sqlalchemy import func
 def get_admin_stats(db: Session = Depends(get_db)):
     """Overview statistics for Admin Dashboard."""
     total_users = db.query(models.User).count()
-    total_nodes = db.query(func.count(func.distinct(models.Device.node_id))).scalar() or 0
-    online_nodes = db.query(func.count(func.distinct(models.Device.node_id))).filter(models.Device.is_online == True).scalar() or 0
-    total_switches = db.query(models.Device).count()
-    active_users = total_users  # All registered users are active
+    devices = db.query(models.Device).all()
+    
+    base_nodes = set()
+    online_base_nodes = set()
+    for d in devices:
+        raw_id = d.node_id or str(d.id)[:8]
+        base_id = raw_id.split('_')[0]
+        base_nodes.add(base_id)
+        if d.is_online:
+            online_base_nodes.add(base_id)
+            
+    total_nodes = len(base_nodes)
+    online_nodes = len(online_base_nodes)
+    total_switches = len(devices)
+    active_users = total_users
     
     is_mqtt_connected = False
     try:
@@ -124,19 +135,20 @@ def delete_user_account(user_id: str, db: Session = Depends(get_db)):
 
 @router.get("/devices")
 def list_all_devices(db: Session = Depends(get_db)):
-    """List all registered ESP32 physical hardware boards grouped by node_id."""
+    """List all registered ESP32 physical hardware boards grouped by base node_id."""
     devices = db.query(models.Device).all()
     
-    # Group devices by node_id
+    # Group devices by base_node_id (strip _1, _2 suffixes)
     grouped_nodes = {}
     for d in devices:
-        node_id = d.node_id or str(d.id)[:8]
-        if node_id not in grouped_nodes:
-            grouped_nodes[node_id] = []
-        grouped_nodes[node_id].append(d)
+        raw_id = d.node_id or str(d.id)[:8]
+        base_id = raw_id.split('_')[0]
+        if base_id not in grouped_nodes:
+            grouped_nodes[base_id] = []
+        grouped_nodes[base_id].append(d)
 
     node_list = []
-    for node_id, node_devs in grouped_nodes.items():
+    for base_id, node_devs in grouped_nodes.items():
         first_dev = node_devs[0]
         home = db.query(models.Home).filter(models.Home.id == first_dev.home_id).first() if first_dev.home_id else None
         owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
@@ -164,10 +176,10 @@ def list_all_devices(db: Session = Depends(get_db)):
 
         node_list.append({
             "id": str(first_dev.id),
-            "device_id": node_id,
-            "node_id": node_id,
+            "device_id": base_id,
+            "node_id": base_id,
             "mac_address": first_dev.mac_address or "N/A",
-            "name": f"ESP32 Hardware Board ({node_id})",
+            "name": f"ESP32 Hardware Board ({base_id})",
             "device_type": f"{len(node_devs)}-Channel Relay Board",
             "switch_count": len(node_devs),
             "is_online": is_online,
@@ -185,7 +197,8 @@ def list_all_devices(db: Session = Depends(get_db)):
 @router.post("/ota/trigger")
 def trigger_remote_ota(ota: OtaUpdateRequest, db: Session = Depends(get_db)):
     """Publish remote OTA update command to ESP32 boards via MQTT."""
-    topic = f"smartnest/devices/{ota.device_id}/ota" if ota.device_id else "smartnest/devices/all/ota"
+    target_node = ota.device_id.split('_')[0] if ota.device_id else None
+    topic = f"smartnest/devices/{target_node}/ota" if target_node else "smartnest/devices/all/ota"
     payload = {
         "action": "OTA_UPDATE",
         "firmware_url": ota.firmware_url,
@@ -195,7 +208,7 @@ def trigger_remote_ota(ota: OtaUpdateRequest, db: Session = Depends(get_db)):
     
     try:
         mqtt.publish_message(topic, payload)
-        return {"status": "SUCCESS", "message": f"OTA update command published to {topic}"}
+        return {"status": "SUCCESS", "target_topic": topic, "message": f"OTA update command published to {topic}"}
     except Exception as e:
         logger.error(f"Failed to publish OTA MQTT message: {str(e)}")
         raise HTTPException(status_code=500, detail=f"MQTT Publish Error: {str(e)}")
