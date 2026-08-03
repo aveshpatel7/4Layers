@@ -42,8 +42,9 @@ def on_connect(client, userdata, flags, rc):
         # Topic pattern: home/device/{node_id}/status
         subscribe_topic = "home/device/+/status"
         ota_topic = "smartnest/devices/+/ota/status"
-        client.subscribe([(subscribe_topic, 1), (ota_topic, 1)])
-        logger.info("Subscribed to MQTT topics: %s and %s", subscribe_topic, ota_topic)
+        logs_topic = "smartnest/devices/+/logs"
+        client.subscribe([(subscribe_topic, 1), (ota_topic, 1), (logs_topic, 1)])
+        logger.info("Subscribed to MQTT topics: %s, %s, and %s", subscribe_topic, ota_topic, logs_topic)
     else:
         logger.error("Failed to connect to MQTT Broker, return code %d", rc)
 
@@ -51,12 +52,17 @@ def on_disconnect(client, userdata, rc):
     """Callback when client disconnects from broker."""
     logger.warning("Disconnected from MQTT Broker. Return code: %s", rc)
 
-# WebSocket broadcast listener callback for OTA status
+# Callbacks for OTA status and device remote logs
 ota_ws_broadcaster = None
+device_log_broadcaster = None
 
 def set_ota_ws_broadcaster(callback):
     global ota_ws_broadcaster
     ota_ws_broadcaster = callback
+
+def set_device_log_broadcaster(callback):
+    global device_log_broadcaster
+    device_log_broadcaster = callback
 
 def on_message(client, userdata, msg):
     """Callback when a message is received from the broker."""
@@ -64,6 +70,14 @@ def on_message(client, userdata, msg):
     try:
         payload_str = msg.payload.decode("utf-8").strip()
         
+        # Handle Remote Device Logs Topic: smartnest/devices/{node_id}/logs
+        log_parts = msg.topic.split('/')
+        if len(log_parts) == 4 and log_parts[0] == "smartnest" and log_parts[1] == "devices" and log_parts[3] == "logs":
+            node_id = log_parts[2]
+            if device_log_broadcaster:
+                device_log_broadcaster(node_id, payload_str)
+            return
+
         # Handle OTA Status Topic: smartnest/devices/{node_id}/ota/status
         ota_parts = msg.topic.split('/')
         if len(ota_parts) == 5 and ota_parts[0] == "smartnest" and ota_parts[1] == "devices" and ota_parts[3] == "ota" and ota_parts[4] == "status":

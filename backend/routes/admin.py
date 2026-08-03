@@ -17,13 +17,18 @@ from backend import models, mqtt
 router = APIRouter(prefix="/api/admin", tags=["Admin Management"])
 logger = logging.getLogger(__name__)
 
-# Global in-memory storage for real-time OTA progress polling
+# Global in-memory storage for real-time OTA progress & remote device logs
 OTA_STATUS_CACHE = {}  # { node_id: { "status": "downloading", "progress": 45, "updated_at": "..." } }
+DEVICE_LOGS_CACHE = {} # { node_id: [ {"timestamp": "...", "log": "..."}, ... ] }
 
 def update_ota_status_cache(ota_data: dict):
     node_id = ota_data.get("node_id", "UNKNOWN")
     raw_status = ota_data.get("status", "pending")
     progress = ota_data.get("progress", 0)
+    
+    # Fix 100% stuck bug: If progress reaches 100% or status is rebooting, auto-mark Success
+    if progress >= 100 and raw_status in ["downloading", "flashing", "rebooting", "pending"]:
+        raw_status = "success"
     
     OTA_STATUS_CACHE[node_id] = {
         "status": raw_status,
@@ -32,7 +37,22 @@ def update_ota_status_cache(ota_data: dict):
         "timestamp": datetime.datetime.utcnow().isoformat()
     }
 
+def append_device_log(node_id: str, log_message: str):
+    if node_id not in DEVICE_LOGS_CACHE:
+        DEVICE_LOGS_CACHE[node_id] = []
+    
+    entry = {
+        "timestamp": datetime.datetime.utcnow().strftime("%H:%M:%S.%f")[:-3],
+        "log": log_message
+    }
+    
+    DEVICE_LOGS_CACHE[node_id].append(entry)
+    # Ring buffer: keep max 100 log lines per node
+    if len(DEVICE_LOGS_CACHE[node_id]) > 100:
+        DEVICE_LOGS_CACHE[node_id] = DEVICE_LOGS_CACHE[node_id][-100:]
+
 mqtt.set_ota_ws_broadcaster(update_ota_status_cache)
+mqtt.set_device_log_broadcaster(append_device_log)
 
 @router.get("/ota/status")
 def get_ota_status():
@@ -42,20 +62,30 @@ def get_ota_status():
     
     for node_id, data in OTA_STATUS_CACHE.items():
         status = data.get("status", "")
+        progress = data.get("progress", 0)
         updated_at = data.get("updated_at")
         
-        # If node is stuck in downloading/pending/flashing for > 30s without update, flag Timeout
-        if status.lower() in ["downloading", "pending", "flashing", "rebooting"]:
+        # Fix 100% stuck bug
+        if progress >= 100 and status.lower() in ["downloading", "flashing", "rebooting", "pending"]:
+            status = "success"
+        elif status.lower() in ["downloading", "pending", "flashing", "rebooting"]:
             if updated_at and (now - updated_at).total_seconds() > 30:
                 status = "timeout"
                 
         result[node_id] = {
             "status": status,
-            "progress": data.get("progress", 0),
+            "progress": progress,
             "updated_at": data.get("timestamp")
         }
         
     return result
+
+@router.get("/devices/{node_id}/logs")
+def get_device_logs(node_id: str):
+    """Retrieve last 100 live terminal log entries for a specific ESP32 node."""
+    clean_id = node_id.strip()
+    logs = DEVICE_LOGS_CACHE.get(clean_id, [])
+    return {"node_id": clean_id, "logs": logs}
 
 # --- Pydantic Schemas ---
 
