@@ -22,18 +22,40 @@ OTA_STATUS_CACHE = {}  # { node_id: { "status": "downloading", "progress": 45, "
 
 def update_ota_status_cache(ota_data: dict):
     node_id = ota_data.get("node_id", "UNKNOWN")
+    raw_status = ota_data.get("status", "pending")
+    progress = ota_data.get("progress", 0)
+    
     OTA_STATUS_CACHE[node_id] = {
-        "status": ota_data.get("status", "pending"),
-        "progress": ota_data.get("progress", 0),
-        "updated_at": datetime.datetime.utcnow().isoformat()
+        "status": raw_status,
+        "progress": progress,
+        "updated_at": datetime.datetime.utcnow(),
+        "timestamp": datetime.datetime.utcnow().isoformat()
     }
 
 mqtt.set_ota_ws_broadcaster(update_ota_status_cache)
 
 @router.get("/ota/status")
 def get_ota_status():
-    """Returns current in-memory dict of OTA progress per node for HTTP polling."""
-    return OTA_STATUS_CACHE
+    """Returns current in-memory dict of OTA progress per node with 30s timeout check."""
+    now = datetime.datetime.utcnow()
+    result = {}
+    
+    for node_id, data in OTA_STATUS_CACHE.items():
+        status = data.get("status", "")
+        updated_at = data.get("updated_at")
+        
+        # If node is stuck in downloading/pending/flashing for > 30s without update, flag Timeout
+        if status.lower() in ["downloading", "pending", "flashing", "rebooting"]:
+            if updated_at and (now - updated_at).total_seconds() > 30:
+                status = "timeout"
+                
+        result[node_id] = {
+            "status": status,
+            "progress": data.get("progress", 0),
+            "updated_at": data.get("timestamp")
+        }
+        
+    return result
 
 # --- Pydantic Schemas ---
 
