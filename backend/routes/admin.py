@@ -17,6 +17,24 @@ from backend import models, mqtt
 router = APIRouter(prefix="/api/admin", tags=["Admin Management"])
 logger = logging.getLogger(__name__)
 
+# Global in-memory storage for real-time OTA progress polling
+OTA_STATUS_CACHE = {}  # { node_id: { "status": "downloading", "progress": 45, "updated_at": "..." } }
+
+def update_ota_status_cache(ota_data: dict):
+    node_id = ota_data.get("node_id", "UNKNOWN")
+    OTA_STATUS_CACHE[node_id] = {
+        "status": ota_data.get("status", "pending"),
+        "progress": ota_data.get("progress", 0),
+        "updated_at": datetime.datetime.utcnow().isoformat()
+    }
+
+mqtt.set_ota_ws_broadcaster(update_ota_status_cache)
+
+@router.get("/ota/status")
+def get_ota_status():
+    """Returns current in-memory dict of OTA progress per node for HTTP polling."""
+    return OTA_STATUS_CACHE
+
 # --- Pydantic Schemas ---
 
 class UserStatusUpdate(BaseModel):
