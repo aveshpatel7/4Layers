@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.3.0">
+    <link rel="stylesheet" href="/admin/style.css?v=2.3.1">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.3.0" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.3.1" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.3.0</span>
+                    <span class="brand-sub">Smart Admin Console v2.3.1</span>
                 </div>
             </div>
 
@@ -315,10 +315,10 @@ ADMIN_HTML = """<!DOCTYPE html>
                     </div>
                 </div>
 
-                <!-- UNIFIED ARDUINO-STYLE LIVE SERIAL MONITOR CARD -->
+                <!-- UNIFIED 4LAYERS LIVE DEVICE CONSOLE CARD -->
                 <div class="panel-card margin-top-20">
                     <div class="panel-header">
-                        <h3><i class="fa-solid fa-terminal"></i> Arduino-Style Live Serial & OTA Monitor</h3>
+                        <h3><i class="fa-solid fa-terminal"></i> Live Device Console</h3>
                         <div class="header-actions" style="display:flex; gap:10px; align-items:center;">
                             <select id="monitor-target-node" class="form-select" style="width: auto; padding: 4px 10px; font-size:12px;">
                                 <option value="ALL">Stream All Node Logs</option>
@@ -329,8 +329,8 @@ ADMIN_HTML = """<!DOCTYPE html>
                         </div>
                     </div>
                     <p class="card-desc" style="margin-bottom:10px;">Displays live execution, HTTP status, memory usage, and mandatory error traces for both USB Flashing and Remote MQTT OTA updates.</p>
-                    <div class="terminal-box arduino-serial-terminal" id="arduino-serial-console" style="height: 320px; font-family: 'JetBrains Mono', monospace; background-color: #000; color: #00E676; padding: 14px; border: 1px solid rgba(0, 230, 118, 0.3);">
-                        <div class="term-line info">[ARDUINO SERIAL] Monitor Ready. Select target node or trigger OTA / USB flash to stream real-time logs...</div>
+                    <div class="terminal-box device-console-terminal" id="device-console-terminal-box" style="height: 320px; font-family: 'JetBrains Mono', monospace; background-color: #000; color: #00E676; padding: 14px; border: 1px solid rgba(0, 230, 118, 0.3);">
+                        <div class="term-line info">[4LAYERS CONSOLE] Monitor Ready. Select target node or trigger OTA / USB flash to stream real-time logs...</div>
                     </div>
                 </div>
             </section>
@@ -361,7 +361,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.3.0"></script>
+    <script src="/admin/app.js?v=2.3.1"></script>
 </body>
 </html>
 """
@@ -952,24 +952,24 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const arduinoSerialConsole = document.getElementById('arduino-serial-console');
+    const deviceConsoleTerminalBox = document.getElementById('device-console-terminal-box');
     const monitorTargetNodeSelect = document.getElementById('monitor-target-node');
     const btnClearSerial = document.getElementById('btn-clear-serial');
 
-    function logArduinoSerial(message, type = 'info') {
-        if (!arduinoSerialConsole) return;
+    function logDeviceConsole(message, type = 'info') {
+        if (!deviceConsoleTerminalBox) return;
         const line = document.createElement('div');
         line.className = `term-line ${type}`;
         const timestamp = new Date().toLocaleTimeString();
         line.textContent = `[${timestamp}] ${message}`;
-        arduinoSerialConsole.appendChild(line);
-        arduinoSerialConsole.scrollTop = arduinoSerialConsole.scrollHeight;
+        deviceConsoleTerminalBox.appendChild(line);
+        deviceConsoleTerminalBox.scrollTop = deviceConsoleTerminalBox.scrollHeight;
     }
 
     if (btnClearSerial) {
         btnClearSerial.addEventListener('click', () => {
-            if (arduinoSerialConsole) {
-                arduinoSerialConsole.innerHTML = '<div class="term-line info">[ARDUINO SERIAL] Console cleared. Listening for incoming live logs...</div>';
+            if (deviceConsoleTerminalBox) {
+                deviceConsoleTerminalBox.innerHTML = '<div class="term-line info">[4LAYERS CONSOLE] Console cleared. Listening for incoming live logs...</div>';
             }
         });
     }
@@ -992,7 +992,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     if (!lastSeenLogTimestamps.has(logKey)) {
                         lastSeenLogTimestamps.add(logKey);
                         const isError = item.log.toLowerCase().includes('error') || item.log.toLowerCase().includes('failed');
-                        logArduinoSerial(`[${targetNode}] ${item.log}`, isError ? 'error' : 'info');
+                        logDeviceConsole(`[${targetNode}] ${item.log}`, isError ? 'error' : 'info');
                     }
                 });
                 
@@ -1010,7 +1010,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         monitorTargetNodeSelect.addEventListener('change', () => {
             lastSeenLogTimestamps.clear();
             const selected = monitorTargetNodeSelect.value;
-            logArduinoSerial(`[MONITOR] Selected Node Filter: ${selected}`, 'info');
+            logDeviceConsole(`[MONITOR] Selected Node Filter: ${selected}`, 'info');
             if (selected !== 'ALL') {
                 pollRemoteDeviceLogs();
             }
@@ -1051,35 +1051,35 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     btnConnectUsb.addEventListener('click', async () => {
         if (!('serial' in navigator)) {
             alert('WebSerial API is not supported in your browser. Please use Google Chrome or Microsoft Edge.');
-            logArduinoSerial("[USB ERROR] WebSerial API not supported in browser! Use Chrome/Edge.", "error");
+            logDeviceConsole("[USB ERROR] WebSerial API not supported in browser! Use Chrome/Edge.", "error");
             return;
         }
 
         try {
-            logArduinoSerial("[USB SERIAL] Requesting USB COM Port access...", "info");
+            logDeviceConsole("[USB SERIAL] Requesting USB COM Port access...", "info");
             serialPort = await navigator.serial.requestPort();
             await serialPort.open({ baudRate: 115200 });
             serialStatusText.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--accent-green)"></i> ESP32 Connected via USB (Baud 115200)`;
             logTerminal('WebSerial: ESP32 Connected via USB COM Port.', 'success');
-            logArduinoSerial('[USB SERIAL] ESP32 Connected via USB COM Port @ 115200 Baud.', 'success');
+            logDeviceConsole('[USB SERIAL] ESP32 Connected via USB COM Port @ 115200 Baud.', 'success');
             
             if (localBinFile.files.length > 0) btnFlashUsb.disabled = false;
         } catch (err) {
             serialStatusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red)"></i> USB Connection Failed`;
             logTerminal(`WebSerial Error: ${err.message}`, 'warn');
-            logArduinoSerial(`[USB ERROR] Failed to connect USB port: ${err.message}`, 'error');
+            logDeviceConsole(`[USB ERROR] Failed to connect USB port: ${err.message}`, 'error');
         }
     });
 
     btnFlashUsb.addEventListener('click', async () => {
         if (!serialPort || localBinFile.files.length === 0) {
-            logArduinoSerial("[USB ERROR] Flashing canceled: Serial COM port or .bin file missing!", "error");
+            logDeviceConsole("[USB ERROR] Flashing canceled: Serial COM port or .bin file missing!", "error");
             return;
         }
 
         const file = localBinFile.files[0];
         logTerminal(`Flashing ${file.name} (${file.size} bytes) to ESP32 over USB...`, 'info');
-        logArduinoSerial(`[USB FLASH] Connecting & flashing '${file.name}' (${file.size} bytes) to ESP32...`, 'info');
+        logDeviceConsole(`[USB FLASH] Connecting & flashing '${file.name}' (${file.size} bytes) to ESP32...`, 'info');
         
         document.getElementById('flash-progress-bar').style.display = 'block';
         const progressFill = document.getElementById('flash-progress-fill');
@@ -1089,12 +1089,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         const interval = setInterval(() => {
             progress += 10;
             progressFill.style.width = `${progress}%`;
-            logArduinoSerial(`[USB FLASH] Writing at ${progress}%...`, 'info');
+            logDeviceConsole(`[USB FLASH] Writing at ${progress}%...`, 'info');
 
             if (progress >= 100) {
                 clearInterval(interval);
                 logTerminal(`SUCCESS! ${file.name} flashed to ESP32 board successfully. Board rebooting...`, 'success');
-                logArduinoSerial(`[USB FLASH SUCCESS] Firmware binary written 100%! ESP32 board rebooting...`, 'success');
+                logDeviceConsole(`[USB FLASH SUCCESS] Firmware binary written 100%! ESP32 board rebooting...`, 'success');
             }
         }, 300);
     });
