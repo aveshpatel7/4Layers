@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.1.8">
+    <link rel="stylesheet" href="/admin/style.css?v=2.1.9">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.1.8" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.1.9" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.1.8</span>
+                    <span class="brand-sub">Smart Admin Console v2.1.9</span>
                 </div>
             </div>
 
@@ -337,7 +337,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.1.8"></script>
+    <script src="/admin/app.js?v=2.1.9"></script>
 </body>
 </html>
 """
@@ -738,7 +738,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     let otaWs = null;
     let wsConnectAttempts = 0;
-    const MAX_WS_ATTEMPTS = 3;
+    const MAX_WS_ATTEMPTS = 5;
     let isWsConnecting = false;
 
     function connectOtaWebSocket() {
@@ -751,7 +751,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 otaWsBadge.className = 'badge red';
                 otaWsBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> WS Disconnected';
             }
-            logTerminal('OTA WebSocket max connection attempts reached. Real-time updates paused.', 'warn');
+            logTerminal(`OTA WebSocket connection failed after ${MAX_WS_ATTEMPTS} retries. Use Refresh or check DevTools console.`, 'warn');
+            console.warn('[OTA WS] Max reconnect attempts reached. Halting auto-retry.');
             return;
         }
 
@@ -759,9 +760,14 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         wsConnectAttempts++;
 
         try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // Force WSS if on HTTPS or if host indicates production AWS App Runner
+            const isHttps = window.location.protocol === 'https:' || window.location.hostname.includes('awsapprunner.com');
+            const protocol = isHttps ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws/ota-status`;
             
+            console.log(`[OTA WS] Attempting connection (${wsConnectAttempts}/${MAX_WS_ATTEMPTS}) to: ${wsUrl}`);
+            logTerminal(`[WS] Connecting to ${wsUrl}... (Attempt ${wsConnectAttempts})`, 'info');
+
             otaWs = new WebSocket(wsUrl);
 
             otaWs.onopen = () => {
@@ -771,25 +777,29 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     otaWsBadge.className = 'badge green';
                     otaWsBadge.innerHTML = '<i class="fa-solid fa-wifi"></i> WS Live';
                 }
-                logTerminal('Connected to Live OTA Status WebSocket.', 'info');
+                console.log('[OTA WS] Connection established successfully!');
+                logTerminal('Connected to Live OTA Status WebSocket.', 'success');
             };
 
             otaWs.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('[OTA WS] Message frame received:', data);
                     if (data && data.node_id) {
                         requestAnimationFrame(() => {
                             updateOtaMonitorRow(data);
                         });
                     }
                 } catch (err) {
-                    console.error('Error parsing OTA WS frame:', err);
+                    console.error('[OTA WS] Error parsing message frame:', err, event.data);
                 }
             };
 
-            otaWs.onclose = () => {
+            otaWs.onclose = (evt) => {
                 isWsConnecting = false;
                 otaWs = null;
+                console.warn(`[OTA WS] Connection closed. Code: ${evt.code}, Reason: '${evt.reason || 'None'}', Clean: ${evt.wasClean}`);
+                
                 if (wsConnectAttempts < MAX_WS_ATTEMPTS) {
                     if (otaWsBadge) {
                         otaWsBadge.className = 'badge orange';
@@ -806,11 +816,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
             otaWs.onerror = (err) => {
                 isWsConnecting = false;
-                console.warn('OTA WebSocket connection error:', err);
+                console.error('[OTA WS] WebSocket error occurred:', err);
+                logTerminal(`[WS Error] Failed to connect to ${wsUrl}`, 'warn');
             };
         } catch (e) {
             isWsConnecting = false;
-            console.error('WebSocket initialization error:', e);
+            console.error('[OTA WS] Initialization exception:', e);
         }
     }
 
