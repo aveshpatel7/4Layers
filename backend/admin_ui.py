@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.2.0">
+    <link rel="stylesheet" href="/admin/style.css?v=2.2.1">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.2.0" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.2.1" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.2.0</span>
+                    <span class="brand-sub">Smart Admin Console v2.2.1</span>
                 </div>
             </div>
 
@@ -337,7 +337,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.2.0"></script>
+    <script src="/admin/app.js?v=2.2.1"></script>
 </body>
 </html>
 """
@@ -630,23 +630,6 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const otaFirmwareUrlInput = document.getElementById('ota-firmware-url');
-    const otaTriggerBtn = document.getElementById('ota-trigger-btn');
-
-    function updateOtaButtonState() {
-        if (otaTriggerBtn && otaFirmwareUrlInput) {
-            const hasUrl = otaFirmwareUrlInput.value.trim().length > 0;
-            otaTriggerBtn.disabled = !hasUrl;
-            otaTriggerBtn.style.opacity = hasUrl ? '1' : '0.5';
-            otaTriggerBtn.style.cursor = hasUrl ? 'pointer' : 'not-allowed';
-        }
-    }
-
-    if (otaFirmwareUrlInput) {
-        otaFirmwareUrlInput.addEventListener('input', updateOtaButtonState);
-        updateOtaButtonState();
-    }
-
     userSearchInput.addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase();
         const filtered = allUsers.filter(u => 
@@ -695,13 +678,45 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         mqttModal.classList.add('active');
     };
 
-    otaForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const target = otaTargetDevice.value;
-        const version = document.getElementById('ota-firmware-version').value;
-        const url = document.getElementById('ota-firmware-url').value;
+    const otaTriggerBtn = document.getElementById('ota-trigger-btn');
+    const otaFirmwareUrlInput = document.getElementById('ota-firmware-url');
+
+    function updateOtaButtonState() {
+        if (otaTriggerBtn && otaFirmwareUrlInput) {
+            const hasUrl = otaFirmwareUrlInput.value.trim().length > 0;
+            otaTriggerBtn.disabled = !hasUrl;
+            otaTriggerBtn.style.opacity = hasUrl ? '1' : '0.5';
+            otaTriggerBtn.style.cursor = hasUrl ? 'pointer' : 'not-allowed';
+        }
+    }
+
+    if (otaFirmwareUrlInput) {
+        otaFirmwareUrlInput.addEventListener('input', updateOtaButtonState);
+        updateOtaButtonState();
+    }
+
+    async function handleOtaSubmit(e) {
+        if (e) e.preventDefault();
+        console.log("Trigger OTA button clicked!");
+
+        const target = otaTargetDevice ? otaTargetDevice.value : '';
+        const version = document.getElementById('ota-firmware-version') ? document.getElementById('ota-firmware-version').value : 'v2.0.5';
+        const url = otaFirmwareUrlInput ? otaFirmwareUrlInput.value.trim() : '';
+
+        if (!url) {
+            alert('Please enter a valid firmware binary URL (.bin)');
+            return;
+        }
+
+        // Disable button & give UI feedback
+        if (otaTriggerBtn) {
+            otaTriggerBtn.disabled = true;
+            otaTriggerBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Triggering OTA...';
+        }
 
         try {
+            logTerminal(`Publishing OTA Command... Target: ${target || 'ALL_ONLINE_BOARDS'}, Version: ${version}`, 'info');
+            
             const res = await fetch('/api/admin/ota/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -714,21 +729,47 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
             if (res.ok) {
                 const data = await res.json();
-                logTerminal(`OTA Firmware Update Triggered! Target: ${data.target_topic}, Version: ${version}`, 'success');
-                alert(`OTA Firmware update command published successfully to ${data.target_topic}!`);
+                console.log("OTA Trigger response:", data);
+                logTerminal(`OTA Remote Update Triggered! Topic: ${data.target_topic}`, 'success');
+                alert(`OTA Remote Update command published successfully to topic: ${data.target_topic}`);
                 
-                // Pre-populate pending status row in Live OTA Monitor
-                const targetNode = target || 'ALL_ONLINE_NODES';
+                // Pre-populate pending row in Live OTA Monitor
+                const targetNode = target || 'ALL_ONLINE_BOARDS';
                 updateOtaMonitorRow({
                     node_id: targetNode,
-                    status: 'pending',
+                    status: 'downloading',
                     progress: 0
                 });
+            } else {
+                const errData = await res.json();
+                alert(`Failed to trigger OTA update: ${errData.detail || res.statusText}`);
+                logTerminal(`OTA Trigger Failed: ${errData.detail || res.statusText}`, 'warn');
             }
         } catch (err) {
+            console.error("OTA Trigger Exception:", err);
             alert(`Error triggering OTA update: ${err.message}`);
+            logTerminal(`OTA Exception: ${err.message}`, 'warn');
+        } finally {
+            if (otaTriggerBtn) {
+                otaTriggerBtn.disabled = false;
+                otaTriggerBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Trigger OTA Remote Update';
+                updateOtaButtonState();
+            }
         }
-    });
+    }
+
+    if (otaForm) {
+        otaForm.addEventListener('submit', handleOtaSubmit);
+    }
+    if (otaTriggerBtn) {
+        otaTriggerBtn.addEventListener('click', (e) => {
+            if (otaForm) {
+                // Form submit event will handle it
+            } else {
+                handleOtaSubmit(e);
+            }
+        });
+    }
 
     // ----------------------------------------------------
     // Real-Time OTA HTTP Polling Setup (100% Reliable & Non-Blocking)
