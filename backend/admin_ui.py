@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.2.1">
+    <link rel="stylesheet" href="/admin/style.css?v=2.2.3">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.2.1" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.2.3" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.2.1</span>
+                    <span class="brand-sub">Smart Admin Console v2.2.3</span>
                 </div>
             </div>
 
@@ -259,12 +259,17 @@ ADMIN_HTML = """<!DOCTYPE html>
                                 <span class="badge green" id="ota-polling-badge" style="font-size:10px;"><i class="fa-solid fa-rotate"></i> Live Polling</span>
                             </div>
                             <div class="table-responsive">
-                                <table class="data-table" style="font-size:12.5px;">
+                                <table class="data-table ota-table" style="font-size:12.5px; table-layout: fixed; width: 100%;">
+                                    <colgroup>
+                                        <col style="width: 40%;">
+                                        <col style="width: 30%;">
+                                        <col style="width: 30%;">
+                                    </colgroup>
                                     <thead>
                                         <tr>
                                             <th>Target Node</th>
                                             <th>Status</th>
-                                            <th style="width: 45%;">Progress</th>
+                                            <th>Progress</th>
                                         </tr>
                                     </thead>
                                     <tbody id="ota-monitor-table-body">
@@ -337,7 +342,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.2.1"></script>
+    <script src="/admin/app.js?v=2.2.3"></script>
 </body>
 </html>
 """
@@ -438,9 +443,13 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent-green); }
 .webserial-box { background: rgba(15, 23, 42, 0.4); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 16px; }
 .webserial-status { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-.progress-bar-container { background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; height: 16px; overflow: hidden; width: 100%; position: relative; }
-.progress-fill { background: linear-gradient(90deg, #00E676, #00c853); height: 100%; width: 0%; transition: width 0.3s ease; border-radius: 8px; }
-.progress-text { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+.progress-bar-container { background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; height: 16px; overflow: hidden; width: 100%; max-width: 100%; position: relative; box-sizing: border-border-box; }
+.progress-fill { background: linear-gradient(90deg, #00E676, #00c853); height: 100%; width: 0%; transition: width 0.3s ease; border-radius: 8px; max-width: 100%; box-sizing: border-box; }
+.progress-text { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; }
+.ota-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
+.ota-table th, .ota-table td { box-sizing: border-box; overflow: hidden; }
+.ota-table td.target-node-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; max-width: 100%; box-sizing: border-box; }
 .badge.orange { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); border: 1px solid rgba(249, 115, 22, 0.3); }
 .badge.purple { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); border: 1px solid rgba(139, 92, 246, 0.3); }
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px); }
@@ -856,7 +865,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }
 
         row.innerHTML = `
-            <td><code>${escapeHtml(nodeId)}</code></td>
+            <td class="target-node-cell" title="${escapeHtml(nodeId)}"><code>${escapeHtml(nodeId)}</code></td>
             <td>${getStatusBadge(statusStr)}</td>
             <td>
                 <div class="progress-bar-container">
