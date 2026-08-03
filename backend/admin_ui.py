@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.1.6">
+    <link rel="stylesheet" href="/admin/style.css?v=2.1.7">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.1.6" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.1.7" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.1.6</span>
+                    <span class="brand-sub">Smart Admin Console v2.1.7</span>
                 </div>
             </div>
 
@@ -252,6 +252,29 @@ ADMIN_HTML = """<!DOCTYPE html>
                                 <i class="fa-solid fa-paper-plane"></i> Trigger OTA Remote Update
                             </button>
                         </form>
+
+                        <div class="ota-monitor-container margin-top-20">
+                            <div class="panel-header" style="margin-bottom: 10px;">
+                                <h4><i class="fa-solid fa-desktop"></i> Live OTA Monitor</h4>
+                                <span class="badge green" id="ota-ws-badge" style="font-size:10px;"><i class="fa-solid fa-wifi"></i> WS Connected</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table" style="font-size:12.5px;">
+                                    <thead>
+                                        <tr>
+                                            <th>Target Node</th>
+                                            <th>Status</th>
+                                            <th style="width: 45%;">Progress</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ota-monitor-table-body">
+                                        <tr id="ota-empty-row">
+                                            <td colspan="3" class="text-center" style="color:var(--text-secondary);padding:14px;">No active OTA tasks. Waiting for broadcast...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- WebSerial Browser USB Flasher Card -->
@@ -314,7 +337,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.1.6"></script>
+    <script src="/admin/app.js?v=2.1.7"></script>
 </body>
 </html>
 """
@@ -415,6 +438,11 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent-green); }
 .webserial-box { background: rgba(15, 23, 42, 0.4); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 16px; }
 .webserial-status { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.progress-bar-container { background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; height: 16px; overflow: hidden; width: 100%; position: relative; }
+.progress-fill { background: linear-gradient(90deg, #00E676, #00c853); height: 100%; width: 0%; transition: width 0.3s ease; border-radius: 8px; }
+.progress-text { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+.badge.orange { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); border: 1px solid rgba(249, 115, 22, 0.3); }
+.badge.purple { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); border: 1px solid rgba(139, 92, 246, 0.3); }
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px); }
 .modal-overlay.active { display: flex; }
 .modal-card { background: #1e293b; border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 90%; max-width: 500px; padding: 24px; box-shadow: var(--card-shadow); }
@@ -688,8 +716,110 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 logTerminal(`OTA Firmware Update Triggered! Target: ${data.target_topic}, Version: ${version}`, 'success');
                 alert(`OTA Firmware update command published successfully to ${data.target_topic}!`);
+                
+                // Pre-populate pending status row in Live OTA Monitor
+                const targetNode = target || 'ALL_ONLINE_NODES';
+                updateOtaMonitorRow({
+                    node_id: targetNode,
+                    status: 'pending',
+                    progress: 0
+                });
             }
         } catch (err) {
+            alert(`Error triggering OTA update: ${err.message}`);
+        }
+    });
+
+    // ----------------------------------------------------
+    // Real-Time OTA WebSocket Monitor Setup
+    // ----------------------------------------------------
+    const otaMonitorTableBody = document.getElementById('ota-monitor-table-body');
+    const otaEmptyRow = document.getElementById('ota-empty-row');
+    const otaWsBadge = document.getElementById('ota-ws-badge');
+    const activeOtaTasks = {}; // { node_id: { status, progress, el } }
+
+    function connectOtaWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/ota-status`;
+        
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            if (otaWsBadge) {
+                otaWsBadge.className = 'badge green';
+                otaWsBadge.innerHTML = '<i class="fa-solid fa-wifi"></i> WS Live';
+            }
+            logTerminal('Connected to Live OTA Status WebSocket.', 'info');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data && data.node_id) {
+                    updateOtaMonitorRow(data);
+                }
+            } catch (err) {
+                console.error('Error parsing OTA WS frame:', err);
+            }
+        };
+
+        ws.onclose = () => {
+            if (otaWsBadge) {
+                otaWsBadge.className = 'badge red';
+                otaWsBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> WS Reconnecting...';
+            }
+            setTimeout(connectOtaWebSocket, 3000);
+        };
+
+        ws.onerror = (err) => {
+            console.error('OTA WebSocket error:', err);
+        };
+    }
+
+    function getStatusBadge(status) {
+        const s = (status || '').toLowerCase();
+        if (s === 'downloading') return '<span class="badge blue"><i class="fa-solid fa-spinner fa-spin"></i> Downloading</span>';
+        if (s === 'flashing') return '<span class="badge purple"><i class="fa-solid fa-microchip fa-spin"></i> Flashing</span>';
+        if (s === 'rebooting') return '<span class="badge orange"><i class="fa-solid fa-power-off"></i> Rebooting</span>';
+        if (s === 'success' || s === 'completed' || s === 'ok') return '<span class="badge green"><i class="fa-solid fa-check"></i> Success</span>';
+        if (s === 'failed' || s === 'error') return '<span class="badge red"><i class="fa-solid fa-xmark"></i> Failed</span>';
+        return `<span class="badge gray"><i class="fa-solid fa-clock"></i> ${escapeHtml(status)}</span>`;
+    }
+
+    function updateOtaMonitorRow(data) {
+        if (!otaMonitorTableBody) return;
+
+        // Hide empty placeholder row
+        const emptyRow = document.getElementById('ota-empty-row');
+        if (emptyRow) emptyRow.style.display = 'none';
+
+        const nodeId = data.node_id || 'UNKNOWN';
+        const progress = Math.min(100, Math.max(0, parseInt(data.progress || 0)));
+        const statusStr = data.status || 'downloading';
+
+        let row = document.getElementById(`ota-row-${nodeId}`);
+        if (!row) {
+            row = document.createElement('tr');
+            row.id = `ota-row-${nodeId}`;
+            otaMonitorTableBody.appendChild(row);
+        }
+
+        row.innerHTML = `
+            <td><code>${escapeHtml(nodeId)}</code></td>
+            <td>${getStatusBadge(statusStr)}</td>
+            <td>
+                <div class="progress-bar-container">
+                    <div class="progress-fill" style="width: ${progress}%;"></div>
+                    <span class="progress-text">${progress}%</span>
+                </div>
+            </td>
+        `;
+
+        logTerminal(`OTA Status for [${nodeId}]: ${statusStr.toUpperCase()} (${progress}%)`, statusStr === 'failed' ? 'warn' : 'info');
+    }
+
+    // Connect WebSocket on load
+    connectOtaWebSocket();
             alert(`OTA Error: ${err.message}`);
         }
     });

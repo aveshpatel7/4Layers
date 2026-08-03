@@ -45,6 +45,51 @@ app.include_router(voice_assistant.router)
 app.include_router(admin.router)
 app.include_router(sharing.router)
 
+# WebSocket Manager for Real-Time OTA Status Broadcasting
+from fastapi import WebSocket, WebSocketDisconnect
+import json
+import asyncio
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+        self.loop = None
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections[:]:
+            try:
+                await connection.send_text(json.dumps(message))
+            except Exception:
+                self.disconnect(connection)
+
+manager = ConnectionManager()
+
+def broadcast_ota_ws_sync(data: dict):
+    if manager.loop and manager.loop.is_running():
+        asyncio.run_coroutine_threadsafe(manager.broadcast(data), manager.loop)
+
+mqtt.set_ota_ws_broadcaster(broadcast_ota_ws_sync)
+
+@app.websocket("/ws/ota-status")
+async def websocket_ota_status(websocket: WebSocket):
+    await manager.connect(websocket)
+    manager.loop = asyncio.get_running_loop()
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
+
 NO_CACHE_HEADERS = {
     "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
     "Pragma": "no-cache",

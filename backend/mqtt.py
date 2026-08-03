@@ -41,8 +41,9 @@ def on_connect(client, userdata, flags, rc):
         # Subscribe to status confirmation updates for all device nodes
         # Topic pattern: home/device/{node_id}/status
         subscribe_topic = "home/device/+/status"
-        client.subscribe(subscribe_topic)
-        logger.info("Subscribed to status topic: %s", subscribe_topic)
+        ota_topic = "smartnest/devices/+/ota/status"
+        client.subscribe([(subscribe_topic, 1), (ota_topic, 1)])
+        logger.info("Subscribed to MQTT topics: %s and %s", subscribe_topic, ota_topic)
     else:
         logger.error("Failed to connect to MQTT Broker, return code %d", rc)
 
@@ -50,10 +51,35 @@ def on_disconnect(client, userdata, rc):
     """Callback when client disconnects from broker."""
     logger.warning("Disconnected from MQTT Broker. Return code: %s", rc)
 
+# WebSocket broadcast listener callback for OTA status
+ota_ws_broadcaster = None
+
+def set_ota_ws_broadcaster(callback):
+    global ota_ws_broadcaster
+    ota_ws_broadcaster = callback
+
 def on_message(client, userdata, msg):
     """Callback when a message is received from the broker."""
     logger.info("Received MQTT message on topic: %s, payload: %s", msg.topic, msg.payload)
     try:
+        payload_str = msg.payload.decode("utf-8").strip()
+        
+        # Handle OTA Status Topic: smartnest/devices/{node_id}/ota/status
+        ota_parts = msg.topic.split('/')
+        if len(ota_parts) == 5 and ota_parts[0] == "smartnest" and ota_parts[1] == "devices" and ota_parts[3] == "ota" and ota_parts[4] == "status":
+            node_id = ota_parts[2]
+            try:
+                ota_data = json.loads(payload_str)
+            except json.JSONDecodeError:
+                ota_data = {"status": payload_str, "progress": 0}
+            
+            ota_data["node_id"] = node_id
+            logger.info("OTA status received for node %s: %s", node_id, ota_data)
+            
+            if ota_ws_broadcaster:
+                ota_ws_broadcaster(ota_data)
+            return
+
         # Parse topic: home/device/{node_id}/status
         parts = msg.topic.split('/')
         if len(parts) == 4 and parts[0] == "home" and parts[1] == "device" and parts[3] == "status":
