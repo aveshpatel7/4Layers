@@ -253,3 +253,19 @@ def publish_control_message(node_id: str, state: dict):
         publish_executor.submit(_blocking_publish, topic, payload)
     except Exception as e:
         logger.error("Failed to enqueue MQTT publish to %s: %s", topic, e)
+
+def publish_message(topic: str, payload: dict | str):
+    """
+    Generic MQTT publish function to send a JSON payload or string to any specified topic.
+    Submits blocking publish to thread pool to prevent blocking FastAPI's event loop.
+    """
+    if isinstance(payload, (dict, list)):
+        payload_str = json.dumps(payload)
+    else:
+        payload_str = str(payload)
+        
+    try:
+        publish_executor.submit(_blocking_publish, topic, payload_str)
+        logger.info("Enqueued MQTT publish to topic %s: %s", topic, payload_str)
+    except Exception as e:
+        logger.error("Failed to enqueue MQTT publish to %s: %s", topic, e)
