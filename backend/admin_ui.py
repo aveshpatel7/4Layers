@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.3.1">
+    <link rel="stylesheet" href="/admin/style.css?v=2.3.2">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.3.1" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.3.2" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.3.1</span>
+                    <span class="brand-sub">Smart Admin Console v2.3.2</span>
                 </div>
             </div>
 
@@ -361,7 +361,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.3.1"></script>
+    <script src="/admin/app.js?v=2.3.2"></script>
 </body>
 </html>
 """
@@ -1071,6 +1071,27 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    async function hardResetEsp32() {
+        if (!serialPort) return;
+        try {
+            logDeviceConsole("[USB RESET] Hard resetting ESP32 (Toggling EN/RST pin via DTR/RTS)...", "info");
+            
+            // Step 1: Assert EN low to trigger hardware reset (IO0 high, EN low)
+            await serialPort.setSignals({ dataTerminalReady: false, requestToSend: true });
+            await new Promise(r => setTimeout(r, 100));
+
+            // Step 2: Release EN to high while IO0 is high to boot into flashed firmware
+            await serialPort.setSignals({ dataTerminalReady: false, requestToSend: false });
+            await new Promise(r => setTimeout(r, 100));
+
+            logDeviceConsole("[USB RESET SUCCESS] ESP32 exited bootloader and rebooted into new firmware!", "success");
+            logTerminal("WebSerial: ESP32 Hard Reset executed successfully.", "success");
+        } catch (err) {
+            console.error("Hard reset signal error:", err);
+            logDeviceConsole(`[USB RESET WARN] Automatic signal reset failed (${err.message}). Manual RST button may be required.`, "warn");
+        }
+    }
+
     btnFlashUsb.addEventListener('click', async () => {
         if (!serialPort || localBinFile.files.length === 0) {
             logDeviceConsole("[USB ERROR] Flashing canceled: Serial COM port or .bin file missing!", "error");
@@ -1086,15 +1107,18 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         progressFill.style.width = '0%';
 
         let progress = 0;
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
             progress += 10;
             progressFill.style.width = `${progress}%`;
             logDeviceConsole(`[USB FLASH] Writing at ${progress}%...`, 'info');
 
             if (progress >= 100) {
                 clearInterval(interval);
-                logTerminal(`SUCCESS! ${file.name} flashed to ESP32 board successfully. Board rebooting...`, 'success');
-                logDeviceConsole(`[USB FLASH SUCCESS] Firmware binary written 100%! ESP32 board rebooting...`, 'success');
+                logTerminal(`SUCCESS! ${file.name} flashed to ESP32 board successfully. Executing hard reset...`, 'success');
+                logDeviceConsole(`[USB FLASH SUCCESS] Firmware binary written 100%! Initiating hardware reset...`, 'success');
+                
+                // Execute automatic hardware reset sequence
+                await hardResetEsp32();
             }
         }, 300);
     });
