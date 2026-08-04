@@ -82,8 +82,20 @@ def get_ota_status():
 
 @router.get("/devices/{node_id}/logs")
 def get_device_logs(node_id: str):
-    """Retrieve last 100 live terminal log entries for a specific ESP32 node."""
+    """Retrieve last 100 live terminal log entries for a specific ESP32 node or all nodes."""
     clean_id = node_id.strip()
+    if clean_id.upper() in ["ALL", "ALL_ONLINE_BOARDS", "BROADCAST"]:
+        all_logs = []
+        for nid, logs in DEVICE_LOGS_CACHE.items():
+            for l in logs:
+                all_logs.append({
+                    "timestamp": l.get("timestamp", ""),
+                    "log": f"[{nid}] {l.get('log', '')}"
+                })
+        # Sort aggregated logs by timestamp
+        all_logs.sort(key=lambda x: x.get("timestamp", ""))
+        return {"node_id": "ALL", "logs": all_logs[-100:]}
+    
     logs = DEVICE_LOGS_CACHE.get(clean_id, [])
     return {"node_id": clean_id, "logs": logs}
 

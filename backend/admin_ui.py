@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.3.2">
+    <link rel="stylesheet" href="/admin/style.css?v=2.3.3">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.3.2" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.3.3" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.3.2</span>
+                    <span class="brand-sub">Smart Admin Console v2.3.3</span>
                 </div>
             </div>
 
@@ -361,7 +361,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.3.2"></script>
+    <script src="/admin/app.js?v=2.3.3"></script>
 </body>
 </html>
 """
@@ -764,6 +764,9 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 
                 // Pre-populate pending row in Live OTA Monitor
                 const targetNode = target || 'ALL_ONLINE_BOARDS';
+                logDeviceConsole(`------------------------------------------------`, 'info');
+                logDeviceConsole(`[OTA TRIGGER] Remote OTA Initiated for '${targetNode}'. Listening for live progress...`, 'info');
+                
                 updateOtaMonitorRow({
                     node_id: targetNode,
                     status: 'downloading',
@@ -980,10 +983,10 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     async function pollRemoteDeviceLogs() {
         const targetNode = monitorTargetNodeSelect ? monitorTargetNodeSelect.value : 'ALL';
-        if (!targetNode || targetNode === 'ALL') return;
+        const queryTarget = targetNode || 'ALL';
 
         try {
-            const res = await fetch(`/api/admin/devices/${targetNode}/logs`);
+            const res = await fetch(`/api/admin/devices/${queryTarget}/logs`);
             if (res.ok) {
                 const data = await res.json();
                 const logs = data.logs || [];
@@ -992,7 +995,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     if (!lastSeenLogTimestamps.has(logKey)) {
                         lastSeenLogTimestamps.add(logKey);
                         const isError = item.log.toLowerCase().includes('error') || item.log.toLowerCase().includes('failed');
-                        logDeviceConsole(`[${targetNode}] ${item.log}`, isError ? 'error' : 'info');
+                        const prefix = item.log.startsWith('[') ? '' : `[${queryTarget}] `;
+                        logDeviceConsole(`${prefix}${item.log}`, isError ? 'error' : 'info');
                     }
                 });
                 
@@ -1010,10 +1014,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         monitorTargetNodeSelect.addEventListener('change', () => {
             lastSeenLogTimestamps.clear();
             const selected = monitorTargetNodeSelect.value;
-            logDeviceConsole(`[MONITOR] Selected Node Filter: ${selected}`, 'info');
-            if (selected !== 'ALL') {
-                pollRemoteDeviceLogs();
-            }
+            logDeviceConsole(`[MONITOR] Switched Log Filter to: ${selected}`, 'info');
+            pollRemoteDeviceLogs();
         });
     }
 
