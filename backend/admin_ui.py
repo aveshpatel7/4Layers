@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.3.6">
+    <link rel="stylesheet" href="/admin/style.css?v=2.3.7">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.3.6" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.3.7" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.3.6</span>
+                    <span class="brand-sub">Smart Admin Console v2.3.7</span>
                 </div>
             </div>
 
@@ -361,7 +361,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.3.6"></script>
+    <script src="/admin/app.js?v=2.3.7"></script>
 </body>
 </html>
 """
@@ -602,6 +602,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         `).join('');
     }
 
+    const otaPendingRebootNodes = new Map(); // nodeId -> { startTime: timestamp, notified: bool }
+
     async function fetchDevices() {
         try {
             const res = await fetch('/api/admin/devices');
@@ -610,6 +612,21 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 renderDevices(allDevices);
                 populateOtaDropdown(allDevices);
                 logTerminal(`Loaded ${allDevices.length} ESP32 devices from registry.`, 'info');
+
+                // Check pending reboot nodes for online confirmation
+                allDevices.forEach(d => {
+                    const nodeId = (d.node_id || d.device_id || '').replace(/\s*-\s*/g, '-').trim();
+                    if (otaPendingRebootNodes.has(nodeId)) {
+                        const pendingInfo = otaPendingRebootNodes.get(nodeId);
+                        // Confirm device is online and last_seen is updated
+                        if (d.is_online && !pendingInfo.notified) {
+                            pendingInfo.notified = true;
+                            logDeviceConsole(`[SYSTEM] Device '${nodeId}' back online. Reboot Successful! New firmware running.`, 'success');
+                            logTerminal(`Device '${nodeId}' back online after OTA reboot.`, 'success');
+                            otaPendingRebootNodes.delete(nodeId);
+                        }
+                    }
+                });
             }
         } catch (err) {
             nodesTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error loading devices: ${err.message}</td></tr>`;
@@ -838,10 +855,22 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                         otaRebootNotifiedNodes.add(nodeId);
                         logDeviceConsole(`[SYSTEM] OTA 100% Complete for '${nodeId}'. ESP32 is Rebooting into new firmware... Please wait...`, 'warn');
                         
-                        // Auto-clear notification tracking after 15s for future updates
+                        // Register in pending reboot tracking map so fetchDevices() detects online reconnection
+                        if (nodeId && nodeId !== 'ALL_ONLINE_BOARDS') {
+                            otaPendingRebootNodes.set(nodeId, { startTime: Date.now(), notified: false });
+                        }
+
+                        // Auto-clear notification tracking after 45s timeout if device fails to reconnect
                         setTimeout(() => {
                             otaRebootNotifiedNodes.delete(nodeId);
-                        }, 15000);
+                            if (otaPendingRebootNodes.has(nodeId)) {
+                                const info = otaPendingRebootNodes.get(nodeId);
+                                if (!info.notified) {
+                                    logDeviceConsole(`[SYSTEM WARN] Device '${nodeId}' did not confirm reconnection within 45s.`, 'warn');
+                                    otaPendingRebootNodes.delete(nodeId);
+                                }
+                            }
+                        }, 45000);
                     }
                 });
             }
