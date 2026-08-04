@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.3.3">
+    <link rel="stylesheet" href="/admin/style.css?v=2.3.4">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.3.3" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.3.4" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.3.3</span>
+                    <span class="brand-sub">Smart Admin Console v2.3.4</span>
                 </div>
             </div>
 
@@ -361,7 +361,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.3.3"></script>
+    <script src="/admin/app.js?v=2.3.4"></script>
 </body>
 </html>
 """
@@ -871,6 +871,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         return `<span class="badge gray"><i class="fa-solid fa-clock"></i> ${escapeHtml(status)}</span>`;
     }
 
+    const otaRowTimers = {};
+
     function updateOtaMonitorRow(data) {
         if (!otaMonitorTableBody) return;
 
@@ -879,7 +881,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
         const nodeId = data.node_id || 'UNKNOWN';
         const progress = Math.min(100, Math.max(0, parseInt(data.progress || 0)));
-        const statusStr = data.status || 'downloading';
+        const statusStr = (data.status || 'downloading').toLowerCase();
 
         let row = document.getElementById(`ota-row-${nodeId}`);
         if (!row) {
@@ -898,6 +900,29 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </td>
         `;
+
+        // If status is terminal (success, failed, timeout, error, completed), schedule 5s auto-clear
+        if (["success", "completed", "ok", "failed", "error", "timeout"].includes(statusStr)) {
+            if (!otaRowTimers[nodeId]) {
+                otaRowTimers[nodeId] = setTimeout(() => {
+                    const targetRow = document.getElementById(`ota-row-${nodeId}`);
+                    if (targetRow) {
+                        targetRow.remove();
+                    }
+                    delete otaRowTimers[nodeId];
+
+                    // If table is now empty, restore empty placeholder row
+                    const activeRows = otaMonitorTableBody.querySelectorAll('tr:not(#ota-empty-row)');
+                    if (activeRows.length === 0 && emptyRow) {
+                        emptyRow.style.display = 'table-row';
+                    }
+                }, 5000);
+            }
+        } else if (otaRowTimers[nodeId]) {
+            // Cancel pending removal if new download activity resumes on this node
+            clearTimeout(otaRowTimers[nodeId]);
+            delete otaRowTimers[nodeId];
+        }
     }
 
     // Start HTTP polling on load
