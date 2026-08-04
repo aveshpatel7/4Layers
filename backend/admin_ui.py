@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.3.4">
+    <link rel="stylesheet" href="/admin/style.css?v=2.3.5">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.3.4" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.3.5" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.3.4</span>
+                    <span class="brand-sub">Smart Admin Console v2.3.5</span>
                 </div>
             </div>
 
@@ -361,7 +361,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.3.4"></script>
+    <script src="/admin/app.js?v=2.3.5"></script>
 </body>
 </html>
 """
@@ -762,16 +762,18 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 logTerminal(`OTA Remote Update Triggered! Topic: ${data.target_topic}`, 'success');
                 alert(`OTA Remote Update command published successfully to topic: ${data.target_topic}`);
                 
-                // Pre-populate pending row in Live OTA Monitor
+                // Pre-populate pending row in Live OTA Monitor (only for specific node target)
                 const targetNode = target || 'ALL_ONLINE_BOARDS';
                 logDeviceConsole(`------------------------------------------------`, 'info');
                 logDeviceConsole(`[OTA TRIGGER] Remote OTA Initiated for '${targetNode}'. Listening for live progress...`, 'info');
                 
-                updateOtaMonitorRow({
-                    node_id: targetNode,
-                    status: 'downloading',
-                    progress: 0
-                });
+                if (target) {
+                    updateOtaMonitorRow({
+                        node_id: target,
+                        status: 'downloading',
+                        progress: 0
+                    });
+                }
             } else {
                 const errData = await res.json();
                 alert(`Failed to trigger OTA update: ${errData.detail || res.statusText}`);
@@ -876,10 +878,14 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     function updateOtaMonitorRow(data) {
         if (!otaMonitorTableBody) return;
 
+        const nodeId = data.node_id || 'UNKNOWN';
+        // Filter out broadcast topics and phantom nodes
+        if (["ALL_ONLINE_BOARDS", "ALL", "BROADCAST", "UNKNOWN"].includes(nodeId.toUpperCase())) {
+            return;
+        }
+
         const emptyRow = document.getElementById('ota-empty-row');
         if (emptyRow) emptyRow.style.display = 'none';
-
-        const nodeId = data.node_id || 'UNKNOWN';
         const progress = Math.min(100, Math.max(0, parseInt(data.progress || 0)));
         const statusStr = (data.status || 'downloading').toLowerCase();
 
@@ -1005,6 +1011,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     // Remote Device Logs Polling (1s interval for active target node)
     let deviceLogsPollTimer = null;
     let lastSeenLogTimestamps = new Set();
+    let hasNotifiedReboot = false;
 
     async function pollRemoteDeviceLogs() {
         const targetNode = monitorTargetNodeSelect ? monitorTargetNodeSelect.value : 'ALL';
@@ -1022,6 +1029,18 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                         const isError = item.log.toLowerCase().includes('error') || item.log.toLowerCase().includes('failed');
                         const prefix = item.log.startsWith('[') ? '' : `[${queryTarget}] `;
                         logDeviceConsole(`${prefix}${item.log}`, isError ? 'error' : 'info');
+
+                        if (item.log.toLowerCase().includes('rebooting') && !hasNotifiedReboot) {
+                            hasNotifiedReboot = true;
+                            setTimeout(() => {
+                                logDeviceConsole(`[SYSTEM] ESP32 device rebooting... waiting for MQTT reconnection...`, 'warn');
+                            }, 500);
+                        }
+
+                        if (item.log.toLowerCase().includes('connected') && hasNotifiedReboot) {
+                            hasNotifiedReboot = false;
+                            logDeviceConsole(`[SYSTEM] ESP32 device reconnected to MQTT successfully!`, 'success');
+                        }
                     }
                 });
                 
