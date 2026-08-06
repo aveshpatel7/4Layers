@@ -400,15 +400,15 @@ export default function FamilyMembersScreen({ navigation }) {
             </View>
 
             <Text style={styles.modalSubtext}>
-              Enter the email address of the member you want to grant access to <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
+              Grant access to <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
             </Text>
 
-            <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
+            <Text style={styles.inputLabel}>EMAIL ADDRESS OR USERNAME</Text>
             <View style={styles.inputContainer}>
-              <MaterialCommunityIcons name="email-outline" size={20} color={TOKENS.textSecondary} style={{ marginRight: 10 }} />
+              <MaterialCommunityIcons name="account-search-outline" size={20} color={TOKENS.textSecondary} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.textInput}
-                placeholder="e.g. member@4layers.in"
+                placeholder="e.g. member@4layers.in or @username"
                 placeholderTextColor="#666"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -420,7 +420,7 @@ export default function FamilyMembersScreen({ navigation }) {
             <View style={styles.infoNotice}>
               <MaterialCommunityIcons name="information-outline" size={16} color={TOKENS.accent} style={{ marginRight: 6 }} />
               <Text style={styles.infoNoticeText}>
-                If the user is already registered, they will instantly get node access. Non-registered users receive an invitation email via invites@4layers.in.
+                Enter the registered email address of the user. If they are not registered on the 4Layers app, they cannot be added.
               </Text>
             </View>
 
