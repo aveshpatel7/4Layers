@@ -57,8 +57,8 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
       {/* Node Tag & Status LED Header */}
       <View style={styles.cardHeaderRow}>
         <Text style={styles.nodeTagText}>{nodeLabel}</Text>
-        <View style={styles.cardHeaderRight}>
-          {hasSettings && (
+        {hasSettings && (
+          <View style={styles.cardHeaderRight}>
             <TouchableOpacity
               style={styles.gearButtonInline}
               onPress={() => setModalVisible(true)}
@@ -66,9 +66,8 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
             >
               <MaterialCommunityIcons name="cog" size={15} color={TOKENS.accentGreen} />
             </TouchableOpacity>
-          )}
-          <View style={[styles.statusLedDot, isEnabled ? styles.statusLedOn : styles.statusLedOff]} />
-        </View>
+          </View>
+        )}
       </View>
 
       {/* 3D Rocker Switch - Centered */}
