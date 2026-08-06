@@ -152,6 +152,36 @@ def unlink_voice_integration(payload: dict, current_user: models.User = Depends(
 # 2. Google Home Smart Home Fulfillment Endpoint
 # ----------------------------------------------------------------------
 
+def _get_user_accessible_devices(db: Session, user: models.User):
+    """Retrieve all devices owned by or shared with the given user for Voice Assistant commands."""
+    if not user:
+        return []
+    
+    # 1. Owned devices via Home
+    owned_devices = db.query(models.Device).join(models.Home).filter(
+        models.Home.owner_id == user.id
+    ).all()
+
+    # 2. Shared devices via NodeShares
+    shared_shares = db.query(models.NodeShare).filter(
+        models.NodeShare.shared_with_user_id == user.id
+    ).all()
+    shared_node_ids = [s.node_id for s in shared_shares if s.node_id]
+
+    shared_devices = []
+    if shared_node_ids:
+        from sqlalchemy import or_
+        conditions = []
+        for nid in shared_node_ids:
+            conditions.append(models.Device.node_id == nid)
+            conditions.append(models.Device.node_id.like(f"{nid}_%"))
+        shared_devices = db.query(models.Device).filter(or_(*conditions)).all()
+
+    # Combine & deduplicate
+    device_map = {d.id: d for d in owned_devices + shared_devices}
+    return list(device_map.values())
+
+
 @router.post("/api/google/fulfillment")
 async def google_fulfillment(request: Request, db: Session = Depends(get_db)):
     """Google Assistant Smart Home Fulfillment Endpoint (SYNC, QUERY, EXECUTE)."""
@@ -173,14 +203,15 @@ async def google_fulfillment(request: Request, db: Session = Depends(get_db)):
             payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
             user_id = payload.get("sub")
             user = db.query(models.User).filter(models.User.id == UUID(user_id)).first()
-        except Exception:
+        except Exception as e:
+            print("[Google Fulfillment] JWT decode exception:", e)
             pass
 
     if not user:
         # Fallback to first active user if token unverified during local testing
         user = db.query(models.User).first()
 
-    devices = db.query(models.Device).filter(models.Device.owner_id == user.id).all() if user else []
+    devices = _get_user_accessible_devices(db, user)
 
     if intent == "action.devices.SYNC":
         google_devices = []
@@ -316,8 +347,24 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
     namespace = header.get("namespace")
     name = header.get("name")
 
-    user = db.query(models.User).first()
-    devices = db.query(models.Device).filter(models.Device.owner_id == user.id).all() if user else []
+    # Extract user from Bearer token
+    headers = request.headers
+    auth_header = headers.get("Authorization", "")
+    user = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+            user_id = payload.get("sub")
+            user = db.query(models.User).filter(models.User.id == UUID(user_id)).first()
+        except Exception as e:
+            print("[Alexa Fulfillment] JWT decode exception:", e)
+            pass
+
+    if not user:
+        user = db.query(models.User).first()
+
+    devices = _get_user_accessible_devices(db, user)
 
     if namespace == "Alexa.Discovery" and name == "Discover":
         endpoints = []
