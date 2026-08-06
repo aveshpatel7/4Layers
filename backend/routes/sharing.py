@@ -32,99 +32,87 @@ def share_node(
     db: Session = Depends(get_db)
 ):
     """
-    Share a node with another user via email or username.
-    Creates a PendingInvitation with status='pending' and triggers push notification.
+    Share a node with another user via email or username directly.
+    Only node owners can add members to their node.
+    If user is not registered in the system, returns 404 Not Found.
     """
     raw_input = share_data.email.strip().lower()
     target_input = raw_input[1:] if raw_input.startswith("@") else raw_input
     
-    # Check if target input belongs to an existing registered user by email OR username
+    # 1. Verify that current_user is the owner of this node
+    base_node_id = node_id.split('_')[0] if '_' in node_id else node_id
+    owner_device = db.query(models.Device).join(models.Home).filter(
+        (models.Device.node_id == base_node_id) | (models.Device.node_id.like(f"{base_node_id}_%")),
+        models.Home.owner_id == current_user.id
+    ).first()
+
+    if not owner_device:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the node owner can add members to this node"
+        )
+
+    # 2. Check if target user exists in Users table by email OR username
     target_user = db.query(models.User).filter(
         (func.lower(models.User.email) == target_input) | (func.lower(models.User.username) == target_input)
     ).first()
 
-    target_email = target_user.email.strip().lower() if target_user else target_input
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This user is not registered."
+        )
 
-    if target_user and target_user.id == current_user.id:
+    if target_user.id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You cannot share a node with yourself"
         )
 
-    # Check if already active in NodeShares
-    if target_user:
-        existing_share = db.query(models.NodeShare).filter(
-            models.NodeShare.node_id == node_id,
-            models.NodeShare.shared_with_user_id == target_user.id
-        ).first()
-
-        if existing_share:
-            return schemas.NodeShareActionResponse(
-                status="added",
-                message="User is already an active member of this node",
-                member=schemas.NodeMemberResponse(
-                    id=existing_share.id,
-                    user_id=target_user.id,
-                    email=target_user.email,
-                    username=target_user.username,
-                    status="active",
-                    access_level=existing_share.access_level,
-                    created_at=existing_share.created_at
-                )
-            )
-
-    # Check if already pending invitation
-    existing_invite = db.query(models.PendingInvitation).filter(
-        models.PendingInvitation.node_id == node_id,
-        func.lower(models.PendingInvitation.invited_email) == target_email,
-        models.PendingInvitation.status == "pending"
+    # 3. Check if already active in NodeShares
+    existing_share = db.query(models.NodeShare).filter(
+        models.NodeShare.node_id == base_node_id,
+        models.NodeShare.shared_with_user_id == target_user.id
     ).first()
 
-    if not existing_invite:
-        existing_invite = models.PendingInvitation(
-            node_id=node_id,
-            invited_email=target_email,
-            invited_by_user_id=current_user.id,
-            status="pending"
-        )
-        db.add(existing_invite)
-        db.commit()
-        db.refresh(existing_invite)
-
-    room_name = _get_room_name_for_node(db, node_id)
-    inviter_name = current_user.username or current_user.email
-
-    print(f"[NodeSharing API] Invite created: node_id='{node_id}', invited_email='{target_email}', by='{inviter_name}'")
-
-    # Trigger Push Notification if target_user exists and has push token
-    if target_user and target_user.expo_push_token:
-        notifier.send_expo_push_notification(
-            push_token=target_user.expo_push_token,
-            title="New Sharing Request",
-            body=f"{inviter_name} wants to share {room_name}",
-            data={
-                "type": "node_invite",
-                "invite_id": str(existing_invite.id),
-                "node_id": node_id,
-                "room_name": room_name,
-                "inviter_username": inviter_name
-            }
+    if existing_share:
+        return schemas.NodeShareActionResponse(
+            status="added",
+            message="User is already an active member of this node",
+            member=schemas.NodeMemberResponse(
+                id=existing_share.id,
+                user_id=target_user.id,
+                email=target_user.email,
+                username=target_user.username or target_user.email,
+                status="active",
+                access_level=existing_share.access_level,
+                created_at=existing_share.created_at
+            )
         )
 
-    # Also send email invite for non-existing or offline users
-    emailer.send_invitation_email(target_email, inviter_name, node_id)
+    # 4. Directly create active NodeShare record
+    new_share = models.NodeShare(
+        node_id=base_node_id,
+        shared_with_user_id=target_user.id,
+        access_level="user"
+    )
+    db.add(new_share)
+    db.commit()
+    db.refresh(new_share)
+
+    print(f"[NodeSharing API] Direct member added: node_id='{base_node_id}', user='{target_user.email}', by='{current_user.email}'")
 
     return schemas.NodeShareActionResponse(
-        status="invite_sent",
-        message=f"Sharing request sent to {target_email}!",
+        status="added",
+        message="Member added successfully!",
         member=schemas.NodeMemberResponse(
-            id=existing_invite.id,
-            user_id=target_user.id if target_user else None,
-            email=target_email,
-            username=target_user.username if target_user else "Invited User",
-            status="pending",
+            id=new_share.id,
+            user_id=target_user.id,
+            email=target_user.email,
+            username=target_user.username or target_user.email,
+            status="active",
             access_level="user",
-            created_at=existing_invite.created_at
+            created_at=new_share.created_at
         )
     )
 
@@ -134,19 +122,8 @@ def get_pending_invites_received(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve all pending node invitations received by the current user."""
-    user_email_clean = current_user.email.strip().lower()
-    user_name_clean = current_user.username.strip().lower() if current_user.username else ""
-
-    print(f"[NodeSharing API] GET /api/nodes/pending-invites requested by user={current_user.username} ({user_email_clean})")
-
-    invites = db.query(models.PendingInvitation).filter(
-        (func.lower(models.PendingInvitation.invited_email) == user_email_clean) |
-        (func.lower(models.PendingInvitation.invited_email) == user_name_clean),
-        models.PendingInvitation.status == "pending"
-    ).order_by(models.PendingInvitation.created_at.desc()).all()
-
-    print(f"[NodeSharing API] Returning {len(invites)} pending invites for {current_user.username} ({user_email_clean})")
+    """Cleaned up endpoint returning empty array as pending invitations flow is removed."""
+    return []
 
     items = []
     for inv in invites:

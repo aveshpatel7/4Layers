@@ -174,13 +174,13 @@ export default function FamilyMembersScreen({ navigation }) {
 
   const handleAddMember = async () => {
     const cleanEmail = emailInput.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      Alert.alert('Validation Error', 'Please enter a valid email address.');
+    if (!cleanEmail) {
+      Alert.alert('Validation Error', 'Please enter a valid email address or username.');
       return;
     }
 
     if (!selectedNodeId) {
-      Alert.alert('Selection Error', 'Please select a hardware node first.');
+      Alert.alert('Selection Error', 'Please select a room first.');
       return;
     }
 
@@ -190,23 +190,21 @@ export default function FamilyMembersScreen({ navigation }) {
         email: cleanEmail
       });
 
-      const { status, message } = res.data;
-
-      if (status === 'added') {
-        Alert.alert('Success 🎉', message || 'Member added successfully!');
-      } else if (status === 'invite_sent') {
-        Alert.alert('Invitation Sent 📩', message || 'User not found. Invitation email sent!');
-      } else {
-        Alert.alert('Notice', message || 'Operation completed.');
-      }
+      const { message } = res.data;
+      Alert.alert('Success 🎉', message || 'Member added successfully!');
 
       setEmailInput('');
       setAddModalVisible(false);
       fetchMembers(selectedNodeId);
     } catch (err) {
       console.error('[FamilyMembers] Error sharing node:', err);
+      const statusCode = err.response?.status;
       const errMsg = err.response?.data?.detail || 'Failed to add member.';
-      Alert.alert('Error', errMsg);
+      if (statusCode === 404) {
+        Alert.alert('User Not Found ❌', 'This user is not registered.');
+      } else {
+        Alert.alert('Error', errMsg);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -314,45 +312,9 @@ export default function FamilyMembersScreen({ navigation }) {
         </View>
       ) : (
         <View style={styles.body}>
-          {/* Pending Received Invites Section */}
-          {pendingReceivedInvites.length > 0 && (
-            <View style={{ marginBottom: 20 }}>
-              <Text style={[styles.sectionSublabel, { color: TOKENS.accent, marginBottom: 8 }]}>
-                PENDING SHARING REQUESTS ({pendingReceivedInvites.length}):
-              </Text>
-              {pendingReceivedInvites.map((inv) => (
-                <View key={inv.invite_id} style={styles.receivedInviteCard}>
-                  <View style={{ flex: 1, marginRight: 10 }}>
-                    <Text style={styles.receivedInviteTitle} numberOfLines={2}>
-                      <Text style={{ fontWeight: '800', color: TOKENS.textPrimary }}>@{inv.inviter_username}</Text> wants to share <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{inv.room_name}</Text>
-                    </Text>
-                    <Text style={styles.receivedInviteSub}>{inv.inviter_email}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    <TouchableOpacity
-                      style={styles.acceptBtn}
-                      onPress={() => handleAcceptInvite(inv.invite_id)}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="check" size={16} color="#000" />
-                      <Text style={styles.acceptBtnText}>Accept</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.rejectBtn}
-                      onPress={() => handleRejectInvite(inv.invite_id)}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="close" size={16} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-
           <View style={styles.listHeaderRow}>
             <Text style={styles.listTitle}>
-              Shared Members ({members.length})
+              Active Members ({members.length})
             </Text>
             {isRefreshingMembers && <ActivityIndicator size="small" color={TOKENS.accent} />}
           </View>
@@ -360,17 +322,17 @@ export default function FamilyMembersScreen({ navigation }) {
           {members.length === 0 ? (
             <View style={styles.emptyCard}>
               <MaterialCommunityIcons name="account-group-outline" size={56} color={TOKENS.textSecondary} />
-              <Text style={styles.emptyTitle}>No Members Shared Yet</Text>
+              <Text style={styles.emptyTitle}>No Members Added Yet</Text>
               <Text style={styles.emptySub}>
-                Invite members or housemates to control devices in <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
+                Add members or housemates to share control of <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
               </Text>
               <TouchableOpacity
                 style={styles.emptyAddBtn}
                 onPress={() => setAddModalVisible(true)}
                 activeOpacity={0.85}
               >
-                <MaterialCommunityIcons name="email-plus-outline" size={18} color={TOKENS.bg} />
-                <Text style={styles.emptyAddBtnText}>Invite Member</Text>
+                <MaterialCommunityIcons name="account-plus-outline" size={18} color={TOKENS.bg} />
+                <Text style={styles.emptyAddBtnText}>Add Member</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -379,15 +341,14 @@ export default function FamilyMembersScreen({ navigation }) {
               keyExtractor={(item) => item.id || item.email}
               contentContainerStyle={styles.membersList}
               renderItem={({ item }) => {
-                const isPending = item.status === 'pending';
-                const displayName = item.username ? (item.username.startsWith('@') ? item.username : `@${item.username}`) : 'Invited User';
+                const displayName = item.username ? (item.username.startsWith('@') ? item.username : `@${item.username}`) : item.email;
                 return (
                   <View style={styles.memberCard}>
                     <View style={styles.memberAvatarCircle}>
                       <MaterialCommunityIcons
-                        name={isPending ? "email-clock-outline" : "account-check-outline"}
+                        name="account-check-outline"
                         size={22}
-                        color={isPending ? TOKENS.warning : TOKENS.accent}
+                        color={TOKENS.accent}
                       />
                     </View>
 
@@ -396,9 +357,9 @@ export default function FamilyMembersScreen({ navigation }) {
                         <Text style={styles.memberEmail} numberOfLines={1}>
                           {displayName}
                         </Text>
-                        <View style={[styles.statusBadge, isPending ? styles.badgePending : styles.badgeActive]}>
-                          <Text style={[styles.statusBadgeText, isPending ? styles.textPending : styles.textActive]}>
-                            {isPending ? 'PENDING INVITE' : 'ACTIVE'}
+                        <View style={[styles.statusBadge, styles.badgeActive]}>
+                          <Text style={[styles.statusBadgeText, styles.textActive]}>
+                            ACTIVE
                           </Text>
                         </View>
                       </View>

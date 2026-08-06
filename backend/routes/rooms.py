@@ -15,15 +15,16 @@ def create_room(
     db: Session = Depends(get_db)
 ):
     """Create a new room in a home. Verifies home ownership."""
-    home = db.query(models.Home).filter(
-        models.Home.id == room_data.home_id,
-        models.Home.owner_id == current_user.id
-    ).first()
-    
+    home = db.query(models.Home).filter(models.Home.id == room_data.home_id).first()
     if not home:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Home not found or access denied"
+            detail="Home not found"
+        )
+    if home.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the home owner can create new rooms"
         )
         
     new_room = models.Room(
@@ -116,15 +117,16 @@ def delete_room(
     db: Session = Depends(get_db)
 ):
     """Delete a room by UUID. Devices in this room will have room_id set to null."""
-    room = db.query(models.Room).join(models.Home).filter(
-        models.Room.id == room_id,
-        models.Home.owner_id == current_user.id
-    ).first()
-    
+    room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if not room:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Room not found or access denied"
+            detail="Room not found"
+        )
+    if not room.home or room.home.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the room owner can delete this room"
         )
         
     from backend import mqtt

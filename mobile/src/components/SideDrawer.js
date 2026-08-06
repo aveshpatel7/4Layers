@@ -233,11 +233,6 @@ export default function SideDrawer({
                       <Text style={[styles.menuItemText, isActive && styles.menuItemTextActive]}>
                         {item.label}
                       </Text>
-                      {item.key === 'FamilyMembersTab' && pendingInvitesCount > 0 && (
-                        <View style={styles.badgeDot}>
-                          <Text style={styles.badgeDotText}>{pendingInvitesCount}</Text>
-                        </View>
-                      )}
                     </View>
                     <MaterialCommunityIcons
                       name="chevron-right"

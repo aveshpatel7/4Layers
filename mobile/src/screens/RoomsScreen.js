@@ -171,10 +171,12 @@ export default function RoomsScreen({ navigation: navProp }) {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Manage Rooms</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
-          <MaterialCommunityIcons name="plus" size={20} color={TOKENS.bg} />
-          <Text style={styles.addButtonText}>Add Room</Text>
-        </TouchableOpacity>
+        {rooms.some(r => !r.is_shared) && (
+          <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
+            <MaterialCommunityIcons name="plus" size={20} color={TOKENS.bg} />
+            <Text style={styles.addButtonText}>Add Room</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {rooms.length === 0 ? (
@@ -203,12 +205,14 @@ export default function RoomsScreen({ navigation: navProp }) {
                   <Text style={styles.roomType}>{getRoomLabel(item.room_type)}</Text>
                 </View>
               </View>
-              <TouchableOpacity 
-                style={styles.deleteButton}
-                onPress={() => handleDeleteRoom(item.id, item.name)}
-              >
-                <MaterialCommunityIcons name="trash-can-outline" size={20} color={TOKENS.error} />
-              </TouchableOpacity>
+              {!item.is_shared && (
+                <TouchableOpacity 
+                  style={styles.deleteButton}
+                  onPress={() => handleDeleteRoom(item.id, item.name)}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={20} color={TOKENS.error} />
+                </TouchableOpacity>
+              )}
             </View>
           )}
         />
