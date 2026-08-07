@@ -413,7 +413,8 @@ class WifiWriteCallback: public BLECharacteristicCallbacks {
           preferences.putString("pass", receivedPass);
           preferences.end();
           
-          // Wait for the app to write the Device ID (UUID) before rebooting
+          // Credentials saved! Reboot board to connect to home Wi-Fi
+          shouldReboot = true;
         }
       }
     }

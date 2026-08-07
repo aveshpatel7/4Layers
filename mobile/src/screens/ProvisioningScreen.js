@@ -713,9 +713,18 @@ export default function ProvisioningScreen({ route, navigation }) {
         applyConnection: 'RUNNING'
       }));
 
+      // Give ESP32 board 4 seconds to reboot and connect to local Wi-Fi router
+      await new Promise(resolve => setTimeout(resolve, 4000));
+
+      setChecklist(prev => ({
+        ...prev,
+        applyConnection: 'DONE',
+        provisionCloud: 'RUNNING'
+      }));
+
       const isNewRoom = selectedRoomId === 'NEW';
       let provisionResponse = null;
-      let retries = 18; // Try up to 18 times (3x increase, total ~54 seconds)
+      let retries = 18; // Try up to 18 times (total ~54 seconds)
       
       while (retries > 0) {
         try {
