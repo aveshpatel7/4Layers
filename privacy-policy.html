@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — 4Layers Smart Home</title>
+    <meta name="description" content="Official Privacy Policy for 4Layers Smart Home Automation, mobile apps, and Cloud API services.">
+    
+    <link rel="icon" type="image/png" href="https://4layers.in/logo.png">
+    
+    <!-- Open Graph for Search Engines & Social -->
+    <meta property="og:title" content="Privacy Policy — 4Layers Smart Home">
+    <meta property="og:description" content="Official Privacy Policy for 4Layers Smart Home Automation.">
+    <meta property="og:image" content="https://4layers.in/logo.png">
+    <meta property="og:url" content="https://4layers.in/privacy-policy.html">
+    <meta property="og:type" content="website">
+
+    <!-- Tailwind CSS CDN & Icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eefbf4', 100: '#d6f5e4', 200: '#b0eacd', 300: '#7cdab0',
+                            400: '#46c38f', 50: '#1fa971', 600: '#17895c', 700: '#136d4b',
+                            800: '#12573d', 900: '#104834', 950: '#00E676'
+                        },
+                        card: { DEFAULT: '#1c1c1e', light: '#2c2c2e', hover: '#242426' },
+                        dark: {
+                            50: '#f5f5f7', 100: '#e8e8ed', 200: '#d2d2d7', 300: '#aeaeb2',
+                            400: '#8e8e93', 500: '#636366', 600: '#48484a', 700: '#3a3a3c',
+                            800: '#2c2c2e', 900: '#1c1c1e', 950: '#0b0f19'
+                        }
+                    },
+                    fontFamily: { sans: ['Montserrat', 'system-ui', '-apple-system', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+            background-color: #0b0f19;
+            color: #f5f5f7;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+
+        /* ── Navbar Neumorphism & Blur ── */
+        .nav-neu {
+            background: rgba(11, 15, 25, 0.85);
+            backdrop-filter: blur(25px) saturate(180%);
+            -webkit-backdrop-filter: blur(25px) saturate(180%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* ── Glassmorphism Card ── */
+        .policy-card {
+            background: rgba(28, 28, 30, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        /* ── Grid Background Pattern ── */
+        .grid-bg {
+            background-image: linear-gradient(rgba(0, 230, 118, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 230, 118, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ── Glowing Accent Effects ── */
+        .text-glow {
+            text-shadow: 0 0 30px rgba(0, 230, 118, 0.4);
+        }
+
+        .radial-glow {
+            background: radial-gradient(circle at 50% 10%, rgba(0, 230, 118, 0.08), transparent 70%);
+        }
+
+        /* ── Custom Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 230, 118, 0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00E676; }
+    </style>
+</head>
+
+<body class="grid-bg radial-glow relative">
+
+    <!-- Header Navigation -->
+    <header class="fixed top-0 left-0 right-0 z-50 nav-neu px-6 py-4">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <a href="https://4layers.in" class="flex items-center gap-3 group">
+                <img src="https://4layers.in/logo.png" alt="4Layers Logo" class="h-9 w-auto transition-transform group-hover:scale-105" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>'">
+                <span class="text-xl font-bold tracking-tight text-white">4<span class="text-[#00E676]">Layers</span></span>
+            </a>
+            <a href="https://4layers.in" class="inline-flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-[#00E676] transition-colors">
+                <iconify-icon icon="lucide:arrow-left" width="18"></iconify-icon>
+                Back to Main Site
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="pt-32 pb-20 px-4 sm:px-6">
+        <div class="max-w-4xl mx-auto">
+            
+            <!-- Page Header Badge -->
+            <div class="text-center mb-12">
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#00E676]/10 border border-[#00E676]/20 text-[#00E676] text-xs font-semibold tracking-wider uppercase mb-4">
+                    <iconify-icon icon="lucide:shield-check" width="16"></iconify-icon>
+                    Legal & Compliance
+                </div>
+                <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight mb-3 text-glow">
+                    Privacy Policy
+                </h1>
+                <p class="text-sm text-gray-400">
+                    Last Updated: <span class="text-gray-300 font-medium">July 30, 2026</span>
+                </p>
+            </div>
+
+            <!-- Policy Glass Container -->
+            <article class="policy-card p-6 sm:p-10 md:p-12 text-gray-300 leading-relaxed text-sm sm:text-base space-y-8">
+                
+                <!-- Introduction -->
+                <div class="border-b border-white/10 pb-6">
+                    <p class="text-gray-300 text-base leading-relaxed">
+                        At <strong class="text-white">4Layers Smart Home</strong> ("we", "our", or "us"), we value your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use the 4Layers Smart Home mobile app, Cloud API, and integrations with Google Home and Amazon Alexa.
+                    </p>
+                </div>
+
+                <!-- 1. Information We Collect -->
+                <section class="space-y-3">
+                    <h2 class="text-lg sm:text-xl font-bold text-[#00E676] flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00E676]/10 text-xs font-mono">01</span>
+                        Information We Collect
+                    </h2>
+                    <p class="text-gray-400">We may collect:</p>
+                    <ul class="list-none space-y-2.5 pl-2 sm:pl-4">
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:check-circle-2" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span><strong class="text-white">Account Information:</strong> Such as your email address, username, and account ID.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:check-circle-2" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span><strong class="text-white">Smart Home Device Information:</strong> Device names, status (ON/OFF), fan speeds, room assignments, and hardware device identifiers.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:check-circle-2" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span><strong class="text-white">Diagnostic & Network Data:</strong> App usage, diagnostic logs, IP address, and connectivity information.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:check-circle-2" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span><strong class="text-white">Voice Integration Commands:</strong> Smart home commands received through Google Home or Amazon Alexa to perform requested actions. <em class="text-gray-400">We do not store voice recordings.</em></span>
+                        </li>
+                    </ul>
+                </section>
+
+                <!-- 2. How We Use Your Information -->
+                <section class="space-y-3 pt-4 border-t border-white/5">
+                    <h2 class="text-lg sm:text-xl font-bold text-[#00E676] flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00E676]/10 text-xs font-mono">02</span>
+                        How We Use Your Information
+                    </h2>
+                    <p class="text-gray-400">We use your information to:</p>
+                    <ul class="list-none space-y-2.5 pl-2 sm:pl-4">
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:arrow-right-circle" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span>Authenticate your account and maintain overall system security.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:arrow-right-circle" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span>Control and synchronize your smart home devices seamlessly across mobile apps and voice platforms.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:arrow-right-circle" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span>Process voice commands received via Google Assistant and Amazon Alexa.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:arrow-right-circle" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span>Improve app performance, cloud security, and IoT server infrastructure reliability.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="lucide:arrow-right-circle" class="text-[#00E676] mt-1 shrink-0" width="18"></iconify-icon>
+                            <span>Provide prompt technical and customer support.</span>
+                        </li>
+                    </ul>
+                </section>
+
+                <!-- 3. Data Sharing -->
+                <section class="space-y-3 pt-4 border-t border-white/5">
+                    <h2 class="text-lg sm:text-xl font-bold text-[#00E676] flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00E676]/10 text-xs font-mono">03</span>
+                        Data Sharing & Third-Party Disclosure
+                    </h2>
+                    <p class="text-gray-300 leading-relaxed">
+                        We do not sell, rent, or trade your personal information. We may share information only with trusted service providers (such as AWS cloud infrastructure) necessary to operate our services or when required by law to protect legal rights.
+                    </p>
+                </section>
+
+                <!-- 4. Data Security -->
+                <section class="space-y-3 pt-4 border-t border-white/5">
+                    <h2 class="text-lg sm:text-xl font-bold text-[#00E676] flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00E676]/10 text-xs font-mono">04</span>
+                        Data Security & Encryption
+                    </h2>
+                    <p class="text-gray-300 leading-relaxed">
+                        We protect your information using industry-standard security measures, including TLS/SSL encryption for all API endpoints, secure AWS cloud infrastructure, and access controls. While we work to protect your data, no method of transmission over the Internet is 100% secure.
+                    </p>
+                </section>
+
+                <!-- 5. Data Retention -->
+                <section class="space-y-3 pt-4 border-t border-white/5">
+                    <h2 class="text-lg sm:text-xl font-bold text-[#00E676] flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00E676]/10 text-xs font-mono">05</span>
+                        Data Retention & Account Deletion
+                    </h2>
+                    <p class="text-gray-300 leading-relaxed">
+                        We retain your information only for as long as necessary to provide our smart home services, comply with legal obligations, and maintain account functionality. You may request account deletion and removal of associated device data at any time by contacting our support team.
+                    </p>
+                </section>
+
+                <!-- 6. Children's Privacy -->
+                <section class="space-y-3 pt-4 border-t border-white/5">
+                    <h2 class="text-lg sm:text-xl font-bold text-[#00E676] flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00E676]/10 text-xs font-mono">06</span>
+                        Children's Privacy
+                    </h2>
+                    <p class="text-gray-300 leading-relaxed">
+                        Our services are not intended for children under 13 years of age, and we do not knowingly collect personal information from children.
+                    </p>
+                </section>
+
+                <!-- 7. Changes to This Policy -->
+                <section class="space-y-3 pt-4 border-t border-white/5">
+                    <h2 class="text-lg sm:text-xl font-bold text-[#00E676] flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00E676]/10 text-xs font-mono">07</span>
+                        Changes to This Privacy Policy
+                    </h2>
+                    <p class="text-gray-300 leading-relaxed">
+                        We may update this Privacy Policy from time to time. Any changes will be posted directly on this page with an updated revision date.
+                    </p>
+                </section>
+
+                <!-- 8. Contact Us -->
+                <section class="space-y-4 pt-4 border-t border-white/5">
+                    <h2 class="text-lg sm:text-xl font-bold text-[#00E676] flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00E676]/10 text-xs font-mono">08</span>
+                        Contact Us
+                    </h2>
+                    <p class="text-gray-300">
+                        If you have any questions, concerns, or requests regarding this Privacy Policy, please reach out to us:
+                    </p>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <a href="mailto:support@4layers.in" class="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#00E676]/50 transition-all hover:translate-y-[-2px]">
+                            <div class="w-10 h-10 rounded-lg bg-[#00E676]/10 flex items-center justify-center text-[#00E676]">
+                                <iconify-icon icon="lucide:mail" width="20"></iconify-icon>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400">Email Support</div>
+                                <div class="text-sm font-semibold text-white">support@4layers.in</div>
+                            </div>
+                        </a>
+
+                        <a href="https://4layers.in" target="_blank" class="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#00E676]/50 transition-all hover:translate-y-[-2px]">
+                            <div class="w-10 h-10 rounded-lg bg-[#00E676]/10 flex items-center justify-center text-[#00E676]">
+                                <iconify-icon icon="lucide:globe" width="20"></iconify-icon>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400">Official Website</div>
+                                <div class="text-sm font-semibold text-white">https://4layers.in</div>
+                            </div>
+                        </a>
+                    </div>
+                </section>
+
+            </article>
+
+            <!-- Footer Section -->
+            <footer class="mt-12 text-center text-xs text-gray-500 space-y-2">
+                <p>&copy; 2026 4Layers Smart Home. All rights reserved.</p>
+                <p>Designed for seamless smart home control with Google Assistant & Amazon Alexa.</p>
+            </footer>
+
+        </div>
+    </main>
+
+</body>
+</html>
