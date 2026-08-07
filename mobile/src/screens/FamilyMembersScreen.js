@@ -11,7 +11,8 @@ import {
   TextInput,
   FlatList,
   Platform,
-  StatusBar
+  StatusBar,
+  KeyboardAvoidingView
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -43,6 +44,7 @@ export default function FamilyMembersScreen({ navigation }) {
   // Add Member Modal State
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [emailInput, setEmailInput] = useState('');
+  const [inputFocused, setInputFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [pendingReceivedInvites, setPendingReceivedInvites] = useState([]);
@@ -382,75 +384,113 @@ export default function FamilyMembersScreen({ navigation }) {
 
       {/* Add Member Modal */}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={addModalVisible}
         onRequestClose={() => setAddModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setAddModalVisible(false)}
+          />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialCommunityIcons name="account-plus-outline" size={22} color={TOKENS.accent} style={{ marginRight: 8 }} />
+                <MaterialCommunityIcons name="account-plus-outline" size={22} color="#00E676" style={{ marginRight: 8 }} />
                 <Text style={styles.modalTitle}>Add Member</Text>
               </View>
-              <TouchableOpacity onPress={() => setAddModalVisible(false)}>
-                <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
+              {/* UX-FIX: Close button (X) minimum touch target 44x44dp with accessibility label */}
+              <TouchableOpacity
+                onPress={() => setAddModalVisible(false)}
+                style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}
+                accessibilityLabel="Close Add Member Modal"
+                accessibilityRole="button"
+              >
+                <MaterialCommunityIcons name="close" size={22} color="#B3B3B3" />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalSubtext}>
-              Grant access to <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
+              Grant access to <Text style={{ color: '#00E676', fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
             </Text>
 
+            {/* UX-FIX: Label typography uppercase 12sp letter-spacing 0.5px */}
             <Text style={styles.inputLabel}>EMAIL ADDRESS OR USERNAME</Text>
-            <View style={styles.inputContainer}>
-              <MaterialCommunityIcons name="account-search-outline" size={20} color={TOKENS.textSecondary} style={{ marginRight: 10 }} />
+            
+            {/* UX-FIX: Active input border & placeholder opacity >= 0.5 */}
+            <View style={[
+              styles.inputContainer,
+              inputFocused && { borderColor: '#00E676', borderWidth: 2 }
+            ]}>
+              <MaterialCommunityIcons name="account-search-outline" size={20} color={inputFocused ? '#00E676' : '#B3B3B3'} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. member@4layers.in or @username"
-                placeholderTextColor="#666"
+                placeholderTextColor="rgba(255, 255, 255, 0.5)" // UX-FIX: Increased placeholder opacity
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={emailInput}
                 onChangeText={setEmailInput}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                returnKeyType="done"
+                onSubmitEditing={handleAddMember}
+                autoFocus={true} // UX-FIX: Auto-focus first field on modal open
               />
+              {emailInput.trim().length > 0 && (
+                <MaterialCommunityIcons name="check-circle" size={18} color="#00E676" style={{ marginLeft: 6 }} />
+              )}
             </View>
 
+            {/* UX-FIX: Info box reduced saturation green & 4px solid brand-green left border */}
             <View style={styles.infoNotice}>
-              <MaterialCommunityIcons name="information-outline" size={16} color={TOKENS.accent} style={{ marginRight: 6 }} />
+              <MaterialCommunityIcons name="information-outline" size={18} color="#00E676" style={{ marginRight: 8 }} />
               <Text style={styles.infoNoticeText}>
                 Enter the registered email address of the user. If they are not registered on the 4Layers app, they cannot be added.
               </Text>
             </View>
 
             <View style={styles.modalActionsRow}>
+              {/* UX-FIX: Secondary button transparent bg, 1px border rgba(255,255,255,0.2) */}
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => setAddModalVisible(false)}
                 activeOpacity={0.8}
+                accessibilityLabel="Cancel"
+                accessibilityRole="button"
               >
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
 
+              {/* UX-FIX: Primary button green, 8px border-radius, min-height 48dp, disabled state */}
               <TouchableOpacity
-                style={[styles.submitBtn, isSubmitting && { opacity: 0.6 }]}
+                style={[
+                  styles.submitBtn,
+                  (!emailInput.trim() || isSubmitting) && { opacity: 0.5 } // UX-FIX: Disabled state when form invalid
+                ]}
                 onPress={handleAddMember}
-                disabled={isSubmitting}
+                disabled={!emailInput.trim() || isSubmitting}
                 activeOpacity={0.85}
+                accessibilityLabel="Add Member Button"
+                accessibilityRole="button"
               >
                 {isSubmitting ? (
-                  <ActivityIndicator size="small" color={TOKENS.bg} />
+                  <ActivityIndicator size="small" color="#000000" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="check" size={18} color={TOKENS.bg} style={{ marginRight: 4 }} />
+                    <MaterialCommunityIcons name="check" size={18} color="#000000" style={{ marginRight: 6 }} />
                     <Text style={styles.submitBtnText}>ADD MEMBER</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -718,7 +758,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // UX-FIX: Backdrop dimming rgba(0,0,0,0.7)
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16
@@ -726,11 +766,11 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '92%',
     maxWidth: 420,
-    backgroundColor: '#161616',
+    backgroundColor: '#1E1E1E', // UX-FIX: Dark theme card surface #1E1E1E
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
     borderWidth: 1,
-    borderColor: TOKENS.border
+    borderColor: 'rgba(255, 255, 255, 0.08)' // UX-FIX: Subtle 1px border
   },
   modalHeader: {
     flexDirection: 'row',
@@ -739,81 +779,91 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: TOKENS.textPrimary
+    fontSize: 20, // UX-FIX: 20sp screen title
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 26
   },
   modalSubtext: {
-    fontSize: 12.5,
-    color: TOKENS.textSecondary,
-    lineHeight: 18,
+    fontSize: 14, // UX-FIX: 14sp body text
+    color: '#B3B3B3',
+    lineHeight: 20,
     marginBottom: 16
   },
   inputLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: TOKENS.textSecondary,
+    fontSize: 12, // UX-FIX: Uppercase, letter-spacing 0.5px, font-weight 600, 12sp
+    fontWeight: '600',
+    color: '#B3B3B3',
     marginBottom: 6,
-    letterSpacing: 0.5
+    letterSpacing: 0.5,
+    textTransform: 'uppercase'
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#222225',
-    borderWidth: 1,
-    borderColor: TOKENS.border,
+    backgroundColor: '#121212',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 10,
     paddingHorizontal: 12,
-    marginBottom: 14
+    marginBottom: 16,
+    height: 48 // UX-FIX: Min height 48dp
   },
   textInput: {
     flex: 1,
     height: 44,
-    color: TOKENS.textPrimary,
+    color: '#FFFFFF',
     fontSize: 14
   },
   infoNotice: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: TOKENS.accentDark,
-    padding: 10,
+    alignItems: 'center', // UX-FIX: Center icon vertically with first line
+    backgroundColor: 'rgba(0, 230, 118, 0.08)', // UX-FIX: Reduced saturation green
+    padding: 14,
     borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#00E676', // UX-FIX: 4px solid brand-green left border
     marginBottom: 20
   },
   infoNoticeText: {
     flex: 1,
-    fontSize: 11,
-    color: TOKENS.accent,
-    lineHeight: 16
+    fontSize: 12,
+    color: '#00E676',
+    lineHeight: 18 // UX-FIX: Line height 1.5
   },
   modalActionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 10
+    gap: 12
   },
   cancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    height: 48, // UX-FIX: Button hierarchy min-height 48dp
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: TOKENS.border
+    borderColor: 'rgba(255,255,255,0.2)', // UX-FIX: 1px border rgba(255,255,255,0.2)
+    backgroundColor: 'transparent'
   },
   cancelBtnText: {
-    color: TOKENS.textSecondary,
-    fontWeight: '700',
-    fontSize: 13
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14
   },
   submitBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: TOKENS.accent,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8
+    justifyContent: 'center',
+    backgroundColor: '#00E676',
+    paddingHorizontal: 20,
+    height: 48, // UX-FIX: Primary button min-height 48dp
+    borderRadius: 8, // UX-FIX: 8px border-radius
+    minWidth: 130
   },
   submitBtnText: {
-    color: TOKENS.bg,
-    fontWeight: '800',
-    fontSize: 13
+    color: '#000000',
+    fontWeight: '600',
+    fontSize: 14
   }
 });
