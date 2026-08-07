@@ -991,8 +991,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 alert("No failed OTA logs recorded.");
                 return;
             }
-            const logSummary = failedNodesList.map(f => `• ${f.node_id}: Status '${f.status}' (${f.error || 'Connection/Download Timeout'})`).join('\n');
-            alert(`[OTA FAILED NODES REPORT]\n\n${logSummary}\n\nTip: Check live device console for specific board HTTP error codes.`);
+            const logSummary = failedNodesList.map(f => "- " + f.node_id + ": Status '" + f.status + "' (" + (f.error || 'Connection/Download Timeout') + ")").join("\\n");
+            alert("[OTA FAILED NODES REPORT]\\n\\n" + logSummary + "\\n\\nTip: Check live device console for specific board HTTP error codes.");
         });
     }
 
