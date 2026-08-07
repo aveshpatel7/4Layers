@@ -107,7 +107,7 @@ void publishOTAStatus(const char* status, int progress) {
 
 // 3. Perform HTTP OTA Update with Error Tracing & Live Remote Console Logs
 void performOTAUpdate(const String& firmwareUrl) {
-  // 1. Randomized Network Jitter Delay (1s - 15s) to de-congest Wi-Fi router & AWS HTTP download requests
+  // 1. Randomized Network Jitter Delay (1s - 15s) to de-congest Wi-Fi router & AWS HTTP requests
   int jitterMs = random(1000, 15000);
   logRemote("================================================");
   logRemote("[OTA JITTER] Mass Rollout Jitter active: waiting " + String(jitterMs) + "ms before downloading...");
@@ -119,16 +119,13 @@ void performOTAUpdate(const String& firmwareUrl) {
   logRemote("================================================");
 
   WiFiClientSecure otaClient;
-  otaClient.setInsecure(); // Bypass cert chain validation for AWS App Runner HTTPS link
-  otaClient.setTimeout(15000); // 15 second socket timeout
+  otaClient.setInsecure();
+  otaClient.setTimeout(15000);
 
-  // Register Progress Callback
   httpUpdate.onProgress([](int cur, int total) {
     if (total <= 0) return;
     int percent = (cur * 100) / total;
     static int lastPercent = -1;
-    
-    // Throttle progress logs to every 10% increment
     if (percent != lastPercent && (percent % 10 == 0 || percent == 100)) {
       lastPercent = percent;
       publishOTAStatus("downloading", percent);
@@ -137,41 +134,25 @@ void performOTAUpdate(const String& firmwareUrl) {
   });
 
   publishOTAStatus("downloading", 0);
-
-  // Trigger HTTP Firmware Update
   t_httpUpdate_return ret = httpUpdate.update(otaClient, firmwareUrl);
 
-  // Handle Result & Log Exact Error Traces
   switch (ret) {
-    case HTTP_UPDATE_FAILED: {
-      int errCode = httpUpdate.getLastError();
-      String errStr = httpUpdate.getLastErrorString();
-      
-      // CRITICAL: Log error message with 'ERROR' so it turns RED in live console
-      logRemote("[OTA ERROR] Update Failed! Code: " + String(errCode) + " Msg: " + errStr);
-      logRemote("[OTA ERROR] Current Free Heap: " + String(ESP.getFreeHeap()) + " bytes");
-      publishOTAStatus("failed", 0);
-      break;
-    }
-
-    case HTTP_UPDATE_NO_UPDATES:
-      logRemote("[OTA ERROR] Failed: HTTP_UPDATE_NO_UPDATES (No binary stream received)");
+    case HTTP_UPDATE_FAILED:
+      logRemote("[OTA ERROR] Update Failed! Code: " + String(httpUpdate.getLastError()) + " Msg: " + httpUpdate.getLastErrorString());
       publishOTAStatus("failed", 0);
       break;
 
     case HTTP_UPDATE_OK:
-      logRemote("[OTA SUCCESS] Download 100% Complete! Flashing binary to flash partition...");
+      logRemote("[OTA SUCCESS] Download 100% Complete! Flashing binary...");
       publishOTAStatus("flashing", 100);
       delay(300);
       logRemote("[OTA SUCCESS] Flashing complete! Rebooting ESP32 board now...");
       publishOTAStatus("success", 100);
       
-      // Ensure MQTT packet is fully flushed to cloud before restart
       for (int i = 0; i < 10; i++) {
         client.loop();
         delay(100);
       }
-      
       ESP.restart();
       break;
   }
