@@ -887,54 +887,79 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     const otaMonitorTableBody = document.getElementById('ota-monitor-table-body');
     const otaPollingBadge = document.getElementById('ota-polling-badge');
     let otaPollTimer = null;
+    let isPollingOta = false; // Polling Guard to prevent overlapping API calls
 
     const otaRebootNotifiedNodes = new Set();
+    let currentOtaStatusMap = {};
 
     async function pollOtaStatus() {
+        if (isPollingOta) return; // Prevent concurrent overlapping requests
+        isPollingOta = true;
+
         try {
             const res = await fetch('/api/admin/ota/status');
             if (res.ok) {
                 const statusMap = await res.json();
+                currentOtaStatusMap = statusMap || {};
+
                 if (otaPollingBadge) {
                     otaPollingBadge.className = 'badge green';
                     otaPollingBadge.innerHTML = '<i class="fa-solid fa-rotate"></i> Live Polling';
                 }
                 
                 // Update table with each active node status
-                Object.keys(statusMap).forEach(nodeId => {
-                    const data = statusMap[nodeId];
-                    data.node_id = nodeId;
-                    updateOtaMonitorRow(data);
+                Object.keys(currentOtaStatusMap).forEach(nodeId => {
+                    const data = currentOtaStatusMap[nodeId];
+                    if (data) {
+                        data.node_id = nodeId;
+                        updateOtaMonitorRow(data);
 
-                    // Frontend Fallback: Inject Reboot Notification into Console if status is 100%, success, flashing, or rebooting
-                    const statusStr = (data.status || '').toLowerCase();
-                    const progress = parseInt(data.progress || 0);
+                        // Frontend Fallback: Inject Reboot Notification into Console if status is 100%, success, flashing, or rebooting
+                        const statusStr = (data.status || '').toLowerCase();
+                        const progress = parseInt(data.progress || 0);
 
-                    if ((progress >= 100 || ["success", "completed", "flashing", "rebooting"].includes(statusStr)) && !otaRebootNotifiedNodes.has(nodeId)) {
-                        otaRebootNotifiedNodes.add(nodeId);
-                        logDeviceConsole(`[SYSTEM] OTA 100% Complete for '${nodeId}'. ESP32 is Rebooting into new firmware... Please wait...`, 'warn');
-                        
-                        // Register in pending reboot tracking map so fetchDevices() detects online reconnection
-                        if (nodeId && nodeId !== 'ALL_ONLINE_BOARDS') {
-                            otaPendingRebootNodes.set(nodeId, { startTime: Date.now(), notified: false });
-                        }
-
-                        // Auto-clear notification tracking after 45s timeout if device fails to reconnect
-                        setTimeout(() => {
-                            otaRebootNotifiedNodes.delete(nodeId);
-                            if (otaPendingRebootNodes.has(nodeId)) {
-                                const info = otaPendingRebootNodes.get(nodeId);
-                                if (!info.notified) {
-                                    logDeviceConsole(`[SYSTEM WARN] Device '${nodeId}' did not confirm reconnection within 45s.`, 'warn');
-                                    otaPendingRebootNodes.delete(nodeId);
-                                }
+                        if ((progress >= 100 || ["success", "completed", "flashing", "rebooting"].includes(statusStr)) && !otaRebootNotifiedNodes.has(nodeId)) {
+                            otaRebootNotifiedNodes.add(nodeId);
+                            logDeviceConsole(`[SYSTEM] OTA 100% Complete for '${nodeId}'. ESP32 is Rebooting into new firmware... Please wait...`, 'warn');
+                            
+                            // Register in pending reboot tracking map so fetchDevices() detects online reconnection
+                            if (nodeId && nodeId !== 'ALL_ONLINE_BOARDS') {
+                                otaPendingRebootNodes.set(nodeId, { startTime: Date.now(), notified: false });
                             }
-                        }, 45000);
+
+                            // Auto-clear notification tracking after 45s timeout if device fails to reconnect
+                            setTimeout(() => {
+                                otaRebootNotifiedNodes.delete(nodeId);
+                                if (otaPendingRebootNodes.has(nodeId)) {
+                                    const info = otaPendingRebootNodes.get(nodeId);
+                                    if (!info.notified) {
+                                        logDeviceConsole(`[SYSTEM WARN] Device '${nodeId}' did not confirm reconnection within 45s.`, 'warn');
+                                        otaPendingRebootNodes.delete(nodeId);
+                                    }
+                                }
+                            }, 45000);
+                        }
+                    }
+                });
+
+                // Schedule Non-Blocking UI Update for Summary Dashboard Cards using requestAnimationFrame
+                window.requestAnimationFrame(() => {
+                    try {
+                        updateOtaSummaryDashboard(currentOtaStatusMap);
+                    } catch (summaryErr) {
+                        console.error('Summary Dashboard Update Error:', summaryErr);
                     }
                 });
             }
-        // Update Summary Dashboard Cards & View Toggling Logic
-        updateOtaSummaryDashboard(otaDataMap);
+        } catch (err) {
+            console.error('Error polling OTA status:', err);
+            if (otaPollingBadge) {
+                otaPollingBadge.className = 'badge orange';
+                otaPollingBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Polling Error';
+            }
+        } finally {
+            isPollingOta = false;
+        }
     }
 
     const btnToggleOtaView = document.getElementById('btn-toggle-ota-view');
