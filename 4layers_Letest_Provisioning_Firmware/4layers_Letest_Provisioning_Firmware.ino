@@ -107,7 +107,12 @@ void publishOTAStatus(const char* status, int progress) {
 
 // 3. Perform HTTP OTA Update with Error Tracing & Live Remote Console Logs
 void performOTAUpdate(const String& firmwareUrl) {
+  // 1. Randomized Network Jitter Delay (1s - 15s) to de-congest Wi-Fi router & AWS HTTP download requests
+  int jitterMs = random(1000, 15000);
   logRemote("================================================");
+  logRemote("[OTA JITTER] Mass Rollout Jitter active: waiting " + String(jitterMs) + "ms before downloading...");
+  delay(jitterMs);
+
   logRemote("[OTA] Initiating Remote HTTP OTA Update...");
   logRemote("[OTA] Target Binary URL: " + firmwareUrl);
   logRemote("[OTA] Free Heap Memory: " + String(ESP.getFreeHeap()) + " bytes");

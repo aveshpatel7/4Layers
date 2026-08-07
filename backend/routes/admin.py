@@ -288,24 +288,70 @@ def list_all_devices(db: Session = Depends(get_db)):
         
     return node_list
 
+import asyncio
+from fastapi import BackgroundTasks
+
+async def _staggered_ota_broadcast_task(nodes: list, firmware_url: str, version: str):
+    """Async background task: Publish OTA commands to 1000+ nodes with 50ms throttling delay per dispatch."""
+    for node_id in nodes:
+        topic = f"smartnest/devices/{node_id}/ota"
+        payload = {
+            "action": "OTA_UPDATE",
+            "firmware_url": firmware_url,
+            "version": version,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+        try:
+            mqtt.publish_message(topic, payload)
+        except Exception as e:
+            print(f"[OTA Broadcast] Error dispatching to {node_id}: {e}")
+        await asyncio.sleep(0.05)  # 50ms throttle delay between dispatches
+
 @router.post("/ota/trigger")
-def trigger_remote_ota(ota: OtaUpdateRequest, db: Session = Depends(get_db)):
-    """Publish remote OTA update command to ESP32 boards via MQTT."""
+def trigger_remote_ota(ota: OtaUpdateRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Publish remote OTA update command to ESP32 boards via MQTT with throttled broadcast for fleet scalability."""
     target_node = ota.device_id.split('_')[0] if ota.device_id else None
-    topic = f"smartnest/devices/{target_node}/ota" if target_node else "smartnest/devices/all/ota"
-    payload = {
-        "action": "OTA_UPDATE",
-        "firmware_url": ota.firmware_url,
-        "version": ota.firmware_version,
-        "timestamp": datetime.datetime.utcnow().isoformat()
-    }
     
-    try:
-        mqtt.publish_message(topic, payload)
-        return {"status": "SUCCESS", "target_topic": topic, "message": f"OTA update command published to {topic}"}
-    except Exception as e:
-        logger.error(f"Failed to publish OTA MQTT message: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"MQTT Publish Error: {str(e)}")
+    if target_node:
+        topic = f"smartnest/devices/{target_node}/ota"
+        payload = {
+            "action": "OTA_UPDATE",
+            "firmware_url": ota.firmware_url,
+            "version": ota.firmware_version,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+        try:
+            mqtt.publish_message(topic, payload)
+            return {"status": "SUCCESS", "target_topic": topic, "message": f"OTA update command published to {topic}"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"MQTT Publish Error: {str(e)}")
+    else:
+        # Broadcast to all registered online base nodes with async batch throttling
+        devices = db.query(models.Device).all()
+        base_nodes = sorted(list(set([d.node_id.split('_')[0] for d in devices if d.node_id])))
+        
+        # Dispatch background staggered rollout task
+        background_tasks.add_task(_staggered_ota_broadcast_task, base_nodes, ota.firmware_url, ota.firmware_version)
+        
+        # Also publish to global broadcast topic for fallback listening
+        global_topic = "smartnest/devices/all/ota"
+        global_payload = {
+            "action": "OTA_UPDATE",
+            "firmware_url": ota.firmware_url,
+            "version": ota.firmware_version,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+        try:
+            mqtt.publish_message(global_topic, global_payload)
+        except Exception:
+            pass
+
+        return {
+            "status": "SUCCESS",
+            "target_topic": "smartnest/devices/all/ota",
+            "fleet_size": len(base_nodes),
+            "message": f"Staggered OTA broadcast initiated for {len(base_nodes)} devices (50ms per-node throttle queue)."
+        }
 
 @router.post("/mqtt/publish")
 def publish_custom_mqtt(req: MqttPublishRequest):

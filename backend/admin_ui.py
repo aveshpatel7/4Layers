@@ -254,11 +254,70 @@ ADMIN_HTML = """<!DOCTYPE html>
                         </form>
 
                         <div class="ota-monitor-container margin-top-20">
-                            <div class="panel-header" style="margin-bottom: 10px;">
+                            <div class="panel-header" style="margin-bottom: 12px; align-items: center;">
                                 <h4><i class="fa-solid fa-desktop"></i> Live OTA Monitor</h4>
-                                <span class="badge green" id="ota-polling-badge" style="font-size:10px;"><i class="fa-solid fa-rotate"></i> Live Polling</span>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <button type="button" class="btn btn-outline" id="btn-toggle-ota-view" style="padding: 4px 10px; font-size: 11px; display: none;">
+                                        <i class="fa-solid fa-table-list"></i> <span id="toggle-view-btn-text">View Detailed List</span>
+                                    </button>
+                                    <span class="badge green" id="ota-polling-badge" style="font-size:10px;"><i class="fa-solid fa-rotate"></i> Live Polling</span>
+                                </div>
                             </div>
-                            <div class="table-responsive">
+
+                            <!-- Summary Dashboard View (Active when > 10 devices or Broadcast mode) -->
+                            <div id="ota-summary-dashboard" style="display: none; margin-bottom: 15px;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; box-sizing: border-box;">
+                                    <!-- Total Devices -->
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; box-sizing: border-box;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                            <span style="font-size:11px; color:var(--text-secondary); font-weight:600; text-transform:uppercase;">Total Fleet</span>
+                                            <i class="fa-solid fa-microchip" style="color:var(--accent-blue);"></i>
+                                        </div>
+                                        <div style="font-size: 22px; font-weight: 700; color: #ffffff;" id="summary-total-count">0</div>
+                                        <div style="font-size: 11px; color: var(--text-secondary);" id="summary-target-label">Target: Broadcast Fleet</div>
+                                    </div>
+
+                                    <!-- Downloading -->
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; box-sizing: border-box;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                            <span style="font-size:11px; color:var(--text-secondary); font-weight:600; text-transform:uppercase;">Downloading</span>
+                                            <i class="fa-solid fa-spinner fa-spin" style="color:var(--accent-orange);"></i>
+                                        </div>
+                                        <div style="font-size: 22px; font-weight: 700; color: var(--accent-orange);" id="summary-downloading-count">0</div>
+                                        <div class="progress-bar-container" style="margin-top:6px; height:8px;">
+                                            <div class="progress-fill" id="summary-master-progress-fill" style="width: 0%; background: var(--accent-orange);"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Success -->
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; box-sizing: border-box;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                            <span style="font-size:11px; color:var(--text-secondary); font-weight:600; text-transform:uppercase;">Success</span>
+                                            <i class="fa-solid fa-circle-check" style="color:var(--accent-green);"></i>
+                                        </div>
+                                        <div style="font-size: 22px; font-weight: 700; color: var(--accent-green);" id="summary-success-count">0</div>
+                                        <div style="font-size: 11px; color: var(--accent-green);" id="summary-success-percent">0% Completed</div>
+                                    </div>
+
+                                    <!-- Failed -->
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(239,68,68,0.3); border-radius: 12px; padding: 14px; box-sizing: border-box;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                            <span style="font-size:11px; color:var(--text-secondary); font-weight:600; text-transform:uppercase;">Failed / Errors</span>
+                                            <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red);"></i>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                                            <div style="font-size: 22px; font-weight: 700; color: var(--accent-red);" id="summary-failed-count">0</div>
+                                            <button type="button" class="btn btn-outline" id="btn-view-failed-logs" style="padding: 2px 8px; font-size: 10px; border-color: var(--accent-red); color: var(--accent-red); display:none;">
+                                                <i class="fa-solid fa-file-lines"></i> View Failed Logs
+                                            </button>
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-secondary);" id="summary-failed-label">No errors detected</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Detailed Table View -->
+                            <div class="table-responsive" id="ota-detailed-table-container">
                                 <table class="data-table ota-table" style="font-size:12.5px; table-layout: fixed; width: 100%;">
                                     <colgroup>
                                         <col style="width: 40%;">
@@ -874,19 +933,112 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
-        } catch (err) {
-            console.error('Error polling OTA status:', err);
-            if (otaPollingBadge) {
-                otaPollingBadge.className = 'badge orange';
-                otaPollingBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Polling Error';
-            }
-        }
+        // Update Summary Dashboard Cards & View Toggling Logic
+        updateOtaSummaryDashboard(otaDataMap);
     }
 
-    function startOtaPolling() {
-        pollOtaStatus();
-        if (!otaPollTimer) {
-            otaPollTimer = setInterval(pollOtaStatus, 2000);
+    const btnToggleOtaView = document.getElementById('btn-toggle-ota-view');
+    const toggleViewBtnText = document.getElementById('toggle-view-btn-text');
+    const otaSummaryDashboard = document.getElementById('ota-summary-dashboard');
+    const otaDetailedTableContainer = document.getElementById('ota-detailed-table-container');
+    const btnViewFailedLogs = document.getElementById('btn-view-failed-logs');
+    let forceDetailedView = false;
+    let failedNodesList = [];
+
+    if (btnToggleOtaView) {
+        btnToggleOtaView.addEventListener('click', () => {
+            forceDetailedView = !forceDetailedView;
+            if (forceDetailedView) {
+                toggleViewBtnText.textContent = "View Summary Dashboard";
+                otaSummaryDashboard.style.display = "none";
+                otaDetailedTableContainer.style.display = "block";
+            } else {
+                toggleViewBtnText.textContent = "View Detailed List";
+                otaSummaryDashboard.style.display = "block";
+                otaDetailedTableContainer.style.display = "none";
+            }
+        });
+    }
+
+    if (btnViewFailedLogs) {
+        btnViewFailedLogs.addEventListener('click', () => {
+            if (failedNodesList.length === 0) {
+                alert("No failed OTA logs recorded.");
+                return;
+            }
+            const logSummary = failedNodesList.map(f => `• ${f.node_id}: Status '${f.status}' (${f.error || 'Connection/Download Timeout'})`).join('\n');
+            alert(`[OTA FAILED NODES REPORT]\n\n${logSummary}\n\nTip: Check live device console for specific board HTTP error codes.`);
+        });
+    }
+
+    function updateOtaSummaryDashboard(otaMap) {
+        const nodes = Object.values(otaMap || {}).filter(d => {
+            const id = (d.node_id || '').toUpperCase();
+            return !["ALL_ONLINE_BOARDS", "ALL", "BROADCAST", "UNKNOWN"].includes(id);
+        });
+
+        const totalCount = nodes.length;
+        if (totalCount === 0) {
+            btnToggleOtaView.style.display = 'none';
+            otaSummaryDashboard.style.display = 'none';
+            otaDetailedTableContainer.style.display = 'block';
+            return;
+        }
+
+        // Calculate Fleet Metrics
+        let downloadingCount = 0;
+        let successCount = 0;
+        let failedCount = 0;
+        let totalProgressSum = 0;
+        failedNodesList = [];
+
+        nodes.forEach(d => {
+            const st = (d.status || '').toLowerCase();
+            const prg = Math.min(100, Math.max(0, parseInt(d.progress || 0)));
+            totalProgressSum += prg;
+
+            if (["downloading", "flashing", "rebooting"].includes(st)) {
+                downloadingCount++;
+            } else if (["success", "completed", "ok"].includes(st)) {
+                successCount++;
+            } else if (["failed", "error", "timeout"].includes(st)) {
+                failedCount++;
+                failedNodesList.push(d);
+            }
+        });
+
+        const avgProgress = totalCount > 0 ? Math.round(totalProgressSum / totalCount) : 0;
+        const successPercent = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0;
+
+        // Update Summary DOM Cards
+        document.getElementById('summary-total-count').textContent = totalCount;
+        document.getElementById('summary-downloading-count').textContent = downloadingCount;
+        document.getElementById('summary-master-progress-fill').style.width = `${avgProgress}%`;
+        document.getElementById('summary-success-count').textContent = successCount;
+        document.getElementById('summary-success-percent').textContent = `${successPercent}% Completed`;
+        document.getElementById('summary-failed-count').textContent = failedCount;
+
+        if (failedCount > 0) {
+            btnViewFailedLogs.style.display = 'inline-flex';
+            document.getElementById('summary-failed-label').textContent = `${failedCount} node(s) encountered error`;
+            document.getElementById('summary-failed-label').style.color = 'var(--accent-red)';
+        } else {
+            btnViewFailedLogs.style.display = 'none';
+            document.getElementById('summary-failed-label').textContent = 'No errors detected';
+            document.getElementById('summary-failed-label').style.color = 'var(--text-secondary)';
+        }
+
+        // Show View Toggle Button for > 10 devices
+        if (totalCount > 10) {
+            btnToggleOtaView.style.display = 'inline-flex';
+            if (!forceDetailedView) {
+                otaSummaryDashboard.style.display = 'block';
+                otaDetailedTableContainer.style.display = 'none';
+            }
+        } else if (!forceDetailedView) {
+            btnToggleOtaView.style.display = 'none';
+            otaSummaryDashboard.style.display = 'none';
+            otaDetailedTableContainer.style.display = 'block';
         }
     }
 
