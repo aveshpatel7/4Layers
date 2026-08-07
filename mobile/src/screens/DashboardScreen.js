@@ -152,6 +152,9 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
+  // Track recently toggled devices with a lock timestamp to prevent stale state updates / polling flicker
+  const toggleLockRef = useRef({});
+
   const fetchDevices = async (showLoading = false) => {
     if (showLoading) {
       setIsLoading(true);
@@ -204,7 +207,20 @@ export default function DashboardScreen({ navigation }) {
           return a.node_id.localeCompare(b.node_id, undefined, { numeric: true, sensitivity: 'base' });
         });
         
-        setDevices(formattedList);
+        const now = Date.now();
+        setDevices((prev) => {
+          // Merge with prev to respect active optimistic toggle locks (within 2 seconds)
+          return formattedList.map(newDev => {
+            const lockTime = toggleLockRef.current[newDev.id];
+            if (lockTime && (now - lockTime < 2000)) {
+              const existingDev = prev.find(p => p.id === newDev.id);
+              if (existingDev) {
+                return { ...newDev, status: existingDev.status, value: existingDev.value };
+              }
+            }
+            return newDev;
+          });
+        });
         setHasError(false);
       } else {
         throw new Error("Returned telemetry data is not a valid list of devices");
@@ -251,20 +267,47 @@ export default function DashboardScreen({ navigation }) {
           const nextStatus = payload.status === 'ON' || payload.status === true || payload.status === 1;
           const nextValue = payload.value ?? payload.speed ?? 1;
 
-          setDevices((prev) => prev.map((d) => {
-            let isMatch = false;
-            if (channel) {
-              const expectedSuffix = `_${channel}`;
-              isMatch = d.node_id === `${baseNodeId}${expectedSuffix}` || (d.node_id?.startsWith(baseNodeId) && d.node_id?.endsWith(expectedSuffix));
-            } else {
-              isMatch = d.node_id === baseNodeId;
-            }
+          const now = Date.now();
+          setDevices((prev) => {
+            const updated = prev.map((d) => {
+              let isMatch = false;
+              if (channel) {
+                const expectedSuffix = `_${channel}`;
+                isMatch = d.node_id === `${baseNodeId}${expectedSuffix}` || (d.node_id?.startsWith(baseNodeId) && d.node_id?.endsWith(expectedSuffix));
+              } else {
+                isMatch = d.node_id === baseNodeId;
+              }
 
-            if (isMatch) {
-              return { ...d, status: nextStatus, value: nextValue };
-            }
-            return d;
-          }));
+              if (isMatch) {
+                const lockTime = toggleLockRef.current[d.id];
+                // Ignore stale incoming MQTT echo if device was toggled within 2 seconds
+                if (lockTime && (now - lockTime < 2000)) {
+                  return d;
+                }
+                return { ...d, status: nextStatus, value: nextValue };
+              }
+              return d;
+            });
+
+            // Re-evaluate Master Switch state dynamically for affected rooms
+            const roomStatusMap = {};
+            updated.forEach(d => {
+              if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
+                if (d.status) roomStatusMap[d.room_id] = true;
+              }
+            });
+
+            return updated.map(d => {
+              if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
+                const masterLock = toggleLockRef.current[d.id];
+                if (masterLock && (now - masterLock < 2000)) {
+                  return d;
+                }
+                return { ...d, status: !!roomStatusMap[d.room_id] };
+              }
+              return d;
+            });
+          });
         }
       } catch (e) {
         console.warn('[Dashboard] Live MQTT event parse error:', e);
@@ -345,6 +388,9 @@ export default function DashboardScreen({ navigation }) {
       return;
     }
 
+    // Set optimistic state lock timestamp (2-second window)
+    toggleLockRef.current[id] = Date.now();
+
     // 1. Optimistic UI update for individual device + Master Switch state update
     setDevices((prev) => {
       const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d);
@@ -354,6 +400,7 @@ export default function DashboardScreen({ navigation }) {
 
       return updated.map(d => {
         if (d.room_id === target.room_id && (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.type === 'master')) {
+          toggleLockRef.current[d.id] = Date.now();
           return { ...d, status: isAnyOn };
         }
         return d;
