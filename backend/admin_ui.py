@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.3.7">
+    <link rel="stylesheet" href="/admin/style.css?v=2.4.4">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.3.7" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.4.4" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.3.7</span>
+                    <span class="brand-sub">Smart Admin Console v2.4.4</span>
                 </div>
             </div>
 
@@ -420,7 +420,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.3.7"></script>
+    <script src="/admin/app.js?v=2.4.4"></script>
 </body>
 </html>
 """
@@ -1064,6 +1064,13 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             btnToggleOtaView.style.display = 'none';
             otaSummaryDashboard.style.display = 'none';
             otaDetailedTableContainer.style.display = 'block';
+        }
+    }
+
+    function startOtaPolling() {
+        pollOtaStatus();
+        if (!otaPollTimer) {
+            otaPollTimer = setInterval(pollOtaStatus, 2000);
         }
     }
 
