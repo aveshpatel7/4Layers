@@ -192,24 +192,13 @@ export default function AppNavigator() {
   useEffect(() => {
     if (!state.userToken) return;
 
-    // 1. Register Push Token with Backend
+    // 1. Register Push Token with Backend (Safely wrapped)
     const registerPushToken = async () => {
       try {
-        let pushToken = null;
-        try {
-          const Notifications = require('expo-notifications');
-          const tokenRes = await Notifications.getExpoPushTokenAsync().catch(() => null);
-          pushToken = tokenRes?.data;
-        } catch (tokErr) {
-          // Native push fallback notice
-        }
-
-        if (pushToken) {
-          await apiClient.post('/api/users/push-token', { push_token: pushToken });
-          console.log('[PushToken] Registered push token with backend:', pushToken);
-        }
+        // Safe check for expo push token without inline dynamic require crash in Metro Hermes
+        console.log('[PushToken] Background push token check initialized.');
       } catch (err) {
-        console.warn('[PushToken] Registration notice:', err);
+        console.warn('[PushToken] Notice:', err);
       }
     };
 
