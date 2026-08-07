@@ -713,8 +713,8 @@ export default function ProvisioningScreen({ route, navigation }) {
         applyConnection: 'RUNNING'
       }));
 
-      // Give ESP32 board 4 seconds to reboot and connect to local Wi-Fi router
-      await new Promise(resolve => setTimeout(resolve, 4000));
+      // Step 2: Give ESP32 board 8 seconds to reboot and connect to local Wi-Fi router
+      await new Promise(resolve => setTimeout(resolve, 8000));
 
       setChecklist(prev => ({
         ...prev,
@@ -724,11 +724,11 @@ export default function ProvisioningScreen({ route, navigation }) {
 
       const isNewRoom = selectedRoomId === 'NEW';
       let provisionResponse = null;
-      let retries = 18; // Try up to 18 times (total ~54 seconds)
+      let retries = 25; // Polling 25 times every 2 seconds (~50s total buffer)
       
       while (retries > 0) {
         try {
-          setStatusText(`Registering on Cloud (Attempt ${19 - retries}/18)...`);
+          setStatusText(`Registering on Cloud (Attempt ${26 - retries}/25)...`);
           provisionResponse = await provisionDevice(
             decodedMac, 
             deviceType,
@@ -743,18 +743,18 @@ export default function ProvisioningScreen({ route, navigation }) {
           if (retries === 0) {
             throw apiErr; // Out of retries, bubble up error
           }
-          console.log('[BLEProvisioning] Cloud registry attempt failed, retrying in 3s...', apiErr);
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          console.log('[BLEProvisioning] Cloud registry attempt failed, retrying in 2s...', apiErr);
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
-      const generatedDeviceId = provisionResponse.id;
+
+      const generatedDeviceId = provisionResponse ? provisionResponse.id : 'SUCCESS';
       setStatusText(`Cloud Registration complete: ${generatedDeviceId}`);
 
       // WiFi connection and cloud registration succeeded
       setChecklist(prev => ({
         ...prev,
-        applyConnection: 'DONE',
-        provisionCloud: 'RUNNING'
+        provisionCloud: 'DONE'
       }));
 
       // 5. Send UUID back to NVS (optional, handle gracefully if board already rebooted and disconnected)
@@ -767,24 +767,49 @@ export default function ProvisioningScreen({ route, navigation }) {
           encodedUuid
         );
       } catch (writeErr) {
-        console.warn('[BLEProvisioning] Optional UUID write failed (device may have rebooted):', writeErr);
+        console.warn('[BLEProvisioning] Optional UUID write skipped (device rebooted as expected):', writeErr);
       }
 
-      // 6. Complete provisioning
+      // 6. Complete provisioning successfully
       setStatusText('Provisioning success!');
-      setChecklist(prev => ({
-        ...prev,
-        provisionCloud: 'DONE'
-      }));
       setProvisionedMac(decodedMac);
       setCurrentStage('DONE');
       
-      // Disconnect
+      // Disconnect BLE cleanly if still connected
       connectedDeviceIdRef.current = null;
-      await manager.cancelDeviceConnection(selectedDevice.id);
+      try {
+        await manager.cancelDeviceConnection(selectedDevice.id);
+      } catch (discErr) {
+        // Suppress expected BLE disconnect warning after board reboot
+      }
     } catch (err) {
       connectedDeviceIdRef.current = null;
       console.error('[Provisioning] Error:', err);
+
+      // Check if device was actually registered on backend before showing failure dialog (Suppress False Negative)
+      try {
+        const verifyRes = await apiClient.get('/api/devices');
+        if (Array.isArray(verifyRes.data)) {
+          const isRegistered = verifyRes.data.some(d => 
+            d.node_id?.includes(decodedMac) || d.mac_address === decodedMac
+          );
+          if (isRegistered) {
+            console.log('[Provisioning] Backend verification confirmed device registered! Suppressing false error.');
+            setChecklist({
+              wifiCredentials: 'DONE',
+              applyConnection: 'DONE',
+              provisionCloud: 'DONE'
+            });
+            setStatusText('Provisioning success!');
+            setProvisionedMac(decodedMac);
+            setCurrentStage('DONE');
+            return;
+          }
+        }
+      } catch (verifyErr) {
+        console.warn('[Provisioning] Verification check error:', verifyErr);
+      }
+
       setCurrentStage('INPUT');
       setChecklist({
         wifiCredentials: 'FAILED',
@@ -792,7 +817,12 @@ export default function ProvisioningScreen({ route, navigation }) {
         provisionCloud: 'FAILED'
       });
       setStatusText('Error occurred');
-      Alert.alert('Setup Failed', err.message || 'An error occurred during the hardware pairing handshake.');
+      
+      const errorDetail = err.response?.data?.detail || err.message;
+      Alert.alert(
+        'Setup Issue', 
+        errorDetail || 'An error occurred during the hardware pairing handshake. If the device appears on your dashboard, setup succeeded.'
+      );
     }
   };
 
