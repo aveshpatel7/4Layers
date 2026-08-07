@@ -47,11 +47,27 @@ def add_device(
         (models.Device.node_id == base_node_id) | 
         (models.Device.node_id.like(f"{base_node_id}_%"))
     ).first()
+    
     if existing_node:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Device node '{base_node_id}' is already registered"
-        )
+        # Check if existing node belongs to another user/home: transfer channels seamlessly to current user's home
+        existing_home = db.query(models.Home).filter(models.Home.id == existing_node.home_id).first()
+        if existing_home and existing_home.owner_id != current_user.id:
+            # Transfer all channels of this base node to current_user's home and room
+            all_chan_devices = db.query(models.Device).filter(
+                (models.Device.node_id == base_node_id) | 
+                (models.Device.node_id.like(f"{base_node_id}_%"))
+            ).all()
+            for chan_dev in all_chan_devices:
+                chan_dev.home_id = device_data.home_id
+                chan_dev.room_id = device_data.room_id
+                db.query(models.Schedule).filter(models.Schedule.device_id == chan_dev.id).delete(synchronize_session=False)
+            db.commit()
+            return all_chan_devices[0]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Device '{base_node_id}' is already registered to your account."
+            )
 
     channel_configs = [
         {"suffix": "1", "name": "Switch 1", "type": "light", "state": {"status": "OFF"}},

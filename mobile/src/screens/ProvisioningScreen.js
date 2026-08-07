@@ -645,16 +645,26 @@ export default function ProvisioningScreen({ route, navigation }) {
         applyConnection: 'FAILED',
         provisionCloud: 'FAILED'
       });
-      setStatusText('Error occurred');
       
-      Alert.alert(
-        'Connection Failed',
-        'Could not connect to the SmartNest hardware.\n\nInstructions:\n1. Open your phone\'s Wi-Fi settings.\n2. Connect to the "SmartNest-Setup-XXXXXX" network (no password).\n3. Return here and try again.',
-        [
-          { text: 'Open Wi-Fi Settings', onPress: handleOpenWifiSettings },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
+      const backendErrorMsg = err.response?.data?.detail || err.message;
+      setStatusText(backendErrorMsg || 'Error occurred during device setup');
+      
+      if (err.response?.data?.detail) {
+        Alert.alert(
+          'Registration Failed',
+          err.response.data.detail,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Connection Failed',
+          'Could not complete device pairing handshake.\n\nInstructions:\n1. Open your phone\'s Wi-Fi settings.\n2. Connect to the "SmartNest-Setup-XXXXXX" network (no password).\n3. Return here and try again.',
+          [
+            { text: 'Open Wi-Fi Settings', onPress: handleOpenWifiSettings },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      }
     }
   };
 
