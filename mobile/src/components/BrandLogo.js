@@ -5,12 +5,14 @@ export default function BrandLogo({ size = "medium", color = "#1fa971", showText
   const isLarge = size === "large";
   const imgSize = isLarge ? 44 : 32;
   const fontSize = isLarge ? 28 : 20;
+  const radius = isLarge ? 11 : 8;
 
   return (
     <View style={styles.container}>
       <Image
         source={require("../../assets/4layers_logo.png")}
-        style={{ width: imgSize, height: imgSize, resizeMode: "contain" }}
+        style={{ width: imgSize, height: imgSize, borderRadius: radius }}
+        resizeMode="cover"
       />
       {showText && <Text style={[styles.brandText, { fontSize, color }]}>4Layers</Text>}
     </View>
