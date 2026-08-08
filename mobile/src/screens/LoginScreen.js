@@ -76,7 +76,7 @@ export default function LoginScreen({ navigation }) {
         {/* Top Header Section with simple modern logo */}
         <View style={styles.headerSection}>
           <View style={styles.logoContainer}>
-            <Image source={logoImg} style={{ width: 80, height: 80, borderRadius: 16 }} resizeMode="cover" />
+            <Image source={logoImg} style={{ width: 72, height: 72 }} resizeMode="contain" />
           </View>
           
           <Text style={styles.title}>4Layers</Text>

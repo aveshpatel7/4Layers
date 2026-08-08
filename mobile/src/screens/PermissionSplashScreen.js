@@ -220,19 +220,13 @@ const styles = StyleSheet.create({
   logoCard: {
     width: 96,
     height: 96,
-    borderRadius: 24,
-    overflow: 'hidden',
     marginBottom: 24,
-    shadowColor: TOKENS.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logo: {
     width: 96,
     height: 96,
-    borderRadius: 24,
   },
   title: {
     fontSize: 34,
