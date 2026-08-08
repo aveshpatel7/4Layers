@@ -486,8 +486,12 @@ def provision_device(
         {"suffix": "6", "name": "Master Switch", "type": "master", "state": {"status": "OFF"}}
     ]
 
-    # Check if this node already exists
-    device = db.query(models.Device).filter(models.Device.mac_address == mac).first()
+    # Check if this node already exists (matching by mac_address OR base node_id)
+    device = db.query(models.Device).filter(
+        (models.Device.mac_address == mac) |
+        (models.Device.node_id == mac) |
+        (models.Device.node_id.like(f"{mac}_%"))
+    ).first()
     if device:
         # Seamless Re-claiming: Ensure device is assigned to current user's primary home
         user_home = db.query(models.Home).filter(models.Home.owner_id == current_user.id).first()
