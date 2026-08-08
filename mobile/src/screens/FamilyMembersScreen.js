@@ -20,8 +20,8 @@ import apiClient from '../api/client';
 import BrandLogo from '../components/BrandLogo';
 
 const TOKENS = {
-  bg: '#0b0f19',
-  surface: '#121827',
+  bg: '#0E0E0E',
+  surface: '#1C1B1B',
   accent: '#1fa971',
   accentDark: 'rgba(31, 169, 113, 0.15)',
   border: 'rgba(255, 255, 255, 0.08)',

@@ -18,8 +18,8 @@ import apiClient from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 
 const TOKENS = {
-  bg: '#0b0f19',           // Pure Dark Theme
-  surface: '#121827',      // surface-container
+  bg: '#0E0E0E',           // Pure Dark Theme
+  surface: '#1C1B1B',      // surface-container
   surfaceLow: '#141414',   // surface-container-low
   accent: '#1fa971',       // Tech Emerald Green
   border: 'rgba(255,255,255,0.08)',

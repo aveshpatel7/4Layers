@@ -18,8 +18,8 @@ import { useNavigation } from '@react-navigation/native';
 import apiClient from '../api/client';
 
 const TOKENS = {
-  bg: '#0b0f19',
-  surface: '#121827',
+  bg: '#0E0E0E',
+  surface: '#1C1B1B',
   accent: '#1fa971',
   border: 'rgba(255, 255, 255, 0.08)',
   textPrimary: '#E5E2E1',
