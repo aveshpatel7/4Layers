@@ -987,19 +987,22 @@ export default function ProvisioningScreen({ route, navigation }) {
                 <View style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                  borderLeftWidth: 4,
+                  backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                  borderLeftWidth: 3,
                   borderLeftColor: TOKENS.warning,
-                  borderRadius: 8,
-                  padding: 10,
+                  borderRadius: 6,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
                   marginTop: 6,
                   marginBottom: 12,
-                  gap: 8
+                  gap: 6
                 }}>
-                  <MaterialCommunityIcons name="wifi-alert" size={20} color={TOKENS.warning} />
-                  <Text style={{ color: '#FFFFFF', fontSize: 12, flex: 1, lineHeight: 16 }}>
-                    <Text style={{ fontWeight: 'bold', color: TOKENS.warning }}>2.4 GHz Wi-Fi Required: </Text>
-                    ESP32 microcontrollers only support <Text style={{ color: TOKENS.accent, fontWeight: 'bold' }}>2.4 GHz</Text> Wi-Fi networks (5 GHz is not supported by IoT hardware chips).
+                  <MaterialCommunityIcons name="wifi-alert" size={16} color={TOKENS.warning} />
+                  <Text
+                    numberOfLines={1}
+                    style={{ color: '#E5E2E1', fontSize: 11, fontWeight: '500', flex: 1 }}
+                  >
+                    ⚠️ Note: Only 2.4 GHz Wi-Fi networks are supported.
                   </Text>
                 </View>
               </>
