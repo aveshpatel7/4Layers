@@ -24,6 +24,9 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
 
+class GoogleAuthRequest(BaseModel):
+    id_token: str
+
 class UserUpdateProfile(BaseModel):
     email: Optional[EmailStr] = None
     username: Optional[str] = Field(None, min_length=3, max_length=50)

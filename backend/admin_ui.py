@@ -161,6 +161,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                                     <th>ID</th>
                                     <th>User Information</th>
                                     <th>Email Address</th>
+                                    <th>Mobile Number</th>
                                     <th>Linked Devices</th>
                                     <th>Status</th>
                                     <th>Actions</th>
@@ -168,7 +169,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                             </thead>
                             <tbody id="users-table-body">
                                 <tr>
-                                    <td colspan="6" class="text-center">Loading registered users from backend...</td>
+                                    <td colspan="7" class="text-center">Loading registered users from backend...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -628,7 +629,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     function renderUsers(users) {
         if (!users || users.length === 0) {
-            usersTableBody.innerHTML = `<tr><td colspan="6" class="text-center">No registered users found.</td></tr>`;
+            usersTableBody.innerHTML = `<tr><td colspan="7" class="text-center">No registered users found.</td></tr>`;
             return;
         }
 
@@ -640,6 +641,11 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     <br><small style="color:var(--text-secondary)">@${escapeHtml(u.username)}</small>
                 </td>
                 <td>${escapeHtml(u.email)}</td>
+                <td>
+                    <span style="font-size:12px;font-weight:600;color:${u.phone_number && u.phone_number !== 'N/A' ? 'var(--accent-green)' : 'var(--text-secondary)'};">
+                        ${escapeHtml(u.phone_number || 'Not Registered')}
+                    </span>
+                </td>
                 <td style="white-space:nowrap;">
                     <span class="badge blue">${u.device_count || 0} Devices</span>
                     <span class="badge gray" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);margin-left:4px;">${u.room_count || 0} Rooms</span>

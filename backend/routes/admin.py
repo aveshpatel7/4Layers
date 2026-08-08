@@ -187,6 +187,8 @@ def list_all_users(db: Session = Depends(get_db)):
             "id": str(u.id),
             "username": u.username,
             "email": u.email,
+            "phone_number": u.phone_number or "N/A",
+            "terms_accepted": getattr(u, "terms_accepted", False),
             "full_name": u.username,
             "is_active": True,
             "role": "user",
