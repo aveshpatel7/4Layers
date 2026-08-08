@@ -247,7 +247,10 @@ def list_all_devices(db: Session = Depends(get_db)):
         home = db.query(models.Home).filter(models.Home.id == first_dev.home_id).first() if first_dev.home_id else None
         owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
 
-        is_online = any(dev.is_online for dev in node_devs)
+        # Consider online if is_online flag is set OR last_seen is within the last 3 minutes
+        now_utc = datetime.datetime.utcnow()
+        three_min_ago = now_utc - datetime.timedelta(minutes=3)
+        is_online = any(dev.is_online or (dev.last_seen and dev.last_seen > three_min_ago) for dev in node_devs)
 
         merged_state = {}
         for dev in node_devs:

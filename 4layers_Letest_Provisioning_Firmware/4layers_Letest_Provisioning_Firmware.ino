@@ -612,10 +612,12 @@ void reconnectMqtt() {
       return;
     }
 
-    Serial.print("Connecting to EMQX MQTT Broker...");
+    Serial.print("Connecting to EMQX MQTT Broker with LWT...");
     String clientId = "SmartNestClient-" + String(NODE_ID);
     
-    if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
+    // Configure MQTT Last Will and Testament (LWT) on status_topic to cleanly publish OFFLINE on ungraceful disconnect
+    const char* willPayload = "{\"status\":\"OFFLINE\"}";
+    if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass, status_topic, 1, true, willPayload)) {
       // Connected successfully to broker & subscribed to control & OTA topics
       client.subscribe(command_topic);
       
