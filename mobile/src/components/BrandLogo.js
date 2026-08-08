@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Image } from "react-native";
 
-export default function BrandLogo({ size = "medium", color = "#22C55E", showText = true }) {
+export default function BrandLogo({ size = "medium", color = "#1fa971", showText = true }) {
   const isLarge = size === "large";
   const imgSize = isLarge ? 44 : 32;
   const fontSize = isLarge ? 28 : 20;

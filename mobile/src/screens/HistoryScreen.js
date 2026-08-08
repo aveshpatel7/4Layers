@@ -259,19 +259,19 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E0E0E',
+    backgroundColor: '#0b0f19',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0E0E0E',
+    backgroundColor: '#0b0f19',
   },
   headerSelection: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#121827',
     paddingVertical: 14,
     borderBottomWidth: 1.5,
-    borderBottomColor: '#262626',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   selectionLabel: {
     fontSize: 10,

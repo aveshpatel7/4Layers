@@ -21,11 +21,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient, { provisionDevice } from '../api/client';
 
 const TOKENS = {
-  bg: '#131313',
-  surface: '#1E1E1E',
-  surfaceLow: '#18181B',
-  accent: '#22C55E',
-  border: 'rgba(255,255,255,0.05)',
+  bg: '#0b0f19',
+  surface: '#121827',
+  surfaceLow: '#141414',
+  accent: '#1fa971',
+  border: 'rgba(255,255,255,0.08)',
   textPrimary: '#dfe2f1',
   textSecondary: '#9CA3AF',
   error: '#EF4444'

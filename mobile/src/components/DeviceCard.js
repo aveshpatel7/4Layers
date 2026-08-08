@@ -5,11 +5,11 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import VerticalCapsuleSwitch from "./VerticalCapsuleSwitch";
 
 const TOKENS = {
-  bg: "#0E0E0E",
-  glassBg: "rgba(28, 27, 27, 0.7)",
-  accentGreen: "#22C55E",
+  bg: "#0b0f19",
+  glassBg: "rgba(18, 24, 39, 0.7)",
+  accentGreen: "#1fa971",
   accentInactive: "#4B5563",
-  border: "rgba(255, 255, 255, 0.05)",
+  border: "rgba(255, 255, 255, 0.08)",
   textPrimary: "#E5E2E1",
   textSecondary: "#9CA3AF"
 };

@@ -174,7 +174,7 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.registerPrompt}>
             <Text style={styles.promptText}>New controller?</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={[styles.registerLink, { color: '#22C55E' }]}> Register</Text>
+              <Text style={[styles.registerLink, { color: '#1fa971' }]}> Register</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -200,7 +200,7 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E0E0E',
+    backgroundColor: '#0b0f19',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -215,9 +215,9 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 16,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#121827',
     borderWidth: 1.5,
-    borderColor: '#262626',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -238,11 +238,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   formCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#121827',
     borderRadius: 16,
     padding: 24,
     borderWidth: 1.5,
-    borderColor: '#262626',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   formTitle: {
     fontSize: 18,
@@ -253,12 +253,12 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: '#0b0f19',
   },
   submitBtn: {
     marginTop: 12,
     borderRadius: 8,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#1fa971',
     paddingVertical: 14,
     justifyContent: 'center',
     alignItems: 'center',

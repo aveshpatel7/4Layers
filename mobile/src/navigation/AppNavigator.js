@@ -343,11 +343,11 @@ export default function AppNavigator() {
                   display: 'none'
                 },
                 headerStyle: { 
-                  backgroundColor: '#0E0E0E',
+                  backgroundColor: '#0b0f19',
                   elevation: 0,
                   shadowOpacity: 0,
                   borderBottomWidth: 1.5,
-                  borderBottomColor: '#262626',
+                  borderBottomColor: 'rgba(255, 255, 255, 0.08)',
                 },
                 headerTintColor: theme.colors.onSurface,
                 headerTitleStyle: { fontWeight: '900', letterSpacing: 0.8 },

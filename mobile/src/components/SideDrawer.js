@@ -21,14 +21,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.78, 300);
 
 const TOKENS = {
-  bg: '#0E0E0E',
-  drawerBg: '#141414',
-  cardBg: '#1C1B1B',
-  accent: '#22C55E',
+  bg: '#0b0f19',
+  drawerBg: '#121827',
+  cardBg: '#1a2234',
+  accent: '#1fa971',
   border: 'rgba(255,255,255,0.08)',
   textPrimary: '#E5E2E1',
   textSecondary: '#9CA3AF',
-  activeItemBg: 'rgba(34,197,94,0.12)'
+  activeItemBg: 'rgba(31,169,113,0.15)'
 };
 
 export default function SideDrawer({

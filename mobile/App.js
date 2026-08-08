@@ -86,13 +86,13 @@ const theme = {
   },
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#22C55E',          // Brand Dark Emerald Green (#22C55E)
+    primary: '#1fa971',          // Tech Emerald Green (#1fa971)
     secondary: '#15803D',        // Secondary Darker Green
-    background: '#0E0E0E',       // Image 1 Obsidian Dark Black
-    surface: '#1C1B1B',          // Image 1 Glass Card Surface
-    onSurface: '#E5E2E1',        // Image 1 Warm Off-White text
+    background: '#0b0f19',       // Pure Dark Theme (#0b0f19)
+    surface: '#121827',          // Glass Card Surface (#121827)
+    onSurface: '#E5E2E1',        // Warm Off-White text
     onSurfaceVariant: '#9CA3AF',   // Muted gray text
-    outline: '#262626',          // Muted border
+    outline: 'rgba(255, 255, 255, 0.08)', // Muted border
     outlineVariant: '#333333',    // Dark border
     error: '#EF4444',            // Error Red
     errorContainer: '#7F1D1D',   // Dark red container

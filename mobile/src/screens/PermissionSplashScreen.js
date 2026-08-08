@@ -7,7 +7,7 @@ import CustomAppModal from '../components/CustomAppModal';
 const TOKENS = {
   bg: '#0b0f19',
   surface: '#121827',
-  accent: '#00E676',
+  accent: '#1fa971',
   textPrimary: '#FFFFFF',
   textSecondary: '#9CA3AF',
   border: 'rgba(255, 255, 255, 0.08)'

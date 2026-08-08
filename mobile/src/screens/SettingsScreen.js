@@ -18,11 +18,11 @@ import apiClient from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 
 const TOKENS = {
-  bg: '#0E0E0E',           // Google Stitch background
-  surface: '#1C1B1B',      // surface-container
+  bg: '#0b0f19',           // Pure Dark Theme
+  surface: '#121827',      // surface-container
   surfaceLow: '#141414',   // surface-container-low
-  accent: '#22C55E',       // Primary green
-  border: 'rgba(255,255,255,0.05)',
+  accent: '#1fa971',       // Tech Emerald Green
+  border: 'rgba(255,255,255,0.08)',
   textPrimary: '#E5E2E1',
   textSecondary: '#9CA3AF',
   error: '#EF4444'
