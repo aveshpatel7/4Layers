@@ -384,6 +384,40 @@ export default function ProvisioningScreen({ route, navigation }) {
     }
   };
 
+  // Filter out 5GHz networks so users can only pick ESP32-compatible 2.4GHz Wi-Fi networks
+  const filter24GHzNetworks = (networks) => {
+    if (!Array.isArray(networks)) return [];
+    
+    return networks.filter(net => {
+      if (!net || !net.ssid) return false;
+      const ssidStr = net.ssid.trim();
+      if (!ssidStr) return false;
+
+      // 1. Frequency check: 2.4GHz bands operate between ~2412 MHz and ~2484 MHz (< 2500 MHz)
+      if (net.frequency && typeof net.frequency === 'number') {
+        if (net.frequency >= 2500) {
+          return false; // Exclude 5GHz (typically 5180 - 5825 MHz)
+        }
+      }
+
+      // 2. Suffix fallback check: Exclude common 5GHz SSID suffixes
+      const lowerSsid = ssidStr.toLowerCase();
+      const is5GHzSuffix = lowerSsid.endsWith('_5g') || 
+                           lowerSsid.endsWith('_5ghz') || 
+                           lowerSsid.endsWith('-5g') || 
+                           lowerSsid.endsWith('-5ghz') ||
+                           lowerSsid.endsWith(' 5g') ||
+                           lowerSsid.endsWith(' 5ghz') ||
+                           lowerSsid.includes('5g_hz');
+                           
+      if (is5GHzSuffix) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
   const handleScanWifiNetworks = async () => {
     if (Platform.OS === 'web') {
       Alert.alert('Not Supported', 'Wi-Fi scanning is not supported on web.');
@@ -413,30 +447,37 @@ export default function ProvisioningScreen({ route, navigation }) {
 
       if (NativeModules.WifiScanner) {
         const networks = await NativeModules.WifiScanner.getWifiNetworks();
-        // Sort networks by signal strength descending if level exists
         if (Array.isArray(networks)) {
-          networks.sort((a, b) => (b.level || 0) - (a.level || 0));
-          setScannedWifiList(networks);
+          const valid24G = filter24GHzNetworks(networks);
+          valid24G.sort((a, b) => (b.level || 0) - (a.level || 0));
+          setScannedWifiList(valid24G);
         }
       } else {
         // Fallback mock list if NativeModule is not registered/mocked (e.g. during development/testing)
         setTimeout(() => {
-          setScannedWifiList([
-            { ssid: 'Home_WiFi_5G', level: -45 },
-            { ssid: 'Office_Router', level: -60 },
-            { ssid: 'SmartNest_Demo_Net', level: -75 }
-          ]);
+          const rawMock = [
+            { ssid: 'Home_WiFi_5G', level: -45, frequency: 5180 },
+            { ssid: 'CMF', level: -40, frequency: 2412 },
+            { ssid: 'A.R.Tourism', level: -55, frequency: 2437 },
+            { ssid: 'Airtel_Rahul', level: -60, frequency: 2462 },
+            { ssid: 'AirFiber_5GHz', level: -50, frequency: 5200 },
+            { ssid: 'SmartNest_2.4G', level: -65, frequency: 2412 }
+          ];
+          const valid24G = filter24GHzNetworks(rawMock);
+          valid24G.sort((a, b) => (b.level || 0) - (a.level || 0));
+          setScannedWifiList(valid24G);
           setIsScanningWifi(false);
-        }, 1500);
+        }, 1200);
         return;
       }
     } catch (err) {
       console.error('[WifiScan] Error:', err);
       // Fallback
-      setScannedWifiList([
-        { ssid: 'Home_WiFi_5G', level: -45 },
-        { ssid: 'Office_Router', level: -60 }
-      ]);
+      const fallbackList = [
+        { ssid: 'CMF', level: -40, frequency: 2412 },
+        { ssid: 'A.R.Tourism', level: -55, frequency: 2437 }
+      ];
+      setScannedWifiList(fallbackList);
     } finally {
       setIsScanningWifi(false);
     }
@@ -1318,9 +1359,30 @@ export default function ProvisioningScreen({ route, navigation }) {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Wi-Fi Network</Text>
-              <TouchableOpacity onPress={() => setShowWifiScanModal(false)}>
-                <MaterialCommunityIcons name="close" size={24} color={TOKENS.textSecondary} />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <TouchableOpacity 
+                  onPress={handleScanWifiNetworks}
+                  disabled={isScanningWifi}
+                  style={{ width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)' }}
+                  accessibilityLabel="Rescan Wi-Fi Networks"
+                  accessibilityRole="button"
+                >
+                  {isScanningWifi ? (
+                    <ActivityIndicator size="small" color={TOKENS.accent} />
+                  ) : (
+                    <MaterialCommunityIcons name="refresh" size={20} color={TOKENS.accent} />
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  onPress={() => setShowWifiScanModal(false)}
+                  style={{ width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}
+                  accessibilityLabel="Close Wi-Fi Modal"
+                  accessibilityRole="button"
+                >
+                  <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {isScanningWifi ? (
