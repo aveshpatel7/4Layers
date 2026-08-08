@@ -218,12 +218,35 @@ export default function SettingsScreen({ navigation }) {
         }
 
         setIsSavingProfile(true);
-        const response = await apiClient.post('/api/users/me/profile-picture', {
-          profile_pic_url: picUri
-        });
 
-        setUser(response.data);
-        Alert.alert('Success 🎉', 'Profile picture updated successfully!');
+        try {
+          // Method A: Direct Base64 JSON payload
+          const response = await apiClient.post('/api/users/me/profile-picture', {
+            profile_pic_url: picUri
+          });
+          setUser(response.data);
+          Alert.alert('Success 🎉', 'Profile picture updated successfully!');
+        } catch (jsonErr) {
+          // Method B: Multipart FormData fallback with exact 'file' param matching FastAPI UploadFile
+          const formData = new FormData();
+          const filename = asset.uri.split('/').pop() || 'profile.jpg';
+          const match = /\.(\w+)$/.exec(filename);
+          const mimeType = match ? `image/${match[1]}` : 'image/jpeg';
+
+          formData.append('file', {
+            uri: Platform.OS === 'android' ? asset.uri : asset.uri.replace('file://', ''),
+            name: filename,
+            type: mimeType
+          });
+
+          const response = await apiClient.post('/api/users/me/profile-picture', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          setUser(response.data);
+          Alert.alert('Success 🎉', 'Profile picture updated successfully!');
+        }
       }
     } catch (error) {
       console.error('Failed to upload profile picture:', error);

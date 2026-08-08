@@ -312,9 +312,21 @@ export default function AppNavigator() {
     return <PermissionSplashScreen onPermissionsGranted={() => setPermissionsGranted(true)} />;
   }
 
+  const DarkNavTheme = {
+    dark: true,
+    colors: {
+      primary: '#1fa971',
+      background: '#0E0E0E',
+      card: '#0E0E0E',
+      text: '#E5E2E1',
+      border: 'rgba(255, 255, 255, 0.08)',
+      notification: '#1fa971',
+    },
+  };
+
   return (
     <AuthContext.Provider value={authContextValue}>
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer ref={navigationRef} theme={DarkNavTheme}>
         {state.userToken == null ? (
           // User is NOT logged in (Login & Register - No Drawer, No Swipe)
           <AuthStack.Navigator

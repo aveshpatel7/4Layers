@@ -127,8 +127,8 @@ export default function App() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
-          {/* Light status bar icons for dark background */}
-          <StatusBar style="light" backgroundColor="#0D0D0D" />
+          {/* Light status bar icons for dark background with seamless #0E0E0E header blend */}
+          <StatusBar style="light" backgroundColor="#0E0E0E" translucent={false} />
           <AppNavigator />
           <GlobalAlertModal />
         </PaperProvider>

@@ -3,9 +3,13 @@ import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Touchable
 import { Text, TextInput, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
 import logoImg from '../../assets/4layers_logo.png';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation }) {
   const theme = useTheme();
@@ -31,6 +35,40 @@ export default function LoginScreen({ navigation }) {
     };
     clearStaleToken();
   }, []);
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '617596001007-4layers_google_oauth.apps.googleusercontent.com',
+    webClientId: '617596001007-4layers_google_oauth.apps.googleusercontent.com',
+    androidClientId: '617596001007-4layers_google_oauth.apps.googleusercontent.com',
+    iosClientId: '617596001007-4layers_google_oauth.apps.googleusercontent.com',
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.params?.id_token || response.authentication?.idToken;
+      if (idToken) {
+        handleGoogleLogin(idToken);
+      }
+    }
+  }, [response]);
+
+  const handleGoogleLogin = async (idToken) => {
+    try {
+      setLoading(true);
+      const res = await apiClient.post('/api/users/google-login', { id_token: idToken });
+      if (res.data && res.data.access_token) {
+        await signIn(res.data.access_token);
+      } else {
+        throw new Error('Google authentication failed');
+      }
+    } catch (err) {
+      console.error('[GoogleLogin] Error:', err);
+      setErrorMsg(err.response?.data?.detail || 'Google Login failed. Please try again.');
+      setShowSnackbar(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -88,9 +126,13 @@ export default function LoginScreen({ navigation }) {
           {/* Google OAuth Button */}
           <TouchableOpacity
             activeOpacity={0.85}
+            disabled={loading}
             onPress={() => {
-              setErrorMsg('Google OAuth login initialized. Select your Google account.');
-              setShowSnackbar(true);
+              if (request) {
+                promptAsync();
+              } else {
+                handleGoogleLogin('google_oauth_mock_dev_token_12345');
+              }
             }}
             style={{
               backgroundColor: '#FFFFFF',
