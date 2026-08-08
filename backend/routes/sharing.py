@@ -226,17 +226,19 @@ def get_node_members(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all shared members and pending invitations for a specific node."""
+    """Get all shared members and pending invitations for a specific node, excluding current user."""
     members_list = []
+    base_node_id = node_id.split('_')[0] if '_' in node_id else node_id
 
-    # 1. Fetch active shared users
+    # 1. Fetch active shared users (EXCLUDING current logged-in user)
     active_shares = db.query(models.NodeShare).filter(
-        models.NodeShare.node_id == node_id
+        models.NodeShare.node_id == base_node_id,
+        models.NodeShare.shared_with_user_id != current_user.id
     ).all()
 
     for share in active_shares:
         user = share.shared_with_user
-        if user:
+        if user and user.id != current_user.id:
             members_list.append(schemas.NodeMemberResponse(
                 id=share.id,
                 user_id=user.id,
@@ -247,15 +249,24 @@ def get_node_members(
                 created_at=share.created_at
             ))
 
-    # 2. Fetch pending invitations
+    # 2. Fetch pending invitations (EXCLUDING current logged-in user)
+    user_email_clean = current_user.email.strip().lower()
+    user_name_clean = current_user.username.strip().lower() if current_user.username else ""
+
     pending_invites = db.query(models.PendingInvitation).filter(
-        models.PendingInvitation.node_id == node_id,
+        models.PendingInvitation.node_id == base_node_id,
         models.PendingInvitation.status == "pending"
     ).all()
 
     for invite in pending_invites:
-        # Check if invited email matches an existing user to show real username
-        invited_user = db.query(models.User).filter(models.User.email == invite.invited_email).first()
+        inv_email = invite.invited_email.strip().lower()
+        if inv_email == user_email_clean or (user_name_clean and inv_email == user_name_clean):
+            continue
+
+        invited_user = db.query(models.User).filter(func.lower(models.User.email) == inv_email).first()
+        if invited_user and invited_user.id == current_user.id:
+            continue
+
         display_name = invited_user.username if invited_user else "Invited User"
 
         members_list.append(schemas.NodeMemberResponse(
@@ -278,28 +289,77 @@ def remove_node_member(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Remove a shared member or cancel a pending invitation."""
+    """
+    Remove a shared member or leave a shared room/node.
+    Allowed for:
+    1. Node Owner (Admin revoking access for target user)
+    2. Shared User (User leaving the shared room/node themselves)
+    """
+    base_node_id = node_id.split('_')[0] if '_' in node_id else node_id
+
+    # Check if current_user is the node owner
+    owner_device = db.query(models.Device).join(models.Home).filter(
+        (models.Device.node_id == base_node_id) | (models.Device.node_id.like(f"{base_node_id}_%")),
+        models.Home.owner_id == current_user.id
+    ).first()
+    is_owner = owner_device is not None
+
+    # Check if target is a NodeShare record
     share = db.query(models.NodeShare).filter(
-        models.NodeShare.node_id == node_id,
+        models.NodeShare.node_id == base_node_id,
         (models.NodeShare.id == member_id) | (models.NodeShare.shared_with_user_id == member_id)
     ).first()
 
+    # If member_id is "me" or matches current_user.id, user wants to leave room themselves
+    if not share and (member_id == "me" or member_id == str(current_user.id)):
+        share = db.query(models.NodeShare).filter(
+            models.NodeShare.node_id == base_node_id,
+            models.NodeShare.shared_with_user_id == current_user.id
+        ).first()
+
     if share:
+        is_self = (share.shared_with_user_id == current_user.id)
+        if not is_owner and not is_self:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to remove this access."
+            )
+
         db.delete(share)
         db.commit()
-        return {"message": "Member removed successfully"}
+        msg = "Left room successfully" if is_self else "Member access revoked successfully"
+        return {"message": msg}
 
+    # Check if target is a PendingInvitation record
     invite = db.query(models.PendingInvitation).filter(
-        models.PendingInvitation.node_id == node_id,
+        models.PendingInvitation.node_id == base_node_id,
         models.PendingInvitation.id == member_id
     ).first()
 
     if invite:
+        is_invitee = (invite.invited_email.strip().lower() == current_user.email.strip().lower())
+        if not is_owner and not is_invitee:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to cancel this invitation."
+            )
+
         db.delete(invite)
         db.commit()
         return {"message": "Invitation cancelled successfully"}
+
+    # Fallback search if leaving by matching any node_id share for current_user
+    user_shares = db.query(models.NodeShare).filter(
+        models.NodeShare.shared_with_user_id == current_user.id
+    ).all()
+    for s in user_shares:
+        if s.node_id == base_node_id:
+            db.delete(s)
+            db.commit()
+            return {"message": "Left room successfully"}
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Member or invitation not found"
     )
+

@@ -149,6 +149,33 @@ export default function RoomsScreen({ navigation: navProp }) {
     );
   };
 
+  const handleLeaveSharedRoom = (roomId, roomName) => {
+    Alert.alert(
+      'Leave Shared Room',
+      `Are you sure you want to leave "${roomName}"? You will lose access to all shared devices in this room.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave Room',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await apiClient.delete(`/api/rooms/${roomId}/leave`);
+              await fetchRooms();
+              Alert.alert('Left Room 🚪', `You have left "${roomName}".`);
+            } catch (error) {
+              console.error('Failed to leave shared room:', error);
+              Alert.alert('Error', error.response?.data?.detail || 'Failed to leave shared room.');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getRoomIcon = (type) => {
     const found = ROOM_TYPES.find(r => r.id === type);
     return found ? found.icon : 'home-outline';
@@ -201,16 +228,23 @@ export default function RoomsScreen({ navigation: navProp }) {
                   />
                 </View>
                 <View style={styles.textGroup}>
-                  <Text style={styles.roomName}>{item.name}</Text>
+                  <Text style={styles.roomName} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.roomType}>{getRoomLabel(item.room_type)}</Text>
                 </View>
               </View>
-              {!item.is_shared && (
+              {!item.is_shared ? (
                 <TouchableOpacity 
                   style={styles.deleteButton}
                   onPress={() => handleDeleteRoom(item.id, item.name)}
                 >
                   <MaterialCommunityIcons name="trash-can-outline" size={20} color={TOKENS.error} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.deleteButton}
+                  onPress={() => handleLeaveSharedRoom(item.id, item.name)}
+                >
+                  <MaterialCommunityIcons name="exit-to-app" size={20} color={TOKENS.error} />
                 </TouchableOpacity>
               )}
             </View>

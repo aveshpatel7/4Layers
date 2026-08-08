@@ -212,23 +212,32 @@ export default function FamilyMembersScreen({ navigation }) {
     }
   };
 
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    apiClient.get('/api/users/me')
+      .then(res => setCurrentUser(res.data))
+      .catch(err => console.warn('[FamilyMembers] Error fetching profile:', err));
+  }, []);
+
   const handleRemoveMember = (member) => {
+    const displayName = member.username ? (member.username.startsWith('@') ? member.username : `@${member.username}`) : member.email;
     Alert.alert(
-      'Remove Access',
-      `Are you sure you want to remove ${member.email} from controlling this node?`,
+      'Revoke Access',
+      `Are you sure you want to revoke access for ${displayName}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Revoke',
           style: 'destructive',
           onPress: async () => {
             try {
               await apiClient.delete(`/api/nodes/${selectedNodeId}/share/${member.id}`);
-              Alert.alert('Removed', 'Access revoked successfully.');
+              Alert.alert('Access Revoked 🗑️', `Access for ${displayName} has been revoked.`);
               fetchMembers(selectedNodeId);
             } catch (err) {
               console.error('[FamilyMembers] Remove error:', err);
-              Alert.alert('Error', 'Failed to remove member.');
+              Alert.alert('Error', err.response?.data?.detail || 'Failed to remove member.');
             }
           }
         }
@@ -321,64 +330,77 @@ export default function FamilyMembersScreen({ navigation }) {
             {isRefreshingMembers && <ActivityIndicator size="small" color={TOKENS.accent} />}
           </View>
 
-          {members.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <MaterialCommunityIcons name="account-group-outline" size={56} color={TOKENS.textSecondary} />
-              <Text style={styles.emptyTitle}>No Members Added Yet</Text>
-              <Text style={styles.emptySub}>
-                Add members or housemates to share control of <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyAddBtn}
-                onPress={() => setAddModalVisible(true)}
-                activeOpacity={0.85}
-              >
-                <MaterialCommunityIcons name="account-plus-outline" size={18} color={TOKENS.bg} />
-                <Text style={styles.emptyAddBtnText}>Add Member</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <FlatList
-              data={members}
-              keyExtractor={(item) => item.id || item.email}
-              contentContainerStyle={styles.membersList}
-              renderItem={({ item }) => {
-                const displayName = item.username ? (item.username.startsWith('@') ? item.username : `@${item.username}`) : item.email;
-                return (
-                  <View style={styles.memberCard}>
-                    <View style={styles.memberAvatarCircle}>
-                      <MaterialCommunityIcons
-                        name="account-check-outline"
-                        size={22}
-                        color={TOKENS.accent}
-                      />
-                    </View>
+          {(() => {
+            const filteredMembers = members.filter(m => {
+              if (!currentUser) return true;
+              if (m.user_id && m.user_id === currentUser.id) return false;
+              if (m.email && m.email.toLowerCase() === currentUser.email?.toLowerCase()) return false;
+              return true;
+            });
 
-                    <View style={styles.memberDetails}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <Text style={styles.memberEmail} numberOfLines={1}>
-                          {displayName}
-                        </Text>
-                        <View style={[styles.statusBadge, styles.badgeActive]}>
-                          <Text style={[styles.statusBadgeText, styles.textActive]}>
-                            ACTIVE
+            if (filteredMembers.length === 0) {
+              return (
+                <View style={styles.emptyCard}>
+                  <MaterialCommunityIcons name="account-group-outline" size={56} color={TOKENS.textSecondary} />
+                  <Text style={styles.emptyTitle}>No Members Added Yet</Text>
+                  <Text style={styles.emptySub}>
+                    Add members or housemates to share control of <Text style={{ color: TOKENS.accent, fontWeight: '700' }}>{getNodeDisplayName(selectedNodeId)}</Text>.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.emptyAddBtn}
+                    onPress={() => setAddModalVisible(true)}
+                    activeOpacity={0.85}
+                  >
+                    <MaterialCommunityIcons name="account-plus-outline" size={18} color={TOKENS.bg} />
+                    <Text style={styles.emptyAddBtnText}>Add Member</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
+            return (
+              <FlatList
+                data={filteredMembers}
+                keyExtractor={(item) => item.id || item.email}
+                contentContainerStyle={styles.membersList}
+                renderItem={({ item }) => {
+                  const displayName = item.username ? (item.username.startsWith('@') ? item.username : `@${item.username}`) : item.email;
+                  return (
+                    <View style={styles.memberCard}>
+                      <View style={styles.memberAvatarCircle}>
+                        <MaterialCommunityIcons
+                          name="account-check-outline"
+                          size={22}
+                          color={TOKENS.accent}
+                        />
+                      </View>
+
+                      <View style={styles.memberDetails}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
+                          <Text style={styles.memberEmail} numberOfLines={1}>
+                            {displayName}
                           </Text>
+                          <View style={[styles.statusBadge, styles.badgeActive]}>
+                            <Text style={[styles.statusBadgeText, styles.textActive]}>
+                              ACTIVE
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
 
-                    <TouchableOpacity
-                      style={styles.removeBtn}
-                      onPress={() => handleRemoveMember(item)}
-                      activeOpacity={0.7}
-                    >
-                      <MaterialCommunityIcons name="trash-can-outline" size={20} color={TOKENS.error} />
-                    </TouchableOpacity>
-                  </View>
-                );
-              }}
-            />
-          )}
+                      <TouchableOpacity
+                        style={styles.removeBtn}
+                        onPress={() => handleRemoveMember(item)}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialCommunityIcons name="trash-can-outline" size={20} color={TOKENS.error} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }}
+              />
+            );
+          })()}
         </View>
       )}
 

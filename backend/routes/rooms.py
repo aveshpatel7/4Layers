@@ -149,3 +149,51 @@ def delete_room(
     db.delete(room)
     db.commit()
     return {"detail": "Room and all its devices successfully deleted."}
+
+
+@router.delete("/{room_id}/leave", status_code=status.HTTP_200_OK)
+def leave_shared_room(
+    room_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Allow a shared user to leave a room that was shared with them."""
+    room = db.query(models.Room).filter(models.Room.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found"
+        )
+
+    # Find devices in this room to extract node_ids
+    devices = db.query(models.Device).filter(models.Device.room_id == room_id).all()
+    node_ids = set()
+    for d in devices:
+        if d.node_id:
+            base_nid = d.node_id.split('_')[0] if '_' in d.node_id else d.node_id
+            node_ids.add(base_nid)
+
+    # Delete NodeShare records for current_user
+    deleted_count = 0
+    if node_ids:
+        shares = db.query(models.NodeShare).filter(
+            models.NodeShare.shared_with_user_id == current_user.id,
+            models.NodeShare.node_id.in_(list(node_ids))
+        ).all()
+        for s in shares:
+            db.delete(s)
+            deleted_count += 1
+        db.commit()
+
+    if deleted_count == 0:
+        # Fallback: remove all shares for current_user if matching specific nodes didn't hit
+        shares = db.query(models.NodeShare).filter(
+            models.NodeShare.shared_with_user_id == current_user.id
+        ).all()
+        for s in shares:
+            db.delete(s)
+            deleted_count += 1
+        db.commit()
+
+    return {"message": "Successfully left shared room"}
+
