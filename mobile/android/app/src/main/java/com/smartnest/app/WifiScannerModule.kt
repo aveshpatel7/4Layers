@@ -9,6 +9,13 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.WritableArray
 
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.Priority
+import com.google.android.gms.common.api.ResolvableApiException
+import android.content.IntentSender
+
 class WifiScannerModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
     override fun getName(): String {
         return "WifiScanner"
@@ -94,26 +101,24 @@ class WifiScannerModule(reactContext: ReactApplicationContext) : ReactContextBas
         try {
             val currentActivity = currentActivity
             if (currentActivity != null) {
-                val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
-                    priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
-                }
-                val builder = com.google.android.gms.location.LocationSettingsRequest.Builder()
+                val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build()
+                val builder = LocationSettingsRequest.Builder()
                     .addLocationRequest(locationRequest)
                     .setAlwaysShow(true)
 
-                val client = com.google.android.gms.location.LocationServices.getSettingsClient(currentActivity)
+                val client = LocationServices.getSettingsClient(currentActivity)
                 val task = client.checkLocationSettings(builder.build())
 
                 task.addOnSuccessListener {
                     promise.resolve(true)
                 }
 
-                task.addOnFailureListener { exception ->
-                    if (exception is com.google.android.gms.common.api.ResolvableApiException) {
+                task.addOnFailureListener { exception: Exception ->
+                    if (exception is ResolvableApiException) {
                         try {
                             exception.startResolutionForResult(currentActivity, 1002)
                             promise.resolve(true)
-                        } catch (sendEx: android.content.IntentSender.SendIntentException) {
+                        } catch (sendEx: IntentSender.SendIntentException) {
                             promise.reject("ERROR", sendEx.message, sendEx)
                         }
                     } else {
