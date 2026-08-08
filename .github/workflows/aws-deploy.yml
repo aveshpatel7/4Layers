@@ -55,10 +55,23 @@ jobs:
           echo "Found Service ARN: $SERVICE_ARN"
           echo "Target Image URI: $IMAGE_URI"
           if [ -n "$SERVICE_ARN" ]; then
-            OPERATION_ID=$(aws apprunner update-service --service-arn $SERVICE_ARN --source-configuration "ImageRepository={ImageIdentifier=$IMAGE_URI,ImageRepositoryType=ECR,ImageConfiguration={Port='8000'}},AuthenticationConfiguration={AccessRoleArn='$ROLE_ARN'}" --region ${{ env.AWS_REGION }} --query "OperationId" --output text)
-            echo "✅ AWS App Runner service updated with new image! Operation ID: $OPERATION_ID"
-            sleep 5
-            aws apprunner start-deployment --service-arn $SERVICE_ARN --region ${{ env.AWS_REGION }} || true
+            RETRY=0
+            MAX_RETRIES=10
+            until [ $RETRY -ge $MAX_RETRIES ]
+            do
+              echo "Attempting to update AWS App Runner service (Attempt $((RETRY+1))/$MAX_RETRIES)..."
+              OPERATION_ID=$(aws apprunner update-service --service-arn $SERVICE_ARN --source-configuration "ImageRepository={ImageIdentifier=$IMAGE_URI,ImageRepositoryType=ECR,ImageConfiguration={Port='8000'}},AuthenticationConfiguration={AccessRoleArn='$ROLE_ARN'}" --region ${{ env.AWS_REGION }} --query "OperationId" --output text 2>&1)
+              if echo "$OPERATION_ID" | grep -q "OPERATION_IN_PROGRESS"; then
+                echo "⏳ App Runner is currently busy deploying a previous commit. Waiting 15s before retrying..."
+                sleep 15
+                RETRY=$((RETRY+1))
+              else
+                echo "✅ AWS App Runner service updated with new image! Operation ID: $OPERATION_ID"
+                sleep 5
+                aws apprunner start-deployment --service-arn $SERVICE_ARN --region ${{ env.AWS_REGION }} || true
+                break
+              fi
+            done
           else
             echo "⚠️ Could not find Service ARN for ${{ env.APP_RUNNER_SERVICE }}"
           fi
