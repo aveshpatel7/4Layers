@@ -13,6 +13,8 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     expo_push_token = Column(String, nullable=True)
+    phone_number = Column(String, nullable=True)
+    terms_accepted = Column(Boolean, default=False, server_default=text("false"), nullable=False)
 
     # Relationships
     homes = relationship("Home", back_populates="owner", cascade="all, delete-orphan")

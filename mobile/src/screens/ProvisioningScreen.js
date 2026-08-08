@@ -10,7 +10,6 @@ import {
   FlatList,
   Linking,
   StatusBar,
-  PermissionsAndroid,
   NativeModules,
   Modal
 } from 'react-native';
@@ -253,21 +252,7 @@ export default function ProvisioningScreen({ route, navigation }) {
     let unsubscribe = null;
 
     if (currentStage === 'INPUT') {
-      const requestPermissionsAndListen = async () => {
-        try {
-          if (Platform.OS === 'android') {
-            const hasLocationPermission = await PermissionsAndroid.check(
-              PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-            );
-            if (!hasLocationPermission) {
-              await PermissionsAndroid.request(
-                PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-              );
-            }
-          }
-        } catch (err) {
-          console.warn('[Permissions] Failed to check/request location permission:', err);
-        }
+      const listenToNetworkState = async () => {
 
         // Subscribe to network state changes dynamically
         unsubscribe = NetInfo.addEventListener(async (state) => {
@@ -308,7 +293,7 @@ export default function ProvisioningScreen({ route, navigation }) {
         });
       };
 
-      requestPermissionsAndListen();
+      listenToNetworkState();
     }
 
     return () => {
@@ -429,21 +414,6 @@ export default function ProvisioningScreen({ route, navigation }) {
     setScannedWifiList([]);
 
     try {
-      if (Platform.OS === 'android') {
-        const hasLocationPermission = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-        );
-        if (!hasLocationPermission) {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-          );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            Alert.alert('Permission Denied', 'Location permission is required to scan Wi-Fi.');
-            setIsScanningWifi(false);
-            return;
-          }
-        }
-      }
 
       if (NativeModules.WifiScanner) {
         const networks = await NativeModules.WifiScanner.getWifiNetworks();
@@ -508,38 +478,7 @@ export default function ProvisioningScreen({ route, navigation }) {
       await AsyncStorage.setItem('@SmartNest:wifi_passwords', JSON.stringify(savedPasswords));
     } catch (e) {
       console.warn('[AsyncStorage] Error saving wifi password:', e);
-    }
-
-    if (Platform.OS === 'android') {
-      try {
-        if (Platform.Version >= 31) {
-          const granted = await PermissionsAndroid.requestMultiple([
-            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-          ]);
-          const scanGranted = granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED;
-          const connectGranted = granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED;
-          const locationGranted = granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
-          
-          if (!scanGranted || !connectGranted || !locationGranted) {
-            Alert.alert('Permission Denied', 'Bluetooth and Location permissions are required to scan for devices.');
-            return;
-          }
-        } else {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-          );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            Alert.alert('Permission Denied', 'Location permission is required to scan for Bluetooth devices.');
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('[Permissions] Error checking permissions:', err);
-        return;
-      }
-    }
+    // Permissions are requested upfront at app launch during initial onboarding.
 
     setDevicesList([]);
     setIsScanning(true);

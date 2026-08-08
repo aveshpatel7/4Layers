@@ -85,6 +85,41 @@ export default function LoginScreen({ navigation }) {
 
         {/* Input Form Section */}
         <View style={styles.formCard}>
+          {/* Google OAuth Button */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => {
+              setErrorMsg('Google OAuth login initialized. Select your Google account.');
+              setShowSnackbar(true);
+            }}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 8,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              gap: 10,
+              elevation: 2
+            }}
+          >
+            <MaterialCommunityIcons name="google" size={20} color="#DB4437" />
+            <Text style={{ color: '#000000', fontWeight: '700', fontSize: 14 }}>
+              Continue with Google
+            </Text>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 12 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
+            <Text style={{ color: '#9CA3AF', fontSize: 11, marginHorizontal: 10, textTransform: 'uppercase', fontWeight: '700' }}>
+              or sign in with email
+            </Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
+          </View>
+
           <Text style={styles.formTitle}>Sign In</Text>
 
           <TextInput

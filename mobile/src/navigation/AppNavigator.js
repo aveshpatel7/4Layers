@@ -30,6 +30,9 @@ import RoomSelectionScreen from '../screens/RoomSelectionScreen';
 import ConfigureBoardScreen from '../screens/ConfigureBoardScreen';
 import FamilyMembersScreen from '../screens/FamilyMembersScreen';
 
+import PermissionSplashScreen from '../screens/PermissionSplashScreen';
+import PostLoginOnboardingScreen from '../screens/PostLoginOnboardingScreen';
+
 const AuthStack = createStackNavigator();
 const HomeStack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -122,6 +125,10 @@ function AddDeviceStackScreen() {
 export default function AppNavigator() {
   const theme = useTheme();
   const navigationRef = useNavigationContainerRef();
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
+
   const [state, dispatch] = React.useReducer(
     (prevState, action) => {
       switch (action.type) {
@@ -172,6 +179,29 @@ export default function AppNavigator() {
     });
   }, []);
 
+  // Check user profile for post-login onboarding requirements (mobile number & terms)
+  useEffect(() => {
+    if (!state.userToken) {
+      setUserData(null);
+      setCheckingOnboarding(false);
+      return;
+    }
+
+    const checkUserProfile = async () => {
+      setCheckingOnboarding(true);
+      try {
+        const res = await apiClient.get('/api/users/me');
+        setUserData(res.data);
+      } catch (err) {
+        console.warn('[AppNavigator] Error fetching user profile:', err);
+      } finally {
+        setCheckingOnboarding(false);
+      }
+    };
+
+    checkUserProfile();
+  }, [state.userToken]);
+
   const authContextValue = useMemo(
     () => ({
       signIn: async (token) => {
@@ -195,7 +225,6 @@ export default function AppNavigator() {
     // 1. Register Push Token with Backend (Safely wrapped)
     const registerPushToken = async () => {
       try {
-        // Safe check for expo push token without inline dynamic require crash in Metro Hermes
         console.log('[PushToken] Background push token check initialized.');
       } catch (err) {
         console.warn('[PushToken] Notice:', err);
@@ -245,13 +274,17 @@ export default function AppNavigator() {
     }
   };
 
-  if (state.isLoading) {
-    // Spinner screen while loading token status
+  if (state.isLoading || checkingOnboarding) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0D0D0D' }}>
-        <ActivityIndicator size="large" color="#22C55E" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0b0f19' }}>
+        <ActivityIndicator size="large" color="#00E676" />
       </View>
     );
+  }
+
+  // 1. Pre-login Initial Permissions Splash Screen
+  if (!permissionsGranted) {
+    return <PermissionSplashScreen onPermissionsGranted={() => setPermissionsGranted(true)} />;
   }
 
   return (
@@ -268,8 +301,16 @@ export default function AppNavigator() {
             <AuthStack.Screen name="Login" component={LoginScreen} />
             <AuthStack.Screen name="Register" component={RegisterScreen} />
           </AuthStack.Navigator>
+        ) : (!userData?.phone_number || !userData?.terms_accepted) ? (
+          // User IS logged in but HAS NOT completed onboarding (Mobile Number + Terms & Privacy)
+          <PostLoginOnboardingScreen
+            route={{ params: { user: userData } }}
+            onOnboardingComplete={() => {
+              setUserData(prev => ({ ...prev, phone_number: 'REGISTERED', terms_accepted: true }));
+            }}
+          />
         ) : (
-          // User IS logged in - Wrapped in GlobalDrawerWrapper for universal swipe-right-to-open
+          // User IS logged in & HAS completed onboarding - Wrapped in GlobalDrawerWrapper
           <GlobalDrawerWrapper navigationRef={navigationRef}>
             <InAppBanner
               visible={!!activeBannerInvite}

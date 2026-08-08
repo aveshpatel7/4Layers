@@ -13,6 +13,8 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: UUID
+    phone_number: Optional[str] = None
+    terms_accepted: bool = False
 
     model_config = {
         "from_attributes": True
@@ -25,6 +27,12 @@ class TokenResponse(BaseModel):
 class UserUpdateProfile(BaseModel):
     email: Optional[EmailStr] = None
     username: Optional[str] = Field(None, min_length=3, max_length=50)
+    phone_number: Optional[str] = None
+    terms_accepted: Optional[bool] = None
+
+class OnboardingUpdate(BaseModel):
+    phone_number: str = Field(..., min_length=10, max_length=15)
+    terms_accepted: bool = True
 
 class UserChangePassword(BaseModel):
     current_password: str = Field(..., min_length=6)

@@ -127,6 +127,25 @@ def update_profile(
             )
         current_user.email = profile_data.email
 
+    if profile_data.phone_number is not None:
+        current_user.phone_number = profile_data.phone_number
+
+    if profile_data.terms_accepted is not None:
+        current_user.terms_accepted = profile_data.terms_accepted
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@router.post("/me/onboarding", response_model=schemas.UserResponse)
+def complete_onboarding(
+    onboarding_data: schemas.OnboardingUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Complete post-login onboarding by saving phone number and accepting Terms & Privacy Policy."""
+    current_user.phone_number = onboarding_data.phone_number.strip()
+    current_user.terms_accepted = onboarding_data.terms_accepted
     db.commit()
     db.refresh(current_user)
     return current_user
