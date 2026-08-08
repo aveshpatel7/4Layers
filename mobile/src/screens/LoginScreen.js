@@ -123,9 +123,9 @@ export default function LoginScreen({ navigation }) {
 
         {/* Input Form Section */}
         <View style={styles.formCard}>
-          {/* Google OAuth Button */}
+          {/* Sleek Dark Mode Google OAuth Button (Matching Official Google Dark Brand Guidelines) */}
           <TouchableOpacity
-            activeOpacity={0.85}
+            activeOpacity={0.8}
             disabled={loading}
             onPress={() => {
               if (request) {
@@ -135,20 +135,28 @@ export default function LoginScreen({ navigation }) {
               }
             }}
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 8,
+              backgroundColor: '#131314',
+              borderRadius: 24,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.16)',
               paddingVertical: 12,
-              paddingHorizontal: 16,
+              paddingHorizontal: 20,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 16,
-              gap: 10,
-              elevation: 2
+              gap: 12,
+              elevation: 3,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
             }}
           >
-            <MaterialCommunityIcons name="google" size={20} color="#DB4437" />
-            <Text style={{ color: '#000000', fontWeight: '700', fontSize: 14 }}>
+            <View style={{ width: 22, height: 22, justifyContent: 'center', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="google" size={20} color="#DB4437" />
+            </View>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14, letterSpacing: 0.2 }}>
               Continue with Google
             </Text>
           </TouchableOpacity>
