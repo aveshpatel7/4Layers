@@ -214,15 +214,21 @@ def complete_onboarding(
     db: Session = Depends(get_db)
 ):
     """Complete post-login onboarding by saving phone number and accepting Terms & Privacy Policy."""
-    if onboarding_data.phone_number:
-        current_user.phone_number = onboarding_data.phone_number.strip()
-    if onboarding_data.terms_accepted is not None:
-        current_user.terms_accepted = onboarding_data.terms_accepted
-    else:
-        current_user.terms_accepted = True
+    # Always force terms_accepted = True (this is the whole point of this endpoint)
+    current_user.terms_accepted = True
+
+    # Save phone number (allow None/empty — user may skip)
+    if onboarding_data.phone_number is not None:
+        phone = onboarding_data.phone_number.strip()
+        if phone:
+            current_user.phone_number = phone
 
     db.commit()
     db.refresh(current_user)
+
+    # Debug log to confirm what's being saved
+    print(f"[ONBOARDING] User {current_user.username} onboarding complete: phone={current_user.phone_number}, terms_accepted={current_user.terms_accepted}", flush=True)
+
     return current_user
 
 @router.post("/me/change-password", status_code=status.HTTP_200_OK)

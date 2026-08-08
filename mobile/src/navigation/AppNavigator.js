@@ -190,8 +190,31 @@ export default function AppNavigator() {
     const checkUserProfile = async () => {
       setCheckingOnboarding(true);
       try {
+        // STEP 1: Try local cache first (fast path — avoids flicker on cold boot)
+        const cached = await AsyncStorage.getItem('userData_cache');
+        if (cached) {
+          const parsedCache = JSON.parse(cached);
+          console.log('[NAV CHECK] Cached UserData:', parsedCache);
+          // If cached data shows onboarding is done, use it immediately
+          if (parsedCache?.terms_accepted === true && parsedCache?.phone_number) {
+            setUserData(parsedCache);
+            setCheckingOnboarding(false);
+            // Still refresh from API in background (fire & forget)
+            apiClient.get('/api/users/me').then(res => {
+              console.log('[NAV CHECK] API UserData (bg refresh):', res.data);
+              setUserData(res.data);
+              AsyncStorage.setItem('userData_cache', JSON.stringify(res.data));
+            }).catch(() => {});
+            return;
+          }
+        }
+
+        // STEP 2: No valid cache — fetch from API
         const res = await apiClient.get('/api/users/me');
+        console.log('[NAV CHECK] API UserData:', res.data);
         setUserData(res.data);
+        // Save to local cache for next cold boot
+        await AsyncStorage.setItem('userData_cache', JSON.stringify(res.data));
       } catch (err) {
         console.warn('[AppNavigator] Error fetching user profile:', err);
       } finally {
@@ -210,6 +233,8 @@ export default function AppNavigator() {
       },
       signOut: async () => {
         await AsyncStorage.removeItem('user_token');
+        await AsyncStorage.removeItem('userData_cache');
+        setUserData(null);
         dispatch({ type: 'SIGN_OUT' });
       },
       userToken: state.userToken,
@@ -305,13 +330,21 @@ export default function AppNavigator() {
           // User IS logged in but HAS NOT completed onboarding (Mobile Number + Terms & Privacy)
           <PostLoginOnboardingScreen
             route={{ params: { user: userData } }}
-            onOnboardingComplete={(updatedUser) => {
-              setUserData(prev => ({
-                ...prev,
+            onOnboardingComplete={async (updatedUser) => {
+              const merged = {
+                ...userData,
                 ...updatedUser,
-                phone_number: updatedUser?.phone_number || 'REGISTERED',
+                phone_number: updatedUser?.phone_number || userData?.phone_number || 'REGISTERED',
                 terms_accepted: true
-              }));
+              };
+              // Persist to AsyncStorage so cold boot skips onboarding
+              try {
+                await AsyncStorage.setItem('userData_cache', JSON.stringify(merged));
+                console.log('[ONBOARDING COMPLETE] Saved to AsyncStorage:', merged);
+              } catch (e) {
+                console.warn('[ONBOARDING COMPLETE] AsyncStorage save failed:', e);
+              }
+              setUserData(merged);
             }}
           />
         ) : (
