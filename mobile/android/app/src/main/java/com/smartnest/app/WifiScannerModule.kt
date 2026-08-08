@@ -24,31 +24,66 @@ class WifiScannerModule(reactContext: ReactApplicationContext) : ReactContextBas
     @ReactMethod
     fun getWifiNetworks(promise: Promise) {
         try {
-            val wifiManager = reactApplicationContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            
-            // Try to trigger a scan (even if throttled, calling it is safe as a background trigger)
+            val context = reactApplicationContext.applicationContext
+            val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            var hasResolved = false
+
+            val sendResults = {
+                if (!hasResolved) {
+                    hasResolved = true
+                    try {
+                        val scanResults = wifiManager.scanResults
+                        val array: WritableArray = Arguments.createArray()
+                        val ssids = mutableSetOf<String>()
+                        for (result in scanResults) {
+                            val ssid = result.SSID
+                            if (ssid != null && ssid.isNotEmpty() && !ssids.contains(ssid)) {
+                                ssids.add(ssid)
+                                val map = Arguments.createMap()
+                                map.putString("ssid", ssid)
+                                map.putInt("level", result.level) // Signal strength in dBm
+                                array.pushMap(map)
+                            }
+                        }
+                        promise.resolve(array)
+                    } catch (e: Exception) {
+                        promise.reject("ERROR", e.message, e)
+                    }
+                }
+            }
+
+            var receiver: android.content.BroadcastReceiver? = null
+            receiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: Context?, intent: android.content.Intent?) {
+                    try {
+                        context.unregisterReceiver(this)
+                    } catch (e: Exception) {}
+                    sendResults()
+                }
+            }
+
+            val filter = android.content.IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
+            try {
+                context.registerReceiver(receiver, filter)
+            } catch (e: Exception) {}
+
+            // Trigger scan
             try {
                 wifiManager.startScan()
             } catch (e: Exception) {
-                // Ignore startScan throttle exceptions
+                // Ignore throttle exception
             }
 
-            val scanResults = wifiManager.scanResults
-            val array: WritableArray = Arguments.createArray()
-            
-            // Deduplicate SSIDs and only include non-empty ones
-            val ssids = mutableSetOf<String>()
-            for (result in scanResults) {
-                val ssid = result.SSID
-                if (ssid != null && ssid.isNotEmpty() && !ssids.contains(ssid)) {
-                    ssids.add(ssid)
-                    val map = Arguments.createMap()
-                    map.putString("ssid", ssid)
-                    map.putInt("level", result.level) // Signal strength in dBm
-                    array.pushMap(map)
-                }
-            }
-            promise.resolve(array)
+            // Fallback timeout after 1500ms in case scan is throttled or broadcast doesn't fire
+            handler.postDelayed({
+                try {
+                    receiver?.let { context.unregisterReceiver(it) }
+                } catch (e: Exception) {}
+                sendResults()
+            }, 1500)
+
         } catch (e: Exception) {
             promise.reject("ERROR", e.message, e)
         }

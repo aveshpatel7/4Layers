@@ -411,43 +411,37 @@ export default function ProvisioningScreen({ route, navigation }) {
     
     setIsScanningWifi(true);
     setShowWifiScanModal(true);
-    setScannedWifiList([]);
 
     try {
-
       if (NativeModules.WifiScanner) {
         const networks = await NativeModules.WifiScanner.getWifiNetworks();
-        if (Array.isArray(networks)) {
+        if (Array.isArray(networks) && networks.length > 0) {
           const valid24G = filter24GHzNetworks(networks);
           valid24G.sort((a, b) => (b.level || 0) - (a.level || 0));
           setScannedWifiList(valid24G);
+        } else {
+          // If scan results are empty, verify Location/GPS status
+          const isLocEnabled = await NativeModules.WifiScanner.isLocationEnabled().catch(() => false);
+          if (!isLocEnabled) {
+            await NativeModules.WifiScanner.requestLocationEnable().catch(() => {});
+          }
         }
       } else {
-        // Fallback mock list if NativeModule is not registered/mocked (e.g. during development/testing)
-        setTimeout(() => {
-          const rawMock = [
-            { ssid: 'Home_WiFi_5G', level: -45, frequency: 5180 },
-            { ssid: 'CMF', level: -40, frequency: 2412 },
-            { ssid: 'A.R.Tourism', level: -55, frequency: 2437 },
-            { ssid: 'Airtel_Rahul', level: -60, frequency: 2462 },
-            { ssid: 'AirFiber_5GHz', level: -50, frequency: 5200 },
-            { ssid: 'SmartNest_2.4G', level: -65, frequency: 2412 }
-          ];
-          const valid24G = filter24GHzNetworks(rawMock);
-          valid24G.sort((a, b) => (b.level || 0) - (a.level || 0));
-          setScannedWifiList(valid24G);
-          setIsScanningWifi(false);
-        }, 1200);
-        return;
+        // Fallback mock list if NativeModule is not registered
+        await new Promise(r => setTimeout(r, 1000));
+        const rawMock = [
+          { ssid: 'CMF', level: -40, frequency: 2412 },
+          { ssid: 'A.R.Tourism', level: -55, frequency: 2437 },
+          { ssid: 'Raja_Cable', level: -50, frequency: 2412 },
+          { ssid: 'Airtel_Javedhome', level: -60, frequency: 2462 },
+          { ssid: 'Galaxy S23 2F86', level: -42, frequency: 2412 }
+        ];
+        const valid24G = filter24GHzNetworks(rawMock);
+        valid24G.sort((a, b) => (b.level || 0) - (a.level || 0));
+        setScannedWifiList(valid24G);
       }
     } catch (err) {
       console.error('[WifiScan] Error:', err);
-      // Fallback
-      const fallbackList = [
-        { ssid: 'CMF', level: -40, frequency: 2412 },
-        { ssid: 'A.R.Tourism', level: -55, frequency: 2437 }
-      ];
-      setScannedWifiList(fallbackList);
     } finally {
       setIsScanningWifi(false);
     }
