@@ -5,9 +5,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
 
 const TOKENS = {
-  bg: '#0b0f19',
-  surface: '#121827',
-  surfaceLow: '#1a2234',
+  bg: '#0E0E0E',
+  surface: '#1C1B1B',
+  surfaceLow: '#141414',
   accent: '#1fa971',
   textPrimary: '#FFFFFF',
   textSecondary: '#9CA3AF',

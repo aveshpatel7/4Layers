@@ -200,7 +200,7 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b0f19',
+    backgroundColor: '#0E0E0E',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 16,
-    backgroundColor: '#121827',
+    backgroundColor: '#1C1B1B',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   formCard: {
-    backgroundColor: '#121827',
+    backgroundColor: '#1C1B1B',
     borderRadius: 16,
     padding: 24,
     borderWidth: 1.5,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
-    backgroundColor: '#0b0f19',
+    backgroundColor: '#0E0E0E',
   },
   submitBtn: {
     marginTop: 12,

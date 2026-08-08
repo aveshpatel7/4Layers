@@ -21,10 +21,10 @@ import BrandLogo from "../components/BrandLogo";
 import SideDrawer from "../components/SideDrawer";
 import { connectMqtt, disconnectMqtt, publishMessage, registerMqttListener } from "../services/mqttClient";
 const TOKENS = {
-  bg: "#0b0f19",
-  cardBg: "#121827",
+  bg: "#0E0E0E",
+  cardBg: "#1C1B1B",
   accent: "#1fa971",
-  border: "rgba(255, 255, 255, 0.08)",
+  border: "rgba(255, 255, 255, 0.05)",
   textPrimary: "#E5E2E1",
   textSecondary: "#9CA3AF",
   error: "#EF4444"

@@ -88,8 +88,8 @@ const theme = {
     ...MD3DarkTheme.colors,
     primary: '#1fa971',          // Tech Emerald Green (#1fa971)
     secondary: '#15803D',        // Secondary Darker Green
-    background: '#0b0f19',       // Pure Dark Theme (#0b0f19)
-    surface: '#121827',          // Glass Card Surface (#121827)
+    background: '#0E0E0E',       // Pure OLED Obsidian Black (#0E0E0E)
+    surface: '#1C1B1B',          // Dark Card Surface (#1C1B1B)
     onSurface: '#E5E2E1',        // Warm Off-White text
     onSurfaceVariant: '#9CA3AF',   // Muted gray text
     outline: 'rgba(255, 255, 255, 0.08)', // Muted border

@@ -5,8 +5,8 @@ import logoImg from '../../assets/4layers_logo.png';
 import CustomAppModal from '../components/CustomAppModal';
 
 const TOKENS = {
-  bg: '#0b0f19',
-  surface: '#121827',
+  bg: '#0E0E0E',
+  surface: '#1C1B1B',
   accent: '#1fa971',
   textPrimary: '#FFFFFF',
   textSecondary: '#9CA3AF',
@@ -176,7 +176,7 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0b0f19" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#0E0E0E" translucent={false} />
       
       <View style={styles.logoCard}>
         <Image source={logoImg} style={styles.logo} resizeMode="contain" />

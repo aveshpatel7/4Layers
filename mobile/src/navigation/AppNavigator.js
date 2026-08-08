@@ -276,8 +276,8 @@ export default function AppNavigator() {
 
   if (state.isLoading || checkingOnboarding) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0b0f19' }}>
-        <ActivityIndicator size="large" color="#00E676" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0E0E0E' }}>
+        <ActivityIndicator size="large" color="#1fa971" />
       </View>
     );
   }
@@ -343,7 +343,7 @@ export default function AppNavigator() {
                   display: 'none'
                 },
                 headerStyle: { 
-                  backgroundColor: '#0b0f19',
+                  backgroundColor: '#0E0E0E',
                   elevation: 0,
                   shadowOpacity: 0,
                   borderBottomWidth: 1.5,
