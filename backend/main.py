@@ -18,20 +18,34 @@ app = FastAPI(
     version="1.0.1"
 )
 
-# Configure CORS Middleware using ALLOWED_ORIGINS env variables (e.g. for web panels, mobile clients)
+# Configure CORS Middleware for all origins, headers, and methods
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
-if allowed_origins_env:
+if allowed_origins_env and allowed_origins_env != "*":
     allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+    if "*" not in allowed_origins:
+        allowed_origins.append("*")
 else:
-    allowed_origins = ["*"]  # Fallback to wildcard for local development
+    allowed_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from fastapi.responses import JSONResponse
+from fastapi import Request
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    print(f"[500 Internal Error] Path: {request.url.path} | Error: {exc}\n{traceback.format_exc()}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 # Register routes
 app.include_router(users.router)
@@ -252,8 +266,10 @@ def startup_event():
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE schedules ADD COLUMN IF NOT EXISTS actions_json JSON;"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS expo_push_token VARCHAR;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN DEFAULT FALSE;"))
             conn.commit()
-            print("PostgreSQL migration: Verified actions_json and expo_push_token columns.")
+            print("PostgreSQL migration: Verified actions_json, expo_push_token, phone_number, and terms_accepted columns.")
     except Exception as m_err:
         print("PostgreSQL migration notice:", m_err)
     print("Database tables initialized.")
