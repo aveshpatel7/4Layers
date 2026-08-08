@@ -478,7 +478,7 @@ export default function ProvisioningScreen({ route, navigation }) {
       await AsyncStorage.setItem('@SmartNest:wifi_passwords', JSON.stringify(savedPasswords));
     } catch (e) {
       console.warn('[AsyncStorage] Error saving wifi password:', e);
-    // Permissions are requested upfront at app launch during initial onboarding.
+    }
 
     setDevicesList([]);
     setIsScanning(true);
