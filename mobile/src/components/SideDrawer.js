@@ -190,10 +190,11 @@ export default function SideDrawer({
     <>
       <Modal
         visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={onClose}
+      >
       <View style={styles.overlay}>
         <View style={styles.drawerContainer} {...drawerPanResponder.panHandlers}>
           <View style={styles.safeArea}>

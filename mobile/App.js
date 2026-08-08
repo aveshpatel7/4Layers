@@ -126,14 +126,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#0E0E0E' }} edges={['top', 'bottom', 'left', 'right']}>
-          <PaperProvider theme={theme}>
-            {/* Light status bar icons for dark background with seamless #0E0E0E header blend */}
-            <StatusBar style="light" backgroundColor="#0E0E0E" translucent={true} />
+        <PaperProvider theme={theme}>
+          {/* Edge-to-edge transparent status bar matching ChatGPT & modern apps */}
+          <StatusBar style="light" backgroundColor="transparent" translucent={true} />
+          <View style={{ flex: 1, backgroundColor: '#0E0E0E' }}>
             <AppNavigator />
             <GlobalAlertModal />
-          </PaperProvider>
-        </SafeAreaView>
+          </View>
+        </PaperProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );
