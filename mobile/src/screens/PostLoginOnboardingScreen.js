@@ -50,15 +50,18 @@ export default function PostLoginOnboardingScreen({ route, navigation, onOnboard
         terms_accepted: true
       };
 
+      let updatedUser = null;
       try {
-        await apiClient.post('/api/users/me/onboarding', payload);
+        const res = await apiClient.post('/api/users/me/onboarding', payload);
+        updatedUser = res.data;
       } catch (firstErr) {
         console.warn('[Onboarding] POST /onboarding failed, trying PUT /me fallback:', firstErr);
-        await apiClient.put('/api/users/me', payload);
+        const res = await apiClient.put('/api/users/me', payload);
+        updatedUser = res.data;
       }
       
       if (onOnboardingComplete) {
-        onOnboardingComplete();
+        onOnboardingComplete(updatedUser || { phone_number: phoneNumber.trim(), terms_accepted: true });
       }
     } catch (err) {
       console.error('[Onboarding] Error submitting data:', err);

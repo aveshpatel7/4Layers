@@ -305,8 +305,13 @@ export default function AppNavigator() {
           // User IS logged in but HAS NOT completed onboarding (Mobile Number + Terms & Privacy)
           <PostLoginOnboardingScreen
             route={{ params: { user: userData } }}
-            onOnboardingComplete={() => {
-              setUserData(prev => ({ ...prev, phone_number: 'REGISTERED', terms_accepted: true }));
+            onOnboardingComplete={(updatedUser) => {
+              setUserData(prev => ({
+                ...prev,
+                ...updatedUser,
+                phone_number: updatedUser?.phone_number || 'REGISTERED',
+                terms_accepted: true
+              }));
             }}
           />
         ) : (
