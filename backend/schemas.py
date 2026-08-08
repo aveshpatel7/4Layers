@@ -34,8 +34,8 @@ class UserUpdateProfile(BaseModel):
     terms_accepted: Optional[bool] = None
 
 class OnboardingUpdate(BaseModel):
-    phone_number: str = Field(..., min_length=7, max_length=20)
-    terms_accepted: bool = True
+    phone_number: Optional[str] = None
+    terms_accepted: Optional[bool] = True
 
 class UserChangePassword(BaseModel):
     current_password: str = Field(..., min_length=6)

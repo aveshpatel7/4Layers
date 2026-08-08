@@ -214,8 +214,13 @@ def complete_onboarding(
     db: Session = Depends(get_db)
 ):
     """Complete post-login onboarding by saving phone number and accepting Terms & Privacy Policy."""
-    current_user.phone_number = onboarding_data.phone_number.strip()
-    current_user.terms_accepted = onboarding_data.terms_accepted
+    if onboarding_data.phone_number:
+        current_user.phone_number = onboarding_data.phone_number.strip()
+    if onboarding_data.terms_accepted is not None:
+        current_user.terms_accepted = onboarding_data.terms_accepted
+    else:
+        current_user.terms_accepted = True
+
     db.commit()
     db.refresh(current_user)
     return current_user

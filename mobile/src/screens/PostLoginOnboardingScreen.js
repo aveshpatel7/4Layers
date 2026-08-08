@@ -45,17 +45,34 @@ export default function PostLoginOnboardingScreen({ route, navigation, onOnboard
 
     setLoading(true);
     try {
-      await apiClient.post('/api/users/me/onboarding', {
+      const payload = {
         phone_number: phoneNumber.trim(),
         terms_accepted: true
-      });
+      };
+
+      try {
+        await apiClient.post('/api/users/me/onboarding', payload);
+      } catch (firstErr) {
+        console.warn('[Onboarding] POST /onboarding failed, trying PUT /me fallback:', firstErr);
+        await apiClient.put('/api/users/me', payload);
+      }
       
       if (onOnboardingComplete) {
         onOnboardingComplete();
       }
     } catch (err) {
       console.error('[Onboarding] Error submitting data:', err);
-      const detail = err.response?.data?.detail || 'Failed to save account setup. Try again.';
+      let detail = 'Failed to save account setup. Try again.';
+      if (err.response?.data?.detail) {
+        const rawDetail = err.response.data.detail;
+        if (typeof rawDetail === 'string') {
+          detail = rawDetail;
+        } else if (Array.isArray(rawDetail) && rawDetail.length > 0) {
+          detail = rawDetail.map(d => d.msg || d.detail || JSON.stringify(d)).join(', ');
+        }
+      } else if (err.message) {
+        detail = err.message;
+      }
       setErrorMsg(detail);
       setShowSnackbar(true);
     } finally {
