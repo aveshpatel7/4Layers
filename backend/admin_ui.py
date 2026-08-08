@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.4.4">
+    <link rel="stylesheet" href="/admin/style.css?v=2.4.5">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.4.4" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.4.5" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.4.4</span>
+                    <span class="brand-sub">Smart Admin Console v2.4.5</span>
                 </div>
             </div>
 
@@ -162,6 +162,8 @@ ADMIN_HTML = """<!DOCTYPE html>
                                     <th>User Information</th>
                                     <th>Email Address</th>
                                     <th>Mobile Number</th>
+                                    <th>T&C Accepted</th>
+                                    <th>Auth Method</th>
                                     <th>Linked Devices</th>
                                     <th>Status</th>
                                     <th>Actions</th>
@@ -169,7 +171,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                             </thead>
                             <tbody id="users-table-body">
                                 <tr>
-                                    <td colspan="7" class="text-center">Loading registered users from backend...</td>
+                                    <td colspan="9" class="text-center">Loading registered users from backend...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -421,7 +423,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.4.4"></script>
+    <script src="/admin/app.js?v=2.4.5"></script>
 </body>
 </html>
 """
@@ -498,9 +500,13 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .term-line.error { color: #ef4444; font-weight: 700; background: rgba(239, 68, 68, 0.1); padding: 2px 4px; border-radius: 4px; }
 .table-responsive { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+#users-table { table-layout: fixed; width: 100%; }
+#users-table th, #users-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
 .data-table th { text-align: left; padding: 12px 16px; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); }
 .data-table td { padding: 14px 16px; font-size: 13.5px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
 .data-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+.search-input { min-width: 240px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); padding: 8px 14px; font-size: 13px; outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.search-input:focus { border-color: var(--accent-green); box-shadow: 0 0 0 2px rgba(0, 230, 118, 0.2); }
 .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
 .badge.green { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.3); }
 .badge.blue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3); }
@@ -629,7 +635,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     function renderUsers(users) {
         if (!users || users.length === 0) {
-            usersTableBody.innerHTML = `<tr><td colspan="7" class="text-center">No registered users found.</td></tr>`;
+            usersTableBody.innerHTML = `<tr><td colspan="9" class="text-center">No registered users found.</td></tr>`;
             return;
         }
 
@@ -645,6 +651,16 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     <span style="font-size:12px;font-weight:600;color:${u.phone_number && u.phone_number !== 'N/A' ? 'var(--accent-green)' : 'var(--text-secondary)'};">
                         ${escapeHtml(u.phone_number || 'Not Registered')}
                     </span>
+                </td>
+                <td style="text-align:center;">
+                    ${u.terms_accepted 
+                        ? '<span style="color:var(--accent-green);font-weight:bold;font-size:14px;" title="T&C Accepted">✅</span>' 
+                        : '<span style="color:var(--accent-red);font-weight:bold;font-size:14px;" title="T&C Pending">❌</span>'}
+                </td>
+                <td>
+                    ${u.auth_method === 'google'
+                        ? '<span class="badge blue" style="background:rgba(66,133,244,0.15);color:#4285F4;border:1px solid rgba(66,133,244,0.3);"><i class="fa-brands fa-google"></i> Google</span>'
+                        : '<span class="badge gray" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-envelope"></i> Email</span>'}
                 </td>
                 <td style="white-space:nowrap;">
                     <span class="badge blue">${u.device_count || 0} Devices</span>
@@ -665,6 +681,25 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 </td>
             </tr>
         `).join('');
+    }
+
+    // Real-Time Search & Filter for Registered Users Directory
+    const userSearchInput = document.getElementById('user-search-input');
+    if (userSearchInput) {
+        userSearchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+                renderUsers(allUsers);
+                return;
+            }
+            const filtered = allUsers.filter(u => {
+                const username = (u.username || '').toLowerCase();
+                const email = (u.email || '').toLowerCase();
+                const phone = (u.phone_number || '').toLowerCase();
+                return username.includes(query) || email.includes(query) || phone.includes(query);
+            });
+            renderUsers(filtered);
+        });
     }
 
     const otaPendingRebootNodes = new Map(); // nodeId -> { startTime: timestamp, notified: bool }

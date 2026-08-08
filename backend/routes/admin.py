@@ -183,12 +183,15 @@ def list_all_users(db: Session = Depends(get_db)):
         device_count = db.query(models.Device).filter(models.Device.home_id.in_(home_ids)).count() if home_ids else 0
         room_count = db.query(models.Room).filter(models.Room.home_id.in_(home_ids)).count() if home_ids else 0
         
+        auth_method = "google" if (u.hashed_password and "GAuth_" in u.hashed_password) or (not u.hashed_password) else "email"
+
         user_list.append({
             "id": str(u.id),
             "username": u.username,
             "email": u.email,
             "phone_number": u.phone_number or "N/A",
-            "terms_accepted": getattr(u, "terms_accepted", False),
+            "terms_accepted": bool(getattr(u, "terms_accepted", False)),
+            "auth_method": auth_method,
             "full_name": u.username,
             "is_active": True,
             "role": "user",
