@@ -46,4 +46,62 @@ class WifiScannerModule(reactContext: ReactApplicationContext) : ReactContextBas
             promise.reject("ERROR", e.message, e)
         }
     }
+
+    @ReactMethod
+    fun isBluetoothEnabled(promise: Promise) {
+        try {
+            val bluetoothAdapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter()
+            if (bluetoothAdapter == null) {
+                promise.resolve(false)
+            } else {
+                promise.resolve(bluetoothAdapter.isEnabled)
+            }
+        } catch (e: Exception) {
+            promise.resolve(false)
+        }
+    }
+
+    @ReactMethod
+    fun enableBluetooth(promise: Promise) {
+        try {
+            val currentActivity = currentActivity
+            if (currentActivity != null) {
+                val intent = android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                currentActivity.startActivityForResult(intent, 1001)
+                promise.resolve(true)
+            } else {
+                promise.reject("NO_ACTIVITY", "Current activity is null")
+            }
+        } catch (e: Exception) {
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun isLocationEnabled(promise: Promise) {
+        try {
+            val locationManager = reactApplicationContext.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            val isGpsEnabled = locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+            val isNetworkEnabled = locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+            promise.resolve(isGpsEnabled || isNetworkEnabled)
+        } catch (e: Exception) {
+            promise.resolve(false)
+        }
+    }
+
+    @ReactMethod
+    fun requestLocationEnable(promise: Promise) {
+        try {
+            val currentActivity = currentActivity
+            if (currentActivity != null) {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                currentActivity.startActivity(intent)
+                promise.resolve(true)
+            } else {
+                promise.reject("NO_ACTIVITY", "Current activity is null")
+            }
+        } catch (e: Exception) {
+            promise.reject("ERROR", e.message, e)
+        }
+    }
 }

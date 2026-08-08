@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Image, StatusBar, Platform, PermissionsAndroid, BackHandler, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Image, StatusBar, Platform, PermissionsAndroid, BackHandler, Alert, NativeModules } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import logoImg from '../../assets/4layers_logo.png';
 
@@ -13,12 +13,14 @@ const TOKENS = {
 };
 
 export default function PermissionSplashScreen({ onPermissionsGranted }) {
+  const [statusText, setStatusText] = useState('Initializing system permissions...');
+
   useEffect(() => {
     let isMounted = true;
 
     const requestAppPermissions = async () => {
       // Simulate splash branding delay for premium feel
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await new Promise(resolve => setTimeout(resolve, 800));
       if (!isMounted) return;
 
       if (Platform.OS === 'web') {
@@ -29,6 +31,8 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
       try {
         let isGranted = false;
 
+        // Step 1: Check Runtime OS Permissions (Location & Bluetooth)
+        setStatusText('Checking location & bluetooth permissions...');
         if (Platform.OS === 'android') {
           if (Platform.Version >= 31) { // Android 12+
             const permissions = [
@@ -59,33 +63,89 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
           isGranted = true;
         }
 
-        if (isGranted) {
-          onPermissionsGranted();
-        } else {
+        if (!isGranted) {
           Alert.alert(
             'Permissions Required',
             'Location and Bluetooth permissions are required for smart device pairing and network discovery.',
             [
-              {
-                text: 'Retry',
-                onPress: () => requestAppPermissions()
-              },
-              {
-                text: 'Exit App',
-                style: 'destructive',
-                onPress: () => {
-                  if (Platform.OS === 'android') {
-                    BackHandler.exitApp();
-                  }
-                }
-              }
+              { text: 'Retry', onPress: () => requestAppPermissions() },
+              { text: 'Exit App', style: 'destructive', onPress: () => Platform.OS === 'android' && BackHandler.exitApp() }
             ],
             { cancelable: false }
           );
+          return;
         }
+
+        // Step 2: Check & In-App Enable Physical Bluetooth Hardware
+        if (NativeModules.WifiScanner && NativeModules.WifiScanner.isBluetoothEnabled) {
+          setStatusText('Checking Bluetooth adapter state...');
+          const isBtOn = await NativeModules.WifiScanner.isBluetoothEnabled();
+          if (!isBtOn) {
+            setStatusText('Requesting Bluetooth enable...');
+            // Trigger native in-app ACTION_REQUEST_ENABLE popup
+            await NativeModules.WifiScanner.enableBluetooth().catch(() => {});
+            
+            // Wait up to 5s for user to tap "Allow" on native popup
+            let retries = 10;
+            let btEnabledAfterPrompt = false;
+            while (retries > 0) {
+              await new Promise(r => setTimeout(r, 500));
+              const checkNow = await NativeModules.WifiScanner.isBluetoothEnabled();
+              if (checkNow) {
+                btEnabledAfterPrompt = true;
+                break;
+              }
+              retries--;
+            }
+
+            if (!btEnabledAfterPrompt) {
+              Alert.alert(
+                'Bluetooth Required',
+                'Bluetooth is turned OFF. 4Layers needs Bluetooth turned ON to discover and control smart switchboards.',
+                [
+                  { text: 'Turn ON', onPress: () => requestAppPermissions() },
+                  { text: 'Exit App', style: 'destructive', onPress: () => Platform.OS === 'android' && BackHandler.exitApp() }
+                ],
+                { cancelable: false }
+              );
+              return;
+            }
+          }
+        }
+
+        // Step 3: Check & In-App Enable Physical Location (GPS) Hardware
+        if (NativeModules.WifiScanner && NativeModules.WifiScanner.isLocationEnabled) {
+          setStatusText('Checking Location (GPS) state...');
+          const isGpsOn = await NativeModules.WifiScanner.isLocationEnabled();
+          if (!isGpsOn) {
+            setStatusText('Requesting Location (GPS) enable...');
+            // Prompt native Location settings sheet overlay
+            Alert.alert(
+              'Location Services (GPS) Required',
+              '4Layers needs Location turned ON to discover nearby Wi-Fi routers and Bluetooth switchboard hardware.',
+              [
+                { 
+                  text: 'Turn ON', 
+                  onPress: async () => {
+                    await NativeModules.WifiScanner.requestLocationEnable().catch(() => {});
+                    // Wait brief moment and re-check permissions flow
+                    setTimeout(() => requestAppPermissions(), 1500);
+                  } 
+                },
+                { text: 'Exit App', style: 'destructive', onPress: () => Platform.OS === 'android' && BackHandler.exitApp() }
+              ],
+              { cancelable: false }
+            );
+            return;
+          }
+        }
+
+        // Step 4: Both permissions and physical hardware adapters are confirmed ON!
+        setStatusText('Hardware ready! Launching console...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        onPermissionsGranted();
       } catch (err) {
-        console.warn('[PermissionSplash] Error checking permissions:', err);
-        // Fallback safely so user isn't stuck
+        console.warn('[PermissionSplash] Error checking hardware state:', err);
         onPermissionsGranted();
       }
     };
@@ -110,7 +170,7 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
 
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" color={TOKENS.accent} />
-        <Text style={styles.loadingText}>Initializing system permissions...</Text>
+        <Text style={styles.loadingText}>{statusText}</Text>
       </View>
 
       <View style={styles.footer}>
