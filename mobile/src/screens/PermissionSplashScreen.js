@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Image, StatusBar, Platform, PermissionsAndroid, BackHandler, Alert } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import logoImg from '../assets/4layers_logo.png';
+import logoImg from '../../assets/4layers_logo.png';
 
 const TOKENS = {
   bg: '#0b0f19',
