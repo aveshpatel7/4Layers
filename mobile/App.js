@@ -3,7 +3,7 @@ import React, { Component } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MD3DarkTheme, PaperProvider } from 'react-native-paper';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import AppNavigator from './src/navigation/AppNavigator';
 
@@ -106,8 +106,6 @@ const theme = {
 };
 
 import GlobalAlertModal from './src/components/GlobalAlertModal';
-
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
