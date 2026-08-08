@@ -8,11 +8,13 @@ export default function BrandLogo({ size = "medium", color = "#1fa971", showText
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../../assets/4layers_logo.png")}
-        style={{ width: imgSize, height: imgSize, backgroundColor: 'transparent' }}
-        resizeMode="contain"
-      />
+      <View style={{ backgroundColor: '#0E0E0E', borderRadius: 8, overflow: 'hidden', padding: 2 }}>
+        <Image
+          source={require("../../assets/4layers_logo.png")}
+          style={{ width: imgSize, height: imgSize, backgroundColor: '#0E0E0E' }}
+          resizeMode="contain"
+        />
+      </View>
       {showText && <Text style={[styles.brandText, { fontSize, color }]}>4Layers</Text>}
     </View>
   );

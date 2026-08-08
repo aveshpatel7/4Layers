@@ -258,6 +258,9 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: '#0E0E0E',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 20,
   },
   title: {

@@ -223,10 +223,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0E0E0E',
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   logo: {
     width: 96,
     height: 96,
+    backgroundColor: '#0E0E0E',
   },
   title: {
     fontSize: 34,

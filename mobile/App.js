@@ -107,6 +107,8 @@ const theme = {
 
 import GlobalAlertModal from './src/components/GlobalAlertModal';
 
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     'GoogleSansFlex-Regular': require('./assets/fonts/GoogleSansFlex-Regular.ttf'),
@@ -126,12 +128,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <PaperProvider theme={theme}>
-          {/* Light status bar icons for dark background with seamless #0E0E0E header blend */}
-          <StatusBar style="light" backgroundColor="#0E0E0E" translucent={false} />
-          <AppNavigator />
-          <GlobalAlertModal />
-        </PaperProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0E0E0E' }} edges={['top', 'bottom', 'left', 'right']}>
+          <PaperProvider theme={theme}>
+            {/* Light status bar icons for dark background with seamless #0E0E0E header blend */}
+            <StatusBar style="light" backgroundColor="#0E0E0E" translucent={true} />
+            <AppNavigator />
+            <GlobalAlertModal />
+          </PaperProvider>
+        </SafeAreaView>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

@@ -506,14 +506,15 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    justify: 'space-between'
+    backgroundColor: TOKENS.drawerBg,
+    justifyContent: 'space-between'
   },
   drawerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 36) : 48,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 28) : 44,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.border
