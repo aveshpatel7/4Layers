@@ -105,6 +105,8 @@ const theme = {
   },
 };
 
+import GlobalAlertModal from './src/components/GlobalAlertModal';
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     'GoogleSansFlex-Regular': require('./assets/fonts/GoogleSansFlex-Regular.ttf'),
@@ -128,6 +130,7 @@ export default function App() {
           {/* Light status bar icons for dark background */}
           <StatusBar style="light" backgroundColor="#0D0D0D" />
           <AppNavigator />
+          <GlobalAlertModal />
         </PaperProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
