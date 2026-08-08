@@ -94,14 +94,50 @@ class WifiScannerModule(reactContext: ReactApplicationContext) : ReactContextBas
         try {
             val currentActivity = currentActivity
             if (currentActivity != null) {
-                val intent = android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-                currentActivity.startActivity(intent)
-                promise.resolve(true)
+                val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
+                    priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
+                }
+                val builder = com.google.android.gms.location.LocationSettingsRequest.Builder()
+                    .addLocationRequest(locationRequest)
+                    .setAlwaysShow(true)
+
+                val client = com.google.android.gms.location.LocationServices.getSettingsClient(currentActivity)
+                val task = client.checkLocationSettings(builder.build())
+
+                task.addOnSuccessListener {
+                    promise.resolve(true)
+                }
+
+                task.addOnFailureListener { exception ->
+                    if (exception is com.google.android.gms.common.api.ResolvableApiException) {
+                        try {
+                            exception.startResolutionForResult(currentActivity, 1002)
+                            promise.resolve(true)
+                        } catch (sendEx: android.content.IntentSender.SendIntentException) {
+                            promise.reject("ERROR", sendEx.message, sendEx)
+                        }
+                    } else {
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                        currentActivity.startActivity(intent)
+                        promise.resolve(true)
+                    }
+                }
             } else {
                 promise.reject("NO_ACTIVITY", "Current activity is null")
             }
         } catch (e: Exception) {
-            promise.reject("ERROR", e.message, e)
+            try {
+                val currentActivity = currentActivity
+                if (currentActivity != null) {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    currentActivity.startActivity(intent)
+                    promise.resolve(true)
+                } else {
+                    promise.reject("ERROR", e.message, e)
+                }
+            } catch (fallbackEx: Exception) {
+                promise.reject("ERROR", fallbackEx.message, fallbackEx)
+            }
         }
     }
 }

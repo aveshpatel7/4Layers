@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Image, StatusBar, Platform, PermissionsAndroid, BackHandler, Alert, NativeModules } from 'react-native';
+import { StyleSheet, View, Image, StatusBar, Platform, PermissionsAndroid, BackHandler, NativeModules } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import logoImg from '../../assets/4layers_logo.png';
+import CustomAppModal from '../components/CustomAppModal';
 
 const TOKENS = {
   bg: '#0b0f19',
@@ -14,6 +15,18 @@ const TOKENS = {
 
 export default function PermissionSplashScreen({ onPermissionsGranted }) {
   const [statusText, setStatusText] = useState('Initializing system permissions...');
+  
+  // Custom Modal State
+  const [modalConfig, setModalConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    iconName: 'shield-alert-outline',
+    primaryText: 'Allow',
+    secondaryText: 'Exit App',
+    onPrimary: () => {},
+    onSecondary: () => {}
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -64,15 +77,19 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
         }
 
         if (!isGranted) {
-          Alert.alert(
-            'Permissions Required',
-            'Location and Bluetooth permissions are required for smart device pairing and network discovery.',
-            [
-              { text: 'Retry', onPress: () => requestAppPermissions() },
-              { text: 'Exit App', style: 'destructive', onPress: () => Platform.OS === 'android' && BackHandler.exitApp() }
-            ],
-            { cancelable: false }
-          );
+          setModalConfig({
+            visible: true,
+            title: 'Permissions Required',
+            message: 'Location and Bluetooth permissions are required for smart device pairing and network discovery.',
+            iconName: 'shield-lock-outline',
+            primaryText: 'Retry',
+            secondaryText: 'Exit App',
+            onPrimary: () => {
+              setModalConfig(prev => ({ ...prev, visible: false }));
+              requestAppPermissions();
+            },
+            onSecondary: () => Platform.OS === 'android' && BackHandler.exitApp()
+          });
           return;
         }
 
@@ -82,10 +99,8 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
           const isBtOn = await NativeModules.WifiScanner.isBluetoothEnabled();
           if (!isBtOn) {
             setStatusText('Requesting Bluetooth enable...');
-            // Trigger native in-app ACTION_REQUEST_ENABLE popup
             await NativeModules.WifiScanner.enableBluetooth().catch(() => {});
             
-            // Wait up to 5s for user to tap "Allow" on native popup
             let retries = 10;
             let btEnabledAfterPrompt = false;
             while (retries > 0) {
@@ -99,15 +114,19 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
             }
 
             if (!btEnabledAfterPrompt) {
-              Alert.alert(
-                'Bluetooth Required',
-                'Bluetooth is turned OFF. 4Layers needs Bluetooth turned ON to discover and control smart switchboards.',
-                [
-                  { text: 'Turn ON', onPress: () => requestAppPermissions() },
-                  { text: 'Exit App', style: 'destructive', onPress: () => Platform.OS === 'android' && BackHandler.exitApp() }
-                ],
-                { cancelable: false }
-              );
+              setModalConfig({
+                visible: true,
+                title: 'Bluetooth Required',
+                message: 'Bluetooth is turned OFF. 4Layers needs Bluetooth turned ON to discover and control smart switchboards.',
+                iconName: 'bluetooth-off',
+                primaryText: 'Turn ON',
+                secondaryText: 'Exit App',
+                onPrimary: () => {
+                  setModalConfig(prev => ({ ...prev, visible: false }));
+                  requestAppPermissions();
+                },
+                onSecondary: () => Platform.OS === 'android' && BackHandler.exitApp()
+              });
               return;
             }
           }
@@ -119,23 +138,21 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
           const isGpsOn = await NativeModules.WifiScanner.isLocationEnabled();
           if (!isGpsOn) {
             setStatusText('Requesting Location (GPS) enable...');
-            // Prompt native Location settings sheet overlay
-            Alert.alert(
-              'Location Services (GPS) Required',
-              '4Layers needs Location turned ON to discover nearby Wi-Fi routers and Bluetooth switchboard hardware.',
-              [
-                { 
-                  text: 'Turn ON', 
-                  onPress: async () => {
-                    await NativeModules.WifiScanner.requestLocationEnable().catch(() => {});
-                    // Wait brief moment and re-check permissions flow
-                    setTimeout(() => requestAppPermissions(), 1500);
-                  } 
-                },
-                { text: 'Exit App', style: 'destructive', onPress: () => Platform.OS === 'android' && BackHandler.exitApp() }
-              ],
-              { cancelable: false }
-            );
+            // Trigger native SettingsClient Location dialog or custom app modal
+            setModalConfig({
+              visible: true,
+              title: 'Location (GPS) Required',
+              message: '4Layers needs Location turned ON to discover nearby Wi-Fi routers and Bluetooth switchboard hardware.',
+              iconName: 'map-marker-off-outline',
+              primaryText: 'Turn ON',
+              secondaryText: 'Exit App',
+              onPrimary: async () => {
+                setModalConfig(prev => ({ ...prev, visible: false }));
+                await NativeModules.WifiScanner.requestLocationEnable().catch(() => {});
+                setTimeout(() => requestAppPermissions(), 1200);
+              },
+              onSecondary: () => Platform.OS === 'android' && BackHandler.exitApp()
+            });
             return;
           }
         }
@@ -172,6 +189,18 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
         <ActivityIndicator size="small" color={TOKENS.accent} />
         <Text style={styles.loadingText}>{statusText}</Text>
       </View>
+
+      <CustomAppModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        iconName={modalConfig.iconName}
+        primaryText={modalConfig.primaryText}
+        secondaryText={modalConfig.secondaryText}
+        onPrimary={modalConfig.onPrimary}
+        onSecondary={modalConfig.onSecondary}
+        dangerSecondary
+      />
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Enterprise Hardware Control Console</Text>
