@@ -101,7 +101,7 @@ export default function RegisterScreen({ navigation }) {
         {/* Top Header Section with simple clean logo */}
         <View style={styles.headerSection}>
           <View style={styles.logoContainer}>
-            <Image source={logoImg} style={{ width: 64, height: 64 }} resizeMode="contain" />
+            <Image source={logoImg} style={{ width: 80, height: 80, borderRadius: 16 }} resizeMode="cover" />
           </View>
           
           <Text style={styles.title}>4Layers</Text>
@@ -235,11 +235,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 16,
-    backgroundColor: '#1C1B1B',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
     marginBottom: 20,
   },
   title: {
