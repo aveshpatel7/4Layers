@@ -83,7 +83,6 @@ export default function SchedulesScreen() {
   const [wheelPeriod, setWheelPeriod] = useState('AM');
   const [selectedDays, setSelectedDays] = useState(['mon', 'tue', 'wed', 'thu', 'fri']);
   const [selectedDayOptionLabel, setSelectedDayOptionLabel] = useState('Weekdays');
-  const [timePickerModalVisible, setTimePickerModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const toggleDeviceSelection = (id) => {
@@ -673,24 +672,74 @@ const normalizeTimeInput = (raw) => {
               </View>
 
               <Text style={styles.label}>Execution Time & Repeat</Text>
-              <TouchableOpacity
-                style={styles.timeSelectorCard}
-                onPress={() => setTimePickerModalVisible(true)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.timeSelectorLeftGroup}>
-                  <View style={styles.timeSelectorIconCircle}>
-                    <MaterialCommunityIcons name="calendar-clock" size={20} color={TOKENS.accent} />
-                  </View>
-                  <View>
-                    <Text style={styles.timeSelectorMainText}>
-                      {selectedDayOptionLabel} • {wheelHour}:{wheelMinute} {wheelPeriod}
-                    </Text>
-                    <Text style={styles.timeSelectorSubText}>Tap to set execution time & repeat days</Text>
-                  </View>
+
+              {/* Header Badge Displaying Current Selection */}
+              <View style={styles.wheelHeaderBadge}>
+                <MaterialCommunityIcons name="calendar-clock" size={18} color={TOKENS.accent} style={{ marginRight: 6 }} />
+                <Text style={styles.wheelHeaderDayText}>{selectedDayOptionLabel}</Text>
+                <Text style={styles.wheelHeaderDot}>•</Text>
+                <Text style={styles.wheelHeaderTimeText}>
+                  {wheelHour}:{wheelMinute} <Text style={styles.wheelHeaderPeriodText}>{wheelPeriod}</Text>
+                </Text>
+              </View>
+
+              {/* Inline Wheel Picker Card */}
+              <View style={styles.wheelPickerCard}>
+                {/* Column Titles Bar ABOVE the Wheel Box */}
+                <View style={styles.wheelHeaderLabelsRow}>
+                  <Text style={[styles.wheelColTitleHeader, { flex: 1.4 }]}>REPEAT / DAY</Text>
+                  <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>HOUR</Text>
+                  <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>MIN</Text>
+                  <Text style={[styles.wheelColTitleHeader, { flex: 0.9 }]}>AM/PM</Text>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={22} color={TOKENS.textSecondary} />
-              </TouchableOpacity>
+
+                {/* 4 Wheel Picker Columns Container */}
+                <View style={styles.wheelColumnsContainer}>
+                  {/* Center Selection Highlight Lens */}
+                  <View style={styles.wheelSelectionHighlight} pointerEvents="none" />
+
+                  {/* 1. Day / Frequency Column */}
+                  <WheelColumn
+                    data={DAY_OPTIONS.map(o => ({ label: o.label, value: o.label }))}
+                    selectedValue={selectedDayOptionLabel}
+                    onValueChange={(val) => {
+                      const opt = DAY_OPTIONS.find(o => o.label === val);
+                      if (opt) handleSelectDayOption(opt);
+                    }}
+                    flex={1.4}
+                    isLooping={false}
+                  />
+
+                  {/* 2. Hours Column */}
+                  <WheelColumn
+                    data={HOURS_LIST.map(h => ({ label: h, value: h }))}
+                    selectedValue={wheelHour}
+                    onValueChange={(val) => updateTimeFromWheel(val, wheelMinute, wheelPeriod)}
+                    flex={1}
+                    isLooping={true}
+                  />
+
+                  <Text style={styles.wheelColon}>:</Text>
+
+                  {/* 3. Minutes Column */}
+                  <WheelColumn
+                    data={MINUTES_LIST.map(m => ({ label: m, value: m }))}
+                    selectedValue={wheelMinute}
+                    onValueChange={(val) => updateTimeFromWheel(wheelHour, val, wheelPeriod)}
+                    flex={1}
+                    isLooping={true}
+                  />
+
+                  {/* 4. Period Column (AM/PM) */}
+                  <WheelColumn
+                    data={[{ label: 'AM', value: 'AM' }, { label: 'PM', value: 'PM' }]}
+                    selectedValue={wheelPeriod}
+                    onValueChange={(val) => updateTimeFromWheel(wheelHour, wheelMinute, val)}
+                    flex={0.9}
+                    isLooping={false}
+                  />
+                </View>
+              </View>
 
               <View style={styles.actionButtons}>
                 <TouchableOpacity
@@ -714,101 +763,6 @@ const normalizeTimeInput = (raw) => {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Dedicated Time Picker Wheel Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={timePickerModalVisible}
-        onRequestClose={() => setTimePickerModalVisible(false)}
-      >
-        <View style={styles.wheelModalOverlay}>
-          <View style={styles.wheelModalCard}>
-            <View style={styles.wheelModalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialCommunityIcons name="clock-edit-outline" size={20} color={TOKENS.accent} style={{ marginRight: 8 }} />
-                <Text style={styles.wheelModalTitle}>Set Execution Time</Text>
-              </View>
-              <TouchableOpacity onPress={() => setTimePickerModalVisible(false)}>
-                <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Header Badge Displaying Current Selection */}
-            <View style={styles.wheelHeaderBadge}>
-              <MaterialCommunityIcons name="calendar-clock" size={18} color={TOKENS.accent} style={{ marginRight: 6 }} />
-              <Text style={styles.wheelHeaderDayText}>{selectedDayOptionLabel}</Text>
-              <Text style={styles.wheelHeaderDot}>•</Text>
-              <Text style={styles.wheelHeaderTimeText}>
-                {wheelHour}:{wheelMinute} <Text style={styles.wheelHeaderPeriodText}>{wheelPeriod}</Text>
-              </Text>
-            </View>
-
-            {/* Column Titles Bar ABOVE the Wheel Box */}
-            <View style={styles.wheelHeaderLabelsRow}>
-              <Text style={[styles.wheelColTitleHeader, { flex: 1.4 }]}>REPEAT / DAY</Text>
-              <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>HOUR</Text>
-              <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>MIN</Text>
-              <Text style={[styles.wheelColTitleHeader, { flex: 0.9 }]}>AM/PM</Text>
-            </View>
-
-            {/* 4 Wheel Picker Columns Container */}
-            <View style={styles.wheelColumnsContainer}>
-              {/* Center Selection Highlight Lens */}
-              <View style={styles.wheelSelectionHighlight} pointerEvents="none" />
-
-              {/* 1. Day / Frequency Column */}
-              <WheelColumn
-                data={DAY_OPTIONS.map(o => ({ label: o.label, value: o.label }))}
-                selectedValue={selectedDayOptionLabel}
-                onValueChange={(val) => {
-                  const opt = DAY_OPTIONS.find(o => o.label === val);
-                  if (opt) handleSelectDayOption(opt);
-                }}
-                flex={1.4}
-                isLooping={false}
-              />
-
-              {/* 2. Hours Column */}
-              <WheelColumn
-                data={HOURS_LIST.map(h => ({ label: h, value: h }))}
-                selectedValue={wheelHour}
-                onValueChange={(val) => updateTimeFromWheel(val, wheelMinute, wheelPeriod)}
-                flex={1}
-                isLooping={true}
-              />
-
-              <Text style={styles.wheelColon}>:</Text>
-
-              {/* 3. Minutes Column */}
-              <WheelColumn
-                data={MINUTES_LIST.map(m => ({ label: m, value: m }))}
-                selectedValue={wheelMinute}
-                onValueChange={(val) => updateTimeFromWheel(wheelHour, val, wheelPeriod)}
-                flex={1}
-                isLooping={true}
-              />
-
-              {/* 4. Period Column (AM/PM) */}
-              <WheelColumn
-                data={[{ label: 'AM', value: 'AM' }, { label: 'PM', value: 'PM' }]}
-                selectedValue={wheelPeriod}
-                onValueChange={(val) => updateTimeFromWheel(wheelHour, wheelMinute, val)}
-                flex={0.9}
-                isLooping={false}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.doneWheelBtn}
-              onPress={() => setTimePickerModalVisible(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.doneWheelBtnText}>Set Time & Save</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
