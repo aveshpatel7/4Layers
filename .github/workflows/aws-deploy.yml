@@ -55,23 +55,32 @@ jobs:
           echo "Found Service ARN: $SERVICE_ARN"
           echo "Target Image URI: $IMAGE_URI"
           if [ -n "$SERVICE_ARN" ]; then
+            set +e
             RETRY=0
-            MAX_RETRIES=10
-            until [ $RETRY -ge $MAX_RETRIES ]
+            MAX_RETRIES=15
+            while [ $RETRY -lt $MAX_RETRIES ]
             do
               echo "Attempting to update AWS App Runner service (Attempt $((RETRY+1))/$MAX_RETRIES)..."
-              OPERATION_ID=$(aws apprunner update-service --service-arn $SERVICE_ARN --source-configuration "ImageRepository={ImageIdentifier=$IMAGE_URI,ImageRepositoryType=ECR,ImageConfiguration={Port='8000'}},AuthenticationConfiguration={AccessRoleArn='$ROLE_ARN'}" --region ${{ env.AWS_REGION }} --query "OperationId" --output text 2>&1)
-              if echo "$OPERATION_ID" | grep -q "OPERATION_IN_PROGRESS"; then
-                echo "⏳ App Runner is currently busy deploying a previous commit. Waiting 15s before retrying..."
-                sleep 15
+              CMD_OUTPUT=$(aws apprunner update-service --service-arn $SERVICE_ARN --source-configuration "ImageRepository={ImageIdentifier=$IMAGE_URI,ImageRepositoryType=ECR,ImageConfiguration={Port='8000'}},AuthenticationConfiguration={AccessRoleArn='$ROLE_ARN'}" --region ${{ env.AWS_REGION }} 2>&1)
+              EXIT_CODE=$?
+              
+              if [ $EXIT_CODE -eq 0 ]; then
+                echo "✅ AWS App Runner service updated with new image!"
+                sleep 5
+                aws apprunner start-deployment --service-arn $SERVICE_ARN --region ${{ env.AWS_REGION }} || true
+                break
+              elif echo "$CMD_OUTPUT" | grep -q "OPERATION_IN_PROGRESS"; then
+                echo "⏳ App Runner is busy with an in-progress operation. Waiting 20s before retry $((RETRY+1))..."
+                sleep 20
                 RETRY=$((RETRY+1))
               else
-                echo "✅ AWS App Runner service updated with new image! Operation ID: $OPERATION_ID"
-                sleep 5
+                echo "⚠️ AWS update-service response: $CMD_OUTPUT"
+                # If update fails for another reason, try start-deployment directly
                 aws apprunner start-deployment --service-arn $SERVICE_ARN --region ${{ env.AWS_REGION }} || true
                 break
               fi
             done
+            set -e
           else
             echo "⚠️ Could not find Service ARN for ${{ env.APP_RUNNER_SERVICE }}"
           fi
