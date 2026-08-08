@@ -15,6 +15,7 @@ class UserResponse(UserBase):
     id: UUID
     phone_number: Optional[str] = None
     terms_accepted: bool = False
+    profile_pic_url: Optional[str] = None
 
     model_config = {
         "from_attributes": True
@@ -32,6 +33,7 @@ class UserUpdateProfile(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     phone_number: Optional[str] = None
     terms_accepted: Optional[bool] = None
+    profile_pic_url: Optional[str] = None
 
 class OnboardingUpdate(BaseModel):
     phone_number: Optional[str] = None

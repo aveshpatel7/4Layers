@@ -107,6 +107,7 @@ def google_login(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_d
         
     google_email = None
     google_name = None
+    google_picture = None
     
     try:
         # Verify id_token using Google tokeninfo endpoint
@@ -116,11 +117,13 @@ def google_login(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_d
             res_data = json.loads(response.read().decode())
             google_email = res_data.get("email")
             google_name = res_data.get("name") or google_email.split("@")[0]
+            google_picture = res_data.get("picture")
     except Exception as e:
         # Fallback for dev / token mock
         if "mock" in token.lower() or len(token) < 20:
             google_email = "google.user@4layers.io"
             google_name = "Google User"
+            google_picture = None
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -150,11 +153,17 @@ def google_login(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_d
             username=username,
             email=google_email.lower().strip(),
             hashed_password=random_pwd,
-            terms_accepted=False
+            terms_accepted=False,
+            profile_pic_url=google_picture
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+    else:
+        if google_picture and user.profile_pic_url != google_picture:
+            user.profile_pic_url = google_picture
+            db.commit()
+            db.refresh(user)
 
     access_token = auth.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -162,6 +171,43 @@ def google_login(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_d
 @router.get("/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.User = Depends(auth.get_current_user)):
     """Get profile information for the currently authenticated user."""
+    return current_user
+
+from typing import Optional, Dict, Any
+from fastapi import File, UploadFile, Body
+import base64
+
+@router.post("/me/profile-picture", response_model=schemas.UserResponse)
+async def upload_profile_picture(
+    file: Optional[UploadFile] = File(None),
+    body: Optional[Dict[str, Any]] = Body(None),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload or update profile picture.
+    Accepts either multipart file upload OR base64 data URI string payload.
+    Saves image as Base64 string in DB (stateless App Runner safe).
+    """
+    pic_url = None
+
+    if file:
+        contents = await file.read()
+        if len(contents) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Image size exceeds 5MB limit")
+        mime = file.content_type or "image/jpeg"
+        b64_str = base64.b64encode(contents).decode("utf-8")
+        pic_url = f"data:{mime};base64,{b64_str}"
+    elif body and "profile_pic_url" in body:
+        pic_url = body["profile_pic_url"]
+
+    if not pic_url:
+        raise HTTPException(status_code=400, detail="No image file or profile_pic_url payload provided")
+
+    current_user.profile_pic_url = pic_url
+    db.commit()
+    db.refresh(current_user)
+    print(f"[PROFILE PIC] Updated profile_pic_url for {current_user.username}", flush=True)
     return current_user
 
 @router.put("/me", response_model=schemas.UserResponse)

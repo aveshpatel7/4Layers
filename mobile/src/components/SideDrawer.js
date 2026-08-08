@@ -41,10 +41,17 @@ export default function SideDrawer({
   const [activeVoiceModal, setActiveVoiceModal] = useState(null);
   const [voiceStatus, setVoiceStatus] = useState({ google_linked: false, alexa_linked: false });
   const [isUnlinking, setIsUnlinking] = useState(false);
-  const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
+  const [userProfileData, setUserProfileData] = useState(userProfile);
+
+  useEffect(() => {
+    if (userProfile) {
+      setUserProfileData(userProfile);
+    }
+  }, [userProfile]);
 
   useEffect(() => {
     fetchPendingCount();
+    fetchUserProfile();
     const interval = setInterval(fetchPendingCount, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -53,8 +60,18 @@ export default function SideDrawer({
     if (visible) {
       fetchVoiceStatus();
       fetchPendingCount();
+      fetchUserProfile();
     }
   }, [visible]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const res = await apiClient.get('/api/users/me');
+      setUserProfileData(res.data);
+    } catch (err) {
+      console.warn("Failed to fetch user profile in SideDrawer:", err);
+    }
+  };
 
   const fetchVoiceStatus = async () => {
     try {
@@ -195,11 +212,19 @@ export default function SideDrawer({
 
             <View style={styles.profileCard}>
               <View style={styles.avatarCircle}>
-                <MaterialCommunityIcons name="account" size={24} color={TOKENS.accent} />
+                {userProfileData?.profile_pic_url ? (
+                  <Image
+                    source={{ uri: userProfileData.profile_pic_url }}
+                    style={{ width: 42, height: 42, borderRadius: 21 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <MaterialCommunityIcons name="account" size={24} color={TOKENS.accent} />
+                )}
               </View>
               <View style={styles.profileInfo}>
                 <Text style={styles.userName} numberOfLines={1}>
-                  {userProfile?.name || 'Naved'}
+                  {userProfileData?.username || userProfileData?.name || userProfile?.name || 'Naved'}
                 </Text>
                 <Text style={styles.userRole}>Smart Home Owner</Text>
               </View>

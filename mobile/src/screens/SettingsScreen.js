@@ -14,6 +14,7 @@ import {
   Image
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import apiClient from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 
@@ -187,6 +188,48 @@ export default function SettingsScreen({ navigation }) {
       if (showLoading) {
         setIsLoading(false);
       }
+    }
+  };
+
+  const handlePickProfilePicture = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied ❌', 'Permission to access gallery is required to choose a profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        let picUri = null;
+        if (asset.base64) {
+          const mime = asset.mimeType || 'image/jpeg';
+          picUri = `data:${mime};base64,${asset.base64}`;
+        } else {
+          picUri = asset.uri;
+        }
+
+        setIsSavingProfile(true);
+        const response = await apiClient.post('/api/users/me/profile-picture', {
+          profile_pic_url: picUri
+        });
+
+        setUser(response.data);
+        Alert.alert('Success 🎉', 'Profile picture updated successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to upload profile picture:', error);
+      Alert.alert('Upload Error ❌', error.response?.data?.detail || 'Could not upload profile picture');
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -381,6 +424,36 @@ export default function SettingsScreen({ navigation }) {
           </View>
         ) : (
           <View style={styles.card}>
+            {/* Avatar Header Row */}
+            <View style={styles.avatarHeaderRow}>
+              <TouchableOpacity
+                style={styles.avatarTouchBox}
+                onPress={handlePickProfilePicture}
+                activeOpacity={0.8}
+              >
+                {user?.profile_pic_url ? (
+                  <Image
+                    source={{ uri: user.profile_pic_url }}
+                    style={styles.avatarLargeImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.avatarLargeFallback}>
+                    <MaterialCommunityIcons name="account" size={36} color={TOKENS.accent} />
+                  </View>
+                )}
+                <View style={styles.avatarCameraBadge}>
+                  <MaterialCommunityIcons name="camera" size={12} color="#000000" />
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.avatarHeaderTextGroup}>
+                <Text style={styles.avatarHeaderName}>{user?.username || 'User'}</Text>
+                <Text style={styles.avatarHeaderEmail}>{user?.email}</Text>
+                <Text style={styles.avatarHeaderHint}>Tap avatar to upload photo</Text>
+              </View>
+            </View>
+
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Username</Text>
               <Text style={styles.infoValue}>{user?.username}</Text>
@@ -789,5 +862,70 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: '800',
     fontSize: 14
+  },
+  avatarHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 16,
+  },
+  avatarTouchBox: {
+    position: 'relative',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  avatarLargeImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: TOKENS.accent,
+  },
+  avatarLargeFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#262626',
+    borderWidth: 1.5,
+    borderColor: TOKENS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: TOKENS.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: TOKENS.surface,
+  },
+  avatarHeaderTextGroup: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  avatarHeaderName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: TOKENS.textPrimary,
+  },
+  avatarHeaderEmail: {
+    fontSize: 12,
+    color: TOKENS.textSecondary,
+    marginTop: 2,
+  },
+  avatarHeaderHint: {
+    fontSize: 11,
+    color: TOKENS.accent,
+    fontWeight: '700',
+    marginTop: 4,
   }
 });
