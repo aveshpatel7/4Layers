@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, Image, Linking } from 'react-native';
 import { Text, TextInput, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
 import logoImg from '../../assets/4layers_logo.png';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// Backend base URL (same as API client)
+const BACKEND_URL = 'https://edabtynvpy.ap-south-1.awsapprunner.com';
 
 export default function LoginScreen({ navigation }) {
   const theme = useTheme();
@@ -37,47 +38,84 @@ export default function LoginScreen({ navigation }) {
     clearStaleToken();
   }, []);
 
-  const GOOGLE_CLIENT_ID = '972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com';
-
-  // Hardcoded Expo proxy HTTPS redirect URI — Google Web Client ID ONLY allows https:// URLs
-  const redirectUri = 'https://auth.expo.io/@mohammad-777s/smartnest-mobile';
-
-  console.log('[GOOGLE OAUTH REDIRECT URI]:', redirectUri);
-
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: GOOGLE_CLIENT_ID,
-    webClientId: GOOGLE_CLIENT_ID,
-    androidClientId: GOOGLE_CLIENT_ID,
-    iosClientId: GOOGLE_CLIENT_ID,
-    redirectUri: redirectUri,
-  });
-
+  // Listen for deep link callback from Google OAuth (4layers://auth?token=xxx)
   useEffect(() => {
-    if (response?.type === 'success') {
-      const idToken = response.params?.id_token || response.authentication?.idToken;
-      if (idToken) {
-        handleGoogleLogin(idToken);
+    const handleDeepLink = async (event) => {
+      const url = event?.url || event;
+      if (!url) return;
+      console.log('[GoogleOAuth] Deep link received:', url);
+      
+      try {
+        const parsed = new URL(url);
+        const token = parsed.searchParams?.get('token') || url.match(/token=([^&]+)/)?.[1];
+        const error = parsed.searchParams?.get('error') || url.match(/error=([^&]+)/)?.[1];
+        
+        if (token) {
+          console.log('[GoogleOAuth] JWT token received, signing in...');
+          setLoading(true);
+          await signIn(token);
+          setLoading(false);
+        } else if (error) {
+          console.error('[GoogleOAuth] Error from callback:', error);
+          setErrorMsg('Google Login failed: ' + decodeURIComponent(error));
+          setShowSnackbar(true);
+        }
+      } catch (e) {
+        console.error('[GoogleOAuth] Deep link parse error:', e);
       }
-    }
-  }, [response]);
+    };
 
-  const handleGoogleLogin = async (idToken) => {
+    // Listen for incoming deep links
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    
+    // Also check if app was opened via deep link (cold start)
+    Linking.getInitialURL().then((url) => {
+      if (url && url.includes('4layers://auth')) {
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => subscription?.remove();
+  }, []);
+
+  // Server-side Google OAuth: opens backend /api/users/google/start in browser
+  const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.post('/api/users/google-login', { id_token: idToken });
-      if (res.data && res.data.access_token) {
-        await signIn(res.data.access_token);
-      } else {
-        throw new Error('Google authentication failed');
+      const authUrl = `${BACKEND_URL}/api/users/google/start`;
+      console.log('[GoogleOAuth] Opening server-side auth URL:', authUrl);
+      
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        '4layers://auth'
+      );
+      
+      console.log('[GoogleOAuth] WebBrowser result:', result.type);
+      
+      if (result.type === 'success' && result.url) {
+        // Parse token from redirect URL
+        const token = result.url.match(/token=([^&]+)/)?.[1];
+        const error = result.url.match(/error=([^&]+)/)?.[1];
+        
+        if (token) {
+          await signIn(token);
+        } else if (error) {
+          setErrorMsg('Google Login failed: ' + decodeURIComponent(error));
+          setShowSnackbar(true);
+        }
+      } else if (result.type === 'cancel') {
+        console.log('[GoogleOAuth] User cancelled');
       }
     } catch (err) {
-      console.error('[GoogleLogin] Error:', err);
-      setErrorMsg(err.response?.data?.detail || 'Google Login failed. Please try again.');
+      console.error('[GoogleOAuth] Error:', err);
+      setErrorMsg('Google Login failed. Please try again.');
       setShowSnackbar(true);
     } finally {
       setLoading(false);
     }
   };
+
+
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -136,13 +174,7 @@ export default function LoginScreen({ navigation }) {
           <TouchableOpacity
             activeOpacity={0.8}
             disabled={loading}
-            onPress={() => {
-              if (request) {
-                promptAsync({ useProxy: true });
-              } else {
-                handleGoogleLogin('google_oauth_mock_dev_token_12345');
-              }
-            }}
+            onPress={() => handleGoogleSignIn()}
             style={{
               backgroundColor: '#131314',
               borderRadius: 24,

@@ -1,6 +1,11 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status
+import json
+import urllib.request
+import urllib.parse
+import base64
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -92,6 +97,115 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "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")
+APP_DEEP_LINK_SCHEME = "4layers"
+
+@router.get("/google/start")
+def google_oauth_start(request: Request):
+    """
+    Server-side Google OAuth start. Redirects the user's browser to Google's
+    consent screen. After consent, Google redirects back to /google/callback.
+    """
+    # Build the callback URL dynamically from the current request
+    callback_url = str(request.base_url).rstrip("/") + "/api/users/google/callback"
+    
+    params = urllib.parse.urlencode({
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": callback_url,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent",
+    })
+    return RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+
+
+@router.get("/google/callback")
+def google_oauth_callback(request: Request, code: str = None, error: str = None, db: Session = Depends(get_db)):
+    """
+    Server-side Google OAuth callback. Exchanges auth code for tokens,
+    creates/logs in user, then redirects to the app deep link with JWT.
+    """
+    if error or not code:
+        # Redirect to app with error
+        return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?error={error or 'no_code'}")
+    
+    callback_url = str(request.base_url).rstrip("/") + "/api/users/google/callback"
+    
+    # Exchange auth code for tokens
+    try:
+        token_data = urllib.parse.urlencode({
+            "code": code,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "redirect_uri": callback_url,
+            "grant_type": "authorization_code",
+        }).encode("utf-8")
+        
+        token_req = urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=token_data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        with urllib.request.urlopen(token_req, timeout=15) as resp:
+            token_resp = json.loads(resp.read().decode())
+        
+        id_token_raw = token_resp.get("id_token", "")
+    except Exception as e:
+        return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?error={urllib.parse.quote(str(e))}")
+    
+    # Decode ID token to get user info
+    google_email = None
+    google_name = None
+    google_picture = None
+    
+    try:
+        parts = id_token_raw.split(".")
+        if len(parts) >= 2:
+            padding = "=" * (4 - len(parts[1]) % 4)
+            decoded_json = json.loads(base64.urlsafe_b64decode(parts[1] + padding).decode("utf-8"))
+            google_email = decoded_json.get("email")
+            google_name = decoded_json.get("name") or (google_email.split("@")[0] if google_email else "User")
+            google_picture = decoded_json.get("picture")
+    except Exception:
+        pass
+    
+    if not google_email:
+        return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?error=no_email")
+    
+    # Find or create user
+    user = db.query(models.User).filter(models.User.email == google_email.lower().strip()).first()
+    
+    if not user:
+        base_username = google_email.split("@")[0].replace(".", "_")
+        username = base_username
+        counter = 1
+        while db.query(models.User).filter(models.User.username == username).first():
+            username = f"{base_username}_{counter}"
+            counter += 1
+        
+        random_pwd = auth.get_password_hash(f"GAuth_{google_email}_4Layers_Secret")
+        user = models.User(
+            username=username,
+            email=google_email.lower().strip(),
+            hashed_password=random_pwd,
+            terms_accepted=False,
+            profile_pic_url=google_picture,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        if google_picture and user.profile_pic_url != google_picture:
+            user.profile_pic_url = google_picture
+            db.commit()
+            db.refresh(user)
+    
+    # Create 4Layers JWT
+    jwt_token = auth.create_access_token(data={"sub": user.username})
+    
+    # Redirect back to app with token via deep link
+    return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?token={jwt_token}")
+
 
 @router.post("/google-login", response_model=schemas.TokenResponse)
 def google_login(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_db)):
