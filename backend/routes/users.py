@@ -97,7 +97,14 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "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")
+PUBLIC_BACKEND_URL = os.getenv("PUBLIC_BACKEND_URL", "https://edabtynvpy.ap-south-1.awsapprunner.com")
 APP_DEEP_LINK_SCHEME = "4layers"
+
+def get_google_callback_url(request: Request) -> str:
+    base = PUBLIC_BACKEND_URL or str(request.base_url).rstrip("/")
+    if base.startswith("http://"):
+        base = "https://" + base[7:]
+    return f"{base.rstrip('/')}/api/users/google/callback"
 
 @router.get("/google/start")
 def google_oauth_start(request: Request):
@@ -105,8 +112,8 @@ def google_oauth_start(request: Request):
     Server-side Google OAuth start. Redirects the user's browser to Google's
     consent screen. After consent, Google redirects back to /google/callback.
     """
-    # Build the callback URL dynamically from the current request
-    callback_url = str(request.base_url).rstrip("/") + "/api/users/google/callback"
+    callback_url = get_google_callback_url(request)
+    print(f"[GOOGLE OAUTH START] Constructing OAuth redirect_uri: {callback_url}", flush=True)
     
     params = urllib.parse.urlencode({
         "client_id": GOOGLE_CLIENT_ID,
@@ -129,7 +136,8 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
         # Redirect to app with error
         return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?error={error or 'no_code'}")
     
-    callback_url = str(request.base_url).rstrip("/") + "/api/users/google/callback"
+    callback_url = get_google_callback_url(request)
+    print(f"[GOOGLE OAUTH CALLBACK] Using callback_url for token exchange: {callback_url}", flush=True)
     
     # Exchange auth code for tokens
     try:
