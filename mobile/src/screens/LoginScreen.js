@@ -3,6 +3,7 @@ import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Touchable
 import { Text, TextInput, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { useAuth } from '../context/AuthContext';
@@ -38,11 +39,19 @@ export default function LoginScreen({ navigation }) {
 
   const GOOGLE_CLIENT_ID = '972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com';
 
+  const redirectUri = AuthSession.makeRedirectUri({
+    useProxy: true,
+    nativePath: 'redirect'
+  });
+
+  console.log('[GOOGLE OAUTH REDIRECT URI]:', redirectUri);
+
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: GOOGLE_CLIENT_ID,
     webClientId: GOOGLE_CLIENT_ID,
     androidClientId: GOOGLE_CLIENT_ID,
     iosClientId: GOOGLE_CLIENT_ID,
+    redirectUri: redirectUri,
   });
 
   useEffect(() => {
@@ -131,7 +140,7 @@ export default function LoginScreen({ navigation }) {
             disabled={loading}
             onPress={() => {
               if (request) {
-                promptAsync();
+                promptAsync({ useProxy: true });
               } else {
                 handleGoogleLogin('google_oauth_mock_dev_token_12345');
               }
