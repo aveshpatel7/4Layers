@@ -36,11 +36,13 @@ export default function LoginScreen({ navigation }) {
     clearStaleToken();
   }, []);
 
+  const GOOGLE_CLIENT_ID = '972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com';
+
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '617596001007-4layers_google_oauth.apps.googleusercontent.com',
-    webClientId: '617596001007-4layers_google_oauth.apps.googleusercontent.com',
-    androidClientId: '617596001007-4layers_google_oauth.apps.googleusercontent.com',
-    iosClientId: '617596001007-4layers_google_oauth.apps.googleusercontent.com',
+    clientId: GOOGLE_CLIENT_ID,
+    webClientId: GOOGLE_CLIENT_ID,
+    androidClientId: GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_CLIENT_ID,
   });
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -88,6 +89,9 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
     # Create token
     access_token = auth.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "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")
 
 @router.post("/google-login", response_model=schemas.TokenResponse)
 def google_login(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_db)):
