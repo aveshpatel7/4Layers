@@ -41,8 +41,8 @@ export default function LoginScreen({ navigation }) {
 
   const redirectUri = AuthSession.makeRedirectUri({
     scheme: '4layers',
+    native: '4layers://redirect',
     useProxy: true,
-    nativePath: 'redirect'
   });
 
   console.log('[GOOGLE OAUTH REDIRECT URI]:', redirectUri);
