@@ -2,6 +2,7 @@
   "expo": {
     "name": "4Layers",
     "slug": "smartnest-mobile",
+    "scheme": "4layers",
     "version": "1.0.0",
     "icon": "./assets/4layers_logo.png",
     "orientation": "portrait",

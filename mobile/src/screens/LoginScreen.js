@@ -40,6 +40,7 @@ export default function LoginScreen({ navigation }) {
   const GOOGLE_CLIENT_ID = '972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com';
 
   const redirectUri = AuthSession.makeRedirectUri({
+    scheme: '4layers',
     useProxy: true,
     nativePath: 'redirect'
   });
