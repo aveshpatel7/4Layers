@@ -45,6 +45,11 @@ export default function LoginScreen({ navigation }) {
       if (!url) return;
       console.log('[GoogleOAuth] Deep link received:', url);
       
+      // CRITICAL: Dismiss the WebBrowser custom tab if it's still open
+      if (Platform.OS !== 'web') {
+        WebBrowser.dismissBrowser();
+      }
+      
       try {
         const parsed = new URL(url);
         const token = parsed.searchParams?.get('token') || url.match(/token=([^&]+)/)?.[1];
@@ -78,11 +83,11 @@ export default function LoginScreen({ navigation }) {
     return () => subscription?.remove();
   }, []);
 
-  // Server-side Google OAuth: opens backend /api/users/google/start in browser
+  // Server-side Google OAuth: opens backend /api/users/google-login in browser
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      const authUrl = `${BACKEND_URL}/api/users/google/start`;
+      const authUrl = `${BACKEND_URL}/api/users/google-login`;
       console.log('[GoogleOAuth] Opening server-side auth URL:', authUrl);
       
       const result = await WebBrowser.openAuthSessionAsync(

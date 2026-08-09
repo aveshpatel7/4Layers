@@ -106,7 +106,7 @@ def get_google_callback_url(request: Request) -> str:
         base = "https://" + base[7:]
     return f"{base.rstrip('/')}/api/users/google/callback"
 
-@router.get("/google/start")
+@router.get("/google-login")
 def google_oauth_start(request: Request):
     """
     Server-side Google OAuth start. Redirects the user's browser to Google's
@@ -241,99 +241,6 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
     """
     return HTMLResponse(content=html_content)
 
-
-@router.post("/google-login", response_model=schemas.TokenResponse)
-def google_login(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_db)):
-    """
-    Authenticate user via Google OAuth ID token.
-    Verifies token, finds or auto-creates user record, and returns 4Layers JWT access token.
-    """
-    import urllib.request
-    import json
-    
-    token = payload.id_token.strip()
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Google id_token is required"
-        )
-        
-    google_email = None
-    google_name = None
-    google_picture = None
-    
-    try:
-        # Verify id_token using Google tokeninfo endpoint
-        verify_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={token}"
-        req = urllib.request.Request(verify_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            res_data = json.loads(response.read().decode())
-            google_email = res_data.get("email")
-            google_name = res_data.get("name") or (google_email.split("@")[0] if google_email else "User")
-            google_picture = res_data.get("picture")
-    except Exception as e:
-        # Fallback for dev / token mock / client id mismatches
-        if "mock" in token.lower() or len(token) < 20 or "test" in token.lower():
-            google_email = "google.user@4layers.io"
-            google_name = "Google User"
-            google_picture = "https://lh3.googleusercontent.com/a/default-user=s96-c"
-        else:
-            # Decode JWT payload safely without remote network error if tokeninfo fails
-            try:
-                import base64
-                parts = token.split(".")
-                if len(parts) >= 2:
-                    padding = "=" * (4 - len(parts[1]) % 4)
-                    payload_b64 = parts[1] + padding
-                    decoded_json = json.loads(base64.urlsafe_b64decode(payload_b64).decode("utf-8"))
-                    google_email = decoded_json.get("email")
-                    google_name = decoded_json.get("name")
-                    google_picture = decoded_json.get("picture")
-            except Exception:
-                pass
-            if not google_email:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=f"Invalid Google OAuth Token: {str(e)}"
-                )
-
-    if not google_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to extract verified email from Google OAuth Token"
-        )
-
-    # Find existing user by email
-    user = db.query(models.User).filter(models.User.email == google_email.lower().strip()).first()
-    
-    if not user:
-        # Auto-create new user for Google login
-        base_username = google_email.split("@")[0].replace(".", "_")
-        username = base_username
-        counter = 1
-        while db.query(models.User).filter(models.User.username == username).first():
-            username = f"{base_username}_{counter}"
-            counter += 1
-
-        random_pwd = auth.get_password_hash(f"GAuth_{google_email}_4Layers_Secret")
-        user = models.User(
-            username=username,
-            email=google_email.lower().strip(),
-            hashed_password=random_pwd,
-            terms_accepted=False,
-            profile_pic_url=google_picture
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    else:
-        if google_picture and user.profile_pic_url != google_picture:
-            user.profile_pic_url = google_picture
-            db.commit()
-            db.refresh(user)
-
-    access_token = auth.create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.User = Depends(auth.get_current_user)):
