@@ -39,11 +39,8 @@ export default function LoginScreen({ navigation }) {
 
   const GOOGLE_CLIENT_ID = '972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com';
 
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: '4layers',
-    native: '4layers://redirect',
-    useProxy: true,
-  });
+  // Hardcoded Expo proxy HTTPS redirect URI — Google Web Client ID ONLY allows https:// URLs
+  const redirectUri = 'https://auth.expo.io/@mohammad-777s/smartnest-mobile';
 
   console.log('[GOOGLE OAUTH REDIRECT URI]:', redirectUri);
 
