@@ -211,8 +211,35 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
     # Create 4Layers JWT
     jwt_token = auth.create_access_token(data={"sub": user.username})
     
-    # Redirect back to app with token via deep link
-    return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?token={jwt_token}")
+    # Redirect back to app with token via deep link (HTML/JS approach for better mobile browser handoff)
+    deep_link = f"{APP_DEEP_LINK_SCHEME}://auth?token={jwt_token}"
+    from fastapi.responses import HTMLResponse
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Authenticating...</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>
+            // Attempt to redirect to the app using JS
+            window.location.replace("{deep_link}");
+            setTimeout(function() {{
+                window.location.href = "{deep_link}";
+            }}, 500);
+        </script>
+        <style>
+            body {{ background-color: #0E0E0E; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center; padding-top: 60px; }}
+            .btn {{ display: inline-block; background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 20px; font-weight: bold; font-size: 16px; }}
+        </style>
+    </head>
+    <body>
+        <h2>Login Successful!</h2>
+        <p>Redirecting you back to the SmartNest app...</p>
+        <a href="{deep_link}" class="btn">Click here if not redirected</a>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 
 @router.post("/google-login", response_model=schemas.TokenResponse)
