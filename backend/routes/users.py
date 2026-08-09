@@ -211,10 +211,70 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
     # Create 4Layers JWT
     jwt_token = auth.create_access_token(data={"sub": user.username})
     
-    # Redirect back to app with token via standard HTTP 302 RedirectResponse
-    redirect_url = f"{APP_DEEP_LINK_SCHEME}://auth?token={jwt_token}"
-    print(f"[GOOGLE OAUTH CALLBACK] Redirecting back to app via 302: {redirect_url}", flush=True)
-    return RedirectResponse(url=redirect_url, status_code=302)
+    # Redirect back to app with token via deep link (HTMLResponse to prevent AWS App Runner Location header mangling)
+    deep_link = f"{APP_DEEP_LINK_SCHEME}://auth?token={jwt_token}"
+    intent_link = f"intent://auth?token={jwt_token}#Intent;scheme={APP_DEEP_LINK_SCHEME};package=com.smartnest.app;end"
+    print(f"[GOOGLE OAUTH CALLBACK] Sending HTML JS redirect for deep link: {deep_link}", flush=True)
+    
+    from fastapi.responses import HTMLResponse
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Authenticating SmartNest...</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="0;url={deep_link}">
+    <script>
+        setTimeout(function() {{ window.location.href = "{deep_link}"; }}, 50);
+        setTimeout(function() {{ window.location.href = "{intent_link}"; }}, 400);
+    </script>
+    <style>
+        body {{ background-color: #0E0E0E; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding-top: 60px; }}
+        .btn {{ display: inline-block; background-color: #22C55E; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; margin-top: 25px; font-weight: bold; font-size: 16px; }}
+    </style>
+</head>
+<body>
+    <h2>Login Successful!</h2>
+    <p>Opening 4Layers SmartNest app...</p>
+    <a href="{deep_link}" class="btn">Open App Now</a>
+</body>
+</html>"""
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/google/{rest:path}")
+def handle_mangled_google_path(rest: str, request: Request):
+    """
+    Fallback handler for AWS App Runner path-mangling (e.g. /api/users/google/4layers://auth?token=...).
+    Extracts the token parameter and completes the deep link redirect cleanly.
+    """
+    full_url = str(request.url)
+    print(f"[GOOGLE FALLBACK ROUTE] Intercepted mangled path: {full_url}", flush=True)
+    
+    token = None
+    if "token=" in full_url:
+        token = full_url.split("token=")[1].split("&")[0]
+        
+    if token:
+        deep_link = f"{APP_DEEP_LINK_SCHEME}://auth?token={token}"
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="refresh" content="0;url={deep_link}">
+    <script>window.location.href = "{deep_link}";</script>
+    <style>
+        body {{ background-color: #0E0E0E; color: white; font-family: sans-serif; text-align: center; padding-top: 60px; }}
+        .btn {{ display: inline-block; background-color: #22C55E; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; }}
+    </style>
+</head>
+<body>
+    <h2>Login Successful!</h2>
+    <p>Opening 4Layers SmartNest app...</p>
+    <a href="{deep_link}" class="btn">Open App Now</a>
+</body>
+</html>""")
+    
+    raise HTTPException(status_code=404, detail="Not Found")
 
 
 @router.get("/me", response_model=schemas.UserResponse)
