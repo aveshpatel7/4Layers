@@ -77,11 +77,7 @@ const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isLoopin
     const isSelected = itemVal === selectedValue || itemLabel === selectedValue;
 
     return (
-      <TouchableOpacity
-        style={styles.itemContainer}
-        onPress={() => onValueChange(itemVal)}
-        activeOpacity={0.7}
-      >
+      <View style={styles.itemContainer}>
         <Text
           numberOfLines={1}
           style={[
@@ -91,7 +87,7 @@ const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isLoopin
         >
           {itemLabel}
         </Text>
-      </TouchableOpacity>
+      </View>
     );
   }, [selectedValue, onValueChange]);
 
@@ -110,6 +106,8 @@ const WheelColumn = ({ data, selectedValue, onValueChange, flex, width, isLoopin
         onScrollEndDrag={handleMomentumScrollEnd}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
+        nestedScrollEnabled={true}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingVertical: (CONTAINER_HEIGHT - ITEM_HEIGHT) / 2 }}
         onScrollToIndexFailed={(info) => {
