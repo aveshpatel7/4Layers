@@ -15,16 +15,26 @@ def create_schedule(
     db: Session = Depends(get_db)
 ):
     """Create a new device auto-toggle schedule. Verifies device ownership."""
-    device = db.query(models.Device).join(models.Home).filter(
-        models.Device.id == schedule_data.device_id,
-        models.Home.owner_id == current_user.id
-    ).first()
-    
+    device = db.query(models.Device).filter(models.Device.id == schedule_data.device_id).first()
+
     if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Device not found or access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+
+    is_authorized = False
+    if device.home.owner_id == current_user.id:
+        is_authorized = True
+    else:
+        base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
+        if base_node_id:
+            share = db.query(models.NodeShare).filter(
+                models.NodeShare.node_id == base_node_id,
+                models.NodeShare.shared_with_user_id == current_user.id
+            ).first()
+            if share:
+                is_authorized = True
+
+    if not is_authorized:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         
     actions_data = None
     if schedule_data.actions and isinstance(schedule_data.actions, list):
@@ -51,10 +61,33 @@ def get_schedules(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve all schedules for the current authenticated user."""
-    query = db.query(models.Schedule).filter(models.Schedule.user_id == current_user.id)
+    """Retrieve all schedules for devices the user has access to."""
+    owned_devices = db.query(models.Device).join(models.Home).filter(
+        models.Home.owner_id == current_user.id
+    ).all()
+    accessible_device_ids = {d.id for d in owned_devices}
+
+    shared_shares = db.query(models.NodeShare).filter(
+        models.NodeShare.shared_with_user_id == current_user.id
+    ).all()
+    shared_node_ids = {s.node_id for s in shared_shares if s.node_id}
+    
+    if shared_node_ids:
+        from sqlalchemy import or_
+        conditions = []
+        for nid in shared_node_ids:
+            conditions.append(models.Device.node_id == nid)
+            conditions.append(models.Device.node_id.like(f"{nid}_%"))
+        shared_devices = db.query(models.Device).filter(or_(*conditions)).all()
+        for d in shared_devices:
+            accessible_device_ids.add(d.id)
+
+    query = db.query(models.Schedule).filter(models.Schedule.device_id.in_(accessible_device_ids))
     if device_id:
+        if device_id not in accessible_device_ids:
+            return []
         query = query.filter(models.Schedule.device_id == device_id)
+        
     return query.all()
 
 @router.patch("/{schedule_id}", response_model=schemas.ScheduleResponse)
@@ -65,16 +98,27 @@ def update_schedule(
     db: Session = Depends(get_db)
 ):
     """Update a specific schedule settings."""
-    schedule = db.query(models.Schedule).filter(
-        models.Schedule.id == schedule_id,
-        models.Schedule.user_id == current_user.id
-    ).first()
+    schedule = db.query(models.Schedule).filter(models.Schedule.id == schedule_id).first()
     
     if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Schedule not found or access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+
+    device = schedule.device
+    is_authorized = False
+    if device.home.owner_id == current_user.id:
+        is_authorized = True
+    else:
+        base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
+        if base_node_id:
+            share = db.query(models.NodeShare).filter(
+                models.NodeShare.node_id == base_node_id,
+                models.NodeShare.shared_with_user_id == current_user.id
+            ).first()
+            if share:
+                is_authorized = True
+
+    if not is_authorized:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         
     if schedule_data.action is not None:
         schedule.action = schedule_data.action
@@ -96,16 +140,27 @@ def delete_schedule(
     db: Session = Depends(get_db)
 ):
     """Delete a schedule configuration by ID."""
-    schedule = db.query(models.Schedule).filter(
-        models.Schedule.id == schedule_id,
-        models.Schedule.user_id == current_user.id
-    ).first()
+    schedule = db.query(models.Schedule).filter(models.Schedule.id == schedule_id).first()
     
     if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Schedule not found or access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+
+    device = schedule.device
+    is_authorized = False
+    if device.home.owner_id == current_user.id:
+        is_authorized = True
+    else:
+        base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
+        if base_node_id:
+            share = db.query(models.NodeShare).filter(
+                models.NodeShare.node_id == base_node_id,
+                models.NodeShare.shared_with_user_id == current_user.id
+            ).first()
+            if share:
+                is_authorized = True
+
+    if not is_authorized:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         
     db.delete(schedule)
     db.commit()
@@ -118,16 +173,27 @@ def trigger_schedule_manually(
     db: Session = Depends(get_db)
 ):
     """Demo Helper: Manually triggers the schedule's action immediately via MQTT."""
-    schedule = db.query(models.Schedule).filter(
-        models.Schedule.id == schedule_id,
-        models.Schedule.user_id == current_user.id
-    ).first()
+    schedule = db.query(models.Schedule).filter(models.Schedule.id == schedule_id).first()
     
     if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Schedule not found or access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+
+    device = schedule.device
+    is_authorized = False
+    if device.home.owner_id == current_user.id:
+        is_authorized = True
+    else:
+        base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
+        if base_node_id:
+            share = db.query(models.NodeShare).filter(
+                models.NodeShare.node_id == base_node_id,
+                models.NodeShare.shared_with_user_id == current_user.id
+            ).first()
+            if share:
+                is_authorized = True
+
+    if not is_authorized:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         
     device = db.query(models.Device).filter(models.Device.id == schedule.device_id).first()
     if not device:
