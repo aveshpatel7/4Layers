@@ -218,16 +218,26 @@ def control_device(
     Logs 'command_sent' to the history log immediately.
     The database state is updated when the physical device responds with status.
     """
-    device = db.query(models.Device).join(models.Home).filter(
-        models.Device.id == device_id,
-        models.Home.owner_id == current_user.id
-    ).first()
+    device = db.query(models.Device).filter(models.Device.id == device_id).first()
 
     if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Device not found or access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+
+    is_authorized = False
+    if device.home.owner_id == current_user.id:
+        is_authorized = True
+    else:
+        base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
+        if base_node_id:
+            share = db.query(models.NodeShare).filter(
+                models.NodeShare.node_id == base_node_id,
+                models.NodeShare.shared_with_user_id == current_user.id
+            ).first()
+            if share:
+                is_authorized = True
+
+    if not is_authorized:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     previous_state = device.current_state or {}
     requested_state = control_data.state
@@ -318,16 +328,29 @@ def bulk_control_devices(
     Control multiple devices at once.
     Publishes MQTT control messages to their respective topics.
     """
-    devices = db.query(models.Device).join(models.Home).filter(
-        models.Device.id.in_(control_data.device_ids),
-        models.Home.owner_id == current_user.id
-    ).all()
+    devices = db.query(models.Device).filter(models.Device.id.in_(control_data.device_ids)).all()
 
     if not devices:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No valid devices found or access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No valid devices found")
+        
+    shared_shares = db.query(models.NodeShare).filter(
+        models.NodeShare.shared_with_user_id == current_user.id
+    ).all()
+    shared_node_ids = {s.node_id for s in shared_shares if s.node_id}
+
+    authorized_devices = []
+    for device in devices:
+        if device.home.owner_id == current_user.id:
+            authorized_devices.append(device)
+        else:
+            base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
+            if base_node_id in shared_node_ids:
+                authorized_devices.append(device)
+
+    if not authorized_devices:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    
+    devices = authorized_devices
 
     # Update all database states first to prevent race conditions on UI refresh
     for device in devices:
