@@ -125,7 +125,7 @@ function AddDeviceStackScreen() {
 export default function AppNavigator() {
   const theme = useTheme();
   const navigationRef = useNavigationContainerRef();
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [permissionsGranted, setPermissionsGranted] = useState(true);
   const [userData, setUserData] = useState(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
@@ -307,10 +307,7 @@ export default function AppNavigator() {
     );
   }
 
-  // 1. Pre-login Initial Permissions Splash Screen
-  if (!permissionsGranted) {
-    return <PermissionSplashScreen onPermissionsGranted={() => setPermissionsGranted(true)} />;
-  }
+  // On-demand permissions: App opens directly to Login/Dashboard without global splash block
 
   const DarkNavTheme = {
     dark: true,

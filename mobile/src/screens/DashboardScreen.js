@@ -645,9 +645,22 @@ export default function DashboardScreen({ navigation }) {
           </View> : hasError ? <View style={[styles.statusBox, styles.statusBoxWarning]}>
             <Text style={styles.statusTitle}>CONNECTION FALLBACK ACTIVE</Text>
             <Text style={styles.statusSubtitle}>FastAPI server is sleeping. Local telemetry simulation running.</Text>
-          </View> : filteredDevices.length === 0 ? <View style={styles.statusBox}>
-            <Text style={styles.statusText}>No devices in this room yet</Text>
-          </View> : (
+          </View> : filteredDevices.length === 0 ? (
+            <View style={styles.emptyWelcomeContainer}>
+              <MaterialCommunityIcons name="router-wireless" size={44} color={TOKENS.accent} />
+              <Text style={styles.emptyWelcomeTitle}>Welcome to 4Layers SmartNest</Text>
+              <Text style={styles.emptyWelcomeSubtitle}>
+                No smart switchboard devices linked to your account yet. Add your first hardware to start controlling your home.
+              </Text>
+              <TouchableOpacity 
+                style={styles.addFirstDeviceBtn}
+                onPress={() => navigation.navigate('RoomSelection')}
+              >
+                <MaterialCommunityIcons name="plus" size={18} color="#002112" />
+                <Text style={styles.addFirstDeviceBtnText}>Add Your First Device</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
             <View style={styles.gridContainer}>
               {[...filteredDevices]
                 .filter((d) => {
@@ -1664,5 +1677,44 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: '800',
     fontSize: 14
+  },
+  emptyWelcomeContainer: {
+    backgroundColor: TOKENS.surface,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: TOKENS.border,
+  },
+  emptyWelcomeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: TOKENS.textPrimary,
+    marginTop: 12,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyWelcomeSubtitle: {
+    fontSize: 13,
+    color: TOKENS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  addFirstDeviceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: TOKENS.accent,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    gap: 6,
+  },
+  addFirstDeviceBtnText: {
+    color: '#002112',
+    fontWeight: 'bold',
+    fontSize: 14,
   }
 });

@@ -19,6 +19,7 @@ import { BleManager } from 'react-native-ble-plx';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient, { provisionDevice } from '../api/client';
+import { requestAddDevicePermissions } from '../utils/permissions';
 
 const TOKENS = {
   bg: '#0E0E0E',
@@ -409,6 +410,11 @@ export default function ProvisioningScreen({ route, navigation }) {
       return;
     }
     
+    const hasPerms = await requestAddDevicePermissions();
+    if (!hasPerms) {
+      return;
+    }
+
     setIsScanningWifi(true);
     setShowWifiScanModal(true);
 
@@ -456,6 +462,12 @@ export default function ProvisioningScreen({ route, navigation }) {
   const startScanning = async () => {
     if (Platform.OS === 'web') {
       showToast('Bluetooth scanning is not supported in the web browser. Please use the Manual Input or Wi-Fi AP Config method.');
+      return;
+    }
+
+    // Verify Bluetooth and Location permissions on-demand
+    const hasPerms = await requestAddDevicePermissions();
+    if (!hasPerms) {
       return;
     }
 

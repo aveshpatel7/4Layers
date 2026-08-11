@@ -16,6 +16,7 @@ import { Text, TextInput, SegmentedButtons, Snackbar, ActivityIndicator } from '
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
+import { requestAddDevicePermissions } from '../utils/permissions';
 
 const TOKENS = {
   bg: '#0E0E0E',           // Pure Dark Theme
