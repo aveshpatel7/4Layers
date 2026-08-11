@@ -261,40 +261,32 @@ def startup_event():
 
     # Create database tables if they do not exist
     Base.metadata.create_all(bind=engine)
-    try:
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            is_sqlite = conn.dialect.name == "sqlite"
+    
+    columns = [
+        ("schedules", "actions_json", "JSON", None),
+        ("users", "expo_push_token", "VARCHAR", None),
+        ("users", "phone_number", "VARCHAR", None),
+        ("users", "terms_accepted", "BOOLEAN", "DEFAULT FALSE"),
+        ("users", "profile_pic_url", "TEXT", None),
+        ("users", "is_active", "BOOLEAN", "DEFAULT TRUE"),
+        ("users", "block_reason", "TEXT", None)
+    ]
+    
+    for table, col, dtype, default in columns:
+        try:
+            with engine.begin() as conn:
+                is_sqlite = conn.dialect.name == "sqlite"
+                if is_sqlite:
+                    cmd = f"ALTER TABLE {table} ADD COLUMN {col} {dtype}"
+                else:
+                    cmd = f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {dtype}"
+                if default:
+                    cmd += f" {default}"
+                conn.execute(text(cmd))
+        except Exception as col_err:
+            logger.info("Migration status for %s.%s: %s", table, col, col_err)
             
-            columns = [
-                ("schedules", "actions_json", "JSON", None),
-                ("users", "expo_push_token", "VARCHAR", None),
-                ("users", "phone_number", "VARCHAR", None),
-                ("users", "terms_accepted", "BOOLEAN", "DEFAULT FALSE"),
-                ("users", "profile_pic_url", "TEXT", None),
-                ("users", "is_active", "BOOLEAN", "DEFAULT TRUE"),
-                ("users", "block_reason", "TEXT", None)
-            ]
-            
-            for table, col, dtype, default in columns:
-                try:
-                    if is_sqlite:
-                        cmd = f"ALTER TABLE {table} ADD COLUMN {col} {dtype}"
-                        if default:
-                            cmd += f" {default}"
-                        conn.execute(text(cmd))
-                    else:
-                        cmd = f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {dtype}"
-                        if default:
-                            cmd += f" {default}"
-                        conn.execute(text(cmd))
-                except Exception:
-                    pass # Column likely exists or other error
-            conn.commit()
-            print("Database migration: Verified missing columns added successfully.")
-    except Exception as m_err:
-        print("Database migration notice:", m_err)
-    print("Database tables initialized.")
+    print("Database tables initialized and schema verified.")
 
     # Start MQTT connection and client background loop
     mqtt.start_mqtt()
