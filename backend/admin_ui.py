@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.5.0">
+    <link rel="stylesheet" href="/admin/style.css?v=2.5.1">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.5.0" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.5.1" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.5.0</span>
+                    <span class="brand-sub">Smart Admin Console v2.5.1</span>
                 </div>
             </div>
 
@@ -423,7 +423,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.5.0"></script>
+    <script src="/admin/app.js?v=2.5.1"></script>
 </body>
 </html>
 """
@@ -646,7 +646,11 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     <strong>${escapeHtml(u.full_name || u.username)}</strong>
                     <br><small style="color:var(--text-secondary)">@${escapeHtml(u.username)}</small>
                 </td>
-                <td>${escapeHtml(u.email)}</td>
+                <td>
+                    <a href="mailto:${escapeHtml(u.email)}" style="color:var(--accent-blue);text-decoration:none;font-weight:500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'" title="Send email to ${escapeHtml(u.email)}">
+                        <i class="fa-regular fa-envelope" style="margin-right:4px;font-size:11px;"></i>${escapeHtml(u.email)}
+                    </a>
+                </td>
                 <td>
                     <span style="font-size:12px;font-weight:600;color:${u.phone_number && u.phone_number !== 'N/A' ? 'var(--accent-green)' : 'var(--text-secondary)'};">
                         ${escapeHtml(u.phone_number || 'Not Registered')}
@@ -672,10 +676,10 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                         : '<span class="badge red">Blocked</span>'}
                 </td>
                 <td style="white-space:nowrap;">
-                    <button class="btn ${u.is_active ? 'btn-danger' : 'btn-primary'}" onclick="toggleUserStatus(${u.id}, ${!u.is_active})" style="padding:4px 10px;font-size:11px;">
+                    <button class="btn ${u.is_active ? 'btn-danger' : 'btn-primary'}" onclick="toggleUserStatus('${u.id}', ${!u.is_active})" style="padding:4px 10px;font-size:11px;">
                         ${u.is_active ? 'Block' : 'Unblock'}
                     </button>
-                    <button class="btn btn-outline" onclick="deleteUserAccount(${u.id})" style="padding:4px 10px;font-size:11px;color:var(--accent-red)">
+                    <button class="btn btn-outline" onclick="deleteUserAccount('${u.id}')" style="padding:4px 10px;font-size:11px;color:var(--accent-red)">
                         Delete
                     </button>
                 </td>
@@ -795,8 +799,15 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
             if (res.ok) {
                 logTerminal(`User #${userId} status updated to ${newStatus ? 'Active' : 'Blocked'}.`, 'success');
-                fetchUsers();
+                const targetUser = allUsers.find(u => String(u.id) === String(userId));
+                if (targetUser) {
+                    targetUser.is_active = newStatus;
+                }
+                renderUsers(allUsers);
                 fetchStats();
+            } else {
+                const errData = await res.json();
+                alert(`Failed to update status: ${errData.detail || res.statusText}`);
             }
         } catch (err) {
             alert(`Error: ${err.message}`);
@@ -810,8 +821,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
             if (res.ok) {
                 logTerminal(`User #${userId} deleted successfully.`, 'warn');
-                fetchUsers();
+                allUsers = allUsers.filter(u => String(u.id) !== String(userId));
+                renderUsers(allUsers);
                 fetchStats();
+            } else {
+                const errData = await res.json();
+                alert(`Failed to delete user: ${errData.detail || res.statusText}`);
             }
         } catch (err) {
             alert(`Error: ${err.message}`);

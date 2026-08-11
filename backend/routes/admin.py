@@ -147,7 +147,7 @@ def get_admin_stats(db: Session = Depends(get_db)):
     total_nodes = len(base_nodes)
     online_nodes = len(online_base_nodes)
     total_switches = len(devices)
-    active_users = total_users
+    active_users = db.query(models.User).filter(models.User.is_active == True).count()
     
     is_mqtt_connected = False
     try:
@@ -193,7 +193,7 @@ def list_all_users(db: Session = Depends(get_db)):
             "terms_accepted": bool(getattr(u, "terms_accepted", False)),
             "auth_method": auth_method,
             "full_name": u.username,
-            "is_active": True,
+            "is_active": bool(getattr(u, "is_active", True)),
             "role": "user",
             "created_at": None,
             "device_count": device_count,
@@ -214,7 +214,10 @@ def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    return {"message": "User status updated successfully", "is_active": status_in.is_active}
+    user.is_active = status_in.is_active
+    db.commit()
+    db.refresh(user)
+    return {"message": "User status updated successfully", "is_active": bool(user.is_active)}
 
 @router.delete("/users/{user_id}")
 def delete_user_account(user_id: str, db: Session = Depends(get_db)):

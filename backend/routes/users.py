@@ -91,6 +91,12 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if not getattr(user, "is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account has been blocked by administrator",
+        )
+
     # Create token
     access_token = auth.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -208,6 +214,9 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
             db.commit()
             db.refresh(user)
     
+    if not getattr(user, "is_active", True):
+        return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?error=Account%20blocked%20by%20administrator")
+
     # Create 4Layers JWT
     jwt_token = auth.create_access_token(data={"sub": user.username})
     
