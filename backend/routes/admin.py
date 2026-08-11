@@ -207,9 +207,64 @@ def list_all_users(db: Session = Depends(get_db)):
         
     return user_list
 
+def turn_off_user_hardware_and_disable_schedules(user: models.User, db: Session):
+    """
+    Physically turns OFF all hardware relays (channels 1-6 & master) via MQTT for all devices
+    owned by the user, updates DB states to OFF, and disables all active schedules.
+    """
+    try:
+        user_homes = db.query(models.Home).filter(models.Home.owner_id == user.id).all()
+        home_ids = [h.id for h in user_homes]
+        
+        devices = db.query(models.Device).filter(models.Device.home_id.in_(home_ids)).all() if home_ids else []
+        
+        base_nodes = set()
+        for dev in devices:
+            previous_state = dev.current_state or {}
+            off_state = {"status": "OFF", "value": 0, "speed": 0}
+            dev.current_state = off_state
+            
+            history_entry = models.DeviceHistory(
+                device_id=dev.id,
+                change_type="admin_safety_turn_off",
+                previous_state=previous_state,
+                new_state=off_state
+            )
+            db.add(history_entry)
+
+            node_id = dev.node_id or str(dev.id)
+            if "_" in node_id:
+                base_node_id = node_id.rsplit('_', 1)[0]
+            else:
+                base_node_id = node_id
+            base_nodes.add(base_node_id)
+
+        for base_node_id in base_nodes:
+            logger.info("Admin safety shutdown: Publishing TURN OFF commands to node %s", base_node_id)
+            mqtt.publish_control_message(node_id=base_node_id, state={"channel": 6, "status": "OFF"})
+            mqtt.publish_control_message(node_id=base_node_id, state={"channel": 7, "status": "OFF"})
+            for ch in range(1, 7):
+                mqtt.publish_control_message(node_id=base_node_id, state={"channel": ch, "status": "OFF", "value": 0})
+
+        user_schedules = db.query(models.Schedule).filter(models.Schedule.user_id == user.id).all()
+        for sched in user_schedules:
+            sched.enabled = False
+            
+    except Exception as err:
+        logger.error("Error in turn_off_user_hardware_and_disable_schedules: %s", err)
+
+def reenable_user_schedules(user: models.User, db: Session):
+    """Re-enables user schedules when user account is unblocked."""
+    try:
+        user_schedules = db.query(models.Schedule).filter(models.Schedule.user_id == user.id).all()
+        for sched in user_schedules:
+            sched.enabled = True
+    except Exception as err:
+        logger.error("Error in reenable_user_schedules: %s", err)
+
 @router.put("/users/{user_id}/status")
 def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = Depends(get_db)):
-    """Enable or block user account access with custom reason."""
+    """Enable or block user account access with custom reason & hardware safety shutdown."""
     try:
         u_uuid = uuid.UUID(user_id)
     except ValueError:
@@ -220,10 +275,12 @@ def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = 
         raise HTTPException(status_code=404, detail="User not found")
     
     user.is_active = status_in.is_active
-    if status_in.reason is not None:
-        user.block_reason = status_in.reason
-    elif status_in.is_active:
+    if not status_in.is_active:
+        user.block_reason = status_in.reason if status_in.reason else "Account blocked by administrator"
+        turn_off_user_hardware_and_disable_schedules(user, db)
+    else:
         user.block_reason = None
+        reenable_user_schedules(user, db)
         
     db.commit()
     db.refresh(user)
@@ -231,7 +288,7 @@ def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = 
 
 @router.delete("/users/{user_id}")
 def delete_user_account(user_id: str, payload: Optional[UserDeleteRequest] = None, db: Session = Depends(get_db)):
-    """Delete a user account, purge linked resources, and lock access with reason."""
+    """Delete a user account, turn OFF physical hardware, purge linked resources, and lock access with reason."""
     try:
         u_uuid = uuid.UUID(user_id)
     except ValueError:
@@ -241,16 +298,20 @@ def delete_user_account(user_id: str, payload: Optional[UserDeleteRequest] = Non
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Purge user owned homes and linked devices
+    # 1. Turn OFF physical hardware relays & disable schedules first
+    turn_off_user_hardware_and_disable_schedules(user, db)
+
+    # 2. Purge user owned homes and linked devices
     user_homes = db.query(models.Home).filter(models.Home.owner_id == user.id).all()
     for h in user_homes:
         db.delete(h)
 
+    # 3. Lock user account with reason
     reason_str = (payload.reason if payload and payload.reason else None) or "Account deleted by administrator"
     user.is_active = False
     user.block_reason = reason_str
     db.commit()
-    return {"message": f"User {user.username} account deleted and resources purged.", "reason": reason_str}
+    return {"message": f"User {user.username} account deleted, hardware turned OFF, and resources purged.", "reason": reason_str}
 
 @router.get("/devices")
 def list_all_devices(db: Session = Depends(get_db)):
