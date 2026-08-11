@@ -3,13 +3,15 @@
 Provides endpoints for User Management, Live Device Monitoring, and MQTT/Firmware OTA Operations.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from pydantic import BaseModel
 from typing import List, Optional
 import datetime
 import uuid
 import logging
+import math
 
 from backend.database import get_db
 from backend import models, mqtt
@@ -174,9 +176,40 @@ def get_admin_stats(db: Session = Depends(get_db)):
     }
 
 @router.get("/users")
-def list_all_users(db: Session = Depends(get_db)):
-    """List all registered users with linked devices count and account status."""
-    users = db.query(models.User).all()
+def list_all_users(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """List registered users with server-side pagination, search, and status filtering."""
+    query = db.query(models.User)
+    
+    # Apply search filter across username, email, phone_number
+    if search and search.strip():
+        search_pattern = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                models.User.username.ilike(search_pattern),
+                models.User.email.ilike(search_pattern),
+                models.User.phone_number.ilike(search_pattern)
+            )
+        )
+
+    # Apply status filter
+    if status and status.lower() != "all":
+        if status.lower() in ("active", "true"):
+            query = query.filter(or_(models.User.is_active == True, models.User.is_active.is_(None)))
+        elif status.lower() in ("blocked", "false"):
+            query = query.filter(models.User.is_active == False)
+            
+    total_records = query.count()
+    total_pages = max(1, math.ceil(total_records / limit))
+    actual_page = min(page, total_pages)
+    offset = (actual_page - 1) * limit
+    
+    users = query.order_by(models.User.id.desc()).offset(offset).limit(limit).all()
     user_list = []
     
     for u in users:
@@ -205,7 +238,12 @@ def list_all_users(db: Session = Depends(get_db)):
             "room_count": room_count
         })
         
-    return user_list
+    return {
+        "data": user_list,
+        "total_records": total_records,
+        "total_pages": total_pages,
+        "current_page": actual_page
+    }
 
 def turn_off_user_hardware_and_disable_schedules(user: models.User, db: Session):
     """
@@ -314,8 +352,14 @@ def delete_user_account(user_id: str, payload: Optional[UserDeleteRequest] = Non
     return {"message": f"User {user.username} account deleted, hardware turned OFF, and resources purged.", "reason": reason_str}
 
 @router.get("/devices")
-def list_all_devices(db: Session = Depends(get_db)):
-    """List all registered ESP32 physical hardware boards grouped by base node_id."""
+def list_all_devices(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
+    search: Optional[str] = None,
+    online: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """List all registered ESP32 physical hardware boards grouped by base node_id with pagination & filtering."""
     devices = db.query(models.Device).all()
     
     # Group devices by base_node_id (strip _1, _2 suffixes and extra hyphen spaces)
@@ -328,14 +372,15 @@ def list_all_devices(db: Session = Depends(get_db)):
         grouped_nodes[base_id].append(d)
 
     node_list = []
+    now_utc = datetime.datetime.utcnow()
+    three_min_ago = now_utc - datetime.timedelta(minutes=3)
+
     for base_id, node_devs in grouped_nodes.items():
         first_dev = node_devs[0]
         home = db.query(models.Home).filter(models.Home.id == first_dev.home_id).first() if first_dev.home_id else None
         owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
 
         # Consider online if is_online flag is set OR last_seen is within the last 3 minutes
-        now_utc = datetime.datetime.utcnow()
-        three_min_ago = now_utc - datetime.timedelta(minutes=3)
         is_online = any(dev.is_online or (dev.last_seen and dev.last_seen > three_min_ago) for dev in node_devs)
 
         merged_state = {}
@@ -350,6 +395,7 @@ def list_all_devices(db: Session = Depends(get_db)):
             merged_state.update(st)
 
         owner_email = owner.email if owner else "Unassigned"
+        owner_username = owner.username if owner else "Unassigned"
         firmware_version = merged_state.get("fw_version", merged_state.get("version", "v1.0.0"))
         ip_address = merged_state.get("ip", first_dev.mac_address or "192.168.1.50")
         rssi = merged_state.get("rssi", -62)
@@ -357,7 +403,7 @@ def list_all_devices(db: Session = Depends(get_db)):
         last_seen_times = [dev.last_seen for dev in node_devs if dev.last_seen]
         latest_last_seen = max(last_seen_times).isoformat() if last_seen_times else None
 
-        node_list.append({
+        node_item = {
             "id": str(first_dev.id),
             "device_id": base_id,
             "node_id": base_id,
@@ -367,15 +413,48 @@ def list_all_devices(db: Session = Depends(get_db)):
             "switch_count": len(node_devs),
             "is_online": is_online,
             "owner_email": owner_email,
-            "owner_username": owner.username if owner else "Unassigned",
+            "owner_username": owner_username,
             "firmware_version": firmware_version,
             "ip_address": ip_address,
             "rssi": rssi,
             "current_state": merged_state,
             "last_seen": latest_last_seen
-        })
+        }
+
+        # Apply search filter
+        if search and search.strip():
+            search_str = search.strip().lower()
+            match_search = (
+                search_str in base_id.lower() or
+                search_str in (first_dev.mac_address or "").lower() or
+                search_str in owner_email.lower() or
+                search_str in owner_username.lower()
+            )
+            if not match_search:
+                continue
+
+        # Apply online filter
+        if online and online.lower() != "all":
+            if online.lower() in ("online", "true") and not is_online:
+                continue
+            elif online.lower() in ("offline", "false") and is_online:
+                continue
+
+        node_list.append(node_item)
         
-    return node_list
+    total_records = len(node_list)
+    total_pages = max(1, math.ceil(total_records / limit))
+    actual_page = min(page, total_pages)
+    
+    offset = (actual_page - 1) * limit
+    paginated_nodes = node_list[offset:offset + limit]
+
+    return {
+        "data": paginated_nodes,
+        "total_records": total_records,
+        "total_pages": total_pages,
+        "current_page": actual_page
+    }
 
 import asyncio
 from fastapi import BackgroundTasks

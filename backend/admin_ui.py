@@ -14,14 +14,14 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.5.9">
+    <link rel="stylesheet" href="/admin/style.css?v=2.5.10">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.5.9" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.5.10" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
                     <span class="brand-sub">Smart Admin Console v2.5.8</span>
@@ -150,7 +150,14 @@ ADMIN_HTML = """<!DOCTYPE html>
                             <p class="panel-sub">Manage client user accounts, active sessions, and linked devices</p>
                         </div>
                         <div class="header-right">
-                            <input type="text" id="user-search-input" class="search-input" placeholder="Search by name or email...">
+                            <div class="filter-group">
+                                <input type="text" id="user-search-input" class="search-input" placeholder="Search by name or email...">
+                                <select id="user-status-filter" class="form-select" style="min-width: 140px;">
+                                    <option value="all">All Statuses</option>
+                                    <option value="active">Active Only</option>
+                                    <option value="blocked">Blocked Only</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -176,6 +183,14 @@ ADMIN_HTML = """<!DOCTYPE html>
                             </tbody>
                         </table>
                     </div>
+                    <div class="pagination-footer" id="users-pagination">
+                        <span class="pagination-info" id="users-pagination-info">Showing 0-0 of 0 records</span>
+                        <div class="pagination-controls">
+                            <button class="pagination-btn" id="users-prev-btn" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
+                            <span id="users-page-num" class="pagination-page">Page 1 of 1</span>
+                            <button class="pagination-btn" id="users-next-btn" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -188,9 +203,17 @@ ADMIN_HTML = """<!DOCTYPE html>
                             <p class="panel-sub">Real-time status, firmware versions, and WiFi signal strength</p>
                         </div>
                         <div class="header-right">
-                            <button class="btn btn-outline" id="btn-open-mqtt-tester">
-                                <i class="fa-solid fa-paper-plane"></i> Send Test Command
-                            </button>
+                            <div class="filter-group">
+                                <input type="text" id="node-search-input" class="search-input" placeholder="Search node ID or owner...">
+                                <select id="node-online-filter" class="form-select" style="min-width: 140px;">
+                                    <option value="all">All Statuses</option>
+                                    <option value="online">Online Only</option>
+                                    <option value="offline">Offline Only</option>
+                                </select>
+                                <button class="btn btn-outline" id="btn-open-mqtt-tester">
+                                    <i class="fa-solid fa-paper-plane"></i> Send Test Command
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -214,6 +237,14 @@ ADMIN_HTML = """<!DOCTYPE html>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="pagination-footer" id="nodes-pagination">
+                        <span class="pagination-info" id="nodes-pagination-info">Showing 0-0 of 0 records</span>
+                        <div class="pagination-controls">
+                            <button class="pagination-btn" id="nodes-prev-btn" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
+                            <span id="nodes-page-num" class="pagination-page">Page 1 of 1</span>
+                            <button class="pagination-btn" id="nodes-next-btn" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -423,7 +454,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.5.9"></script>
+    <script src="/admin/app.js?v=2.5.10"></script>
 </body>
 </html>
 """
@@ -516,6 +547,13 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .data-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
 .search-input { min-width: 240px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); padding: 8px 14px; font-size: 13px; outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
 .search-input:focus { border-color: var(--accent-green); box-shadow: 0 0 0 2px rgba(0, 230, 118, 0.2); }
+.pagination-footer { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-secondary); background: rgba(15, 23, 42, 0.4); border-bottom-left-radius: var(--radius-lg); border-bottom-right-radius: var(--radius-lg); }
+.pagination-controls { display: flex; align-items: center; gap: 12px; }
+.pagination-btn { padding: 6px 14px; font-size: 12px; border-radius: 6px; background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease; }
+.pagination-btn:hover:not(:disabled) { background: var(--accent-green); color: #000; border-color: var(--accent-green); }
+.pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination-info { font-weight: 500; }
+.filter-group { display: flex; align-items: center; gap: 10px; }
 .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
 .badge.green { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.3); }
 .badge.blue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3); }
@@ -568,6 +606,27 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     const usersTableBody = document.getElementById('users-table-body');
     const nodesTableBody = document.getElementById('nodes-table-body');
     const userSearchInput = document.getElementById('user-search-input');
+    const userStatusFilter = document.getElementById('user-status-filter');
+    const nodeSearchInput = document.getElementById('node-search-input');
+    const nodeOnlineFilter = document.getElementById('node-online-filter');
+
+    const usersPrevBtn = document.getElementById('users-prev-btn');
+    const usersNextBtn = document.getElementById('users-next-btn');
+    const usersPageNum = document.getElementById('users-page-num');
+    const usersPaginationInfo = document.getElementById('users-pagination-info');
+
+    const nodesPrevBtn = document.getElementById('nodes-prev-btn');
+    const nodesNextBtn = document.getElementById('nodes-next-btn');
+    const nodesPageNum = document.getElementById('nodes-page-num');
+    const nodesPaginationInfo = document.getElementById('nodes-pagination-info');
+
+    let userCurrentPage = 1;
+    let userTotalPages = 1;
+    let userTotalRecords = 0;
+
+    let nodeCurrentPage = 1;
+    let nodeTotalPages = 1;
+    let nodeTotalRecords = 0;
     const liveTerminal = document.getElementById('live-terminal-log');
 
     const otaForm = document.getElementById('ota-form');
@@ -629,17 +688,41 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function fetchUsers() {
+    async function fetchUsers(page = 1) {
+        userCurrentPage = page;
+        usersTableBody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding: 24px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading users data...</td></tr>`;
+        
+        const search = userSearchInput ? userSearchInput.value.trim() : '';
+        const status = userStatusFilter ? userStatusFilter.value : 'all';
+        
         try {
-            const res = await fetch('/api/admin/users');
+            const url = `/api/admin/users?page=${userCurrentPage}&limit=50&search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`;
+            const res = await fetch(url);
             if (res.ok) {
-                allUsers = await res.json();
+                const responseData = await res.json();
+                allUsers = responseData.data || [];
+                userTotalRecords = responseData.total_records || 0;
+                userTotalPages = responseData.total_pages || 1;
+                userCurrentPage = responseData.current_page || 1;
+
                 renderUsers(allUsers);
-                logTerminal(`Loaded ${allUsers.length} users from database.`, 'info');
+                updateUsersPaginationUI();
+                logTerminal(`Loaded ${allUsers.length} users (Page ${userCurrentPage} of ${userTotalPages}, Total: ${userTotalRecords}).`, 'info');
             }
         } catch (err) {
-            usersTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading users: ${err.message}</td></tr>`;
+            usersTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">Error loading users: ${err.message}</td></tr>`;
         }
+    }
+
+    function updateUsersPaginationUI() {
+        if (!usersPaginationInfo) return;
+        const startRecord = userTotalRecords > 0 ? (userCurrentPage - 1) * 50 + 1 : 0;
+        const endRecord = Math.min(userCurrentPage * 50, userTotalRecords);
+        usersPaginationInfo.textContent = `Showing ${startRecord}-${endRecord} of ${userTotalRecords} records`;
+        usersPageNum.textContent = `Page ${userCurrentPage} of ${userTotalPages}`;
+        
+        usersPrevBtn.disabled = (userCurrentPage <= 1);
+        usersNextBtn.disabled = (userCurrentPage >= userTotalPages);
     }
 
     function renderUsers(users) {
@@ -726,21 +809,32 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     const otaPendingRebootNodes = new Map(); // nodeId -> { startTime: timestamp, notified: bool }
 
-    async function fetchDevices() {
+    async function fetchDevices(page = 1) {
+        nodeCurrentPage = page;
+        nodesTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px;"><i class="fa-solid fa-spinner fa-spin"></i> Scanning active MQTT nodes...</td></tr>`;
+
+        const search = nodeSearchInput ? nodeSearchInput.value.trim() : '';
+        const online = nodeOnlineFilter ? nodeOnlineFilter.value : 'all';
+
         try {
-            const res = await fetch('/api/admin/devices');
+            const url = `/api/admin/devices?page=${nodeCurrentPage}&limit=50&search=${encodeURIComponent(search)}&online=${encodeURIComponent(online)}`;
+            const res = await fetch(url);
             if (res.ok) {
-                allDevices = await res.json();
+                const responseData = await res.json();
+                allDevices = responseData.data || [];
+                nodeTotalRecords = responseData.total_records || 0;
+                nodeTotalPages = responseData.total_pages || 1;
+                nodeCurrentPage = responseData.current_page || 1;
+
                 renderDevices(allDevices);
                 populateOtaDropdown(allDevices);
-                logTerminal(`Loaded ${allDevices.length} ESP32 devices from registry.`, 'info');
+                updateNodesPaginationUI();
+                logTerminal(`Loaded ${allDevices.length} nodes (Page ${nodeCurrentPage} of ${nodeTotalPages}, Total: ${nodeTotalRecords}).`, 'info');
 
-                // Check pending reboot nodes for online confirmation
                 allDevices.forEach(d => {
                     const nodeId = (d.node_id || d.device_id || '').replace(/\\s*-\\s*/g, '-').trim();
                     if (otaPendingRebootNodes.has(nodeId)) {
                         const pendingInfo = otaPendingRebootNodes.get(nodeId);
-                        // Confirm device is online and last_seen is updated
                         if (d.is_online && !pendingInfo.notified) {
                             pendingInfo.notified = true;
                             logDeviceConsole(`[SYSTEM] Device '${nodeId}' back online. Reboot Successful! New firmware running.`, 'success');
@@ -753,6 +847,17 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             nodesTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error loading devices: ${err.message}</td></tr>`;
         }
+    }
+
+    function updateNodesPaginationUI() {
+        if (!nodesPaginationInfo) return;
+        const startRecord = nodeTotalRecords > 0 ? (nodeCurrentPage - 1) * 50 + 1 : 0;
+        const endRecord = Math.min(nodeCurrentPage * 50, nodeTotalRecords);
+        nodesPaginationInfo.textContent = `Showing ${startRecord}-${endRecord} of ${nodeTotalRecords} records`;
+        nodesPageNum.textContent = `Page ${nodeCurrentPage} of ${nodeTotalPages}`;
+
+        nodesPrevBtn.disabled = (nodeCurrentPage <= 1);
+        nodesNextBtn.disabled = (nodeCurrentPage >= nodeTotalPages);
     }
 
     function renderDevices(devices) {
@@ -798,15 +903,61 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    userSearchInput.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase();
-        const filtered = allUsers.filter(u => 
-            u.username.toLowerCase().includes(query) || 
-            u.email.toLowerCase().includes(query) ||
-            (u.full_name && u.full_name.toLowerCase().includes(query))
-        );
-        renderUsers(filtered);
-    });
+    let userSearchTimeout = null;
+    if (userSearchInput) {
+        userSearchInput.addEventListener('input', () => {
+            clearTimeout(userSearchTimeout);
+            userSearchTimeout = setTimeout(() => {
+                fetchUsers(1);
+            }, 300);
+        });
+    }
+
+    if (userStatusFilter) {
+        userStatusFilter.addEventListener('change', () => {
+            fetchUsers(1);
+        });
+    }
+
+    if (usersPrevBtn) {
+        usersPrevBtn.addEventListener('click', () => {
+            if (userCurrentPage > 1) fetchUsers(userCurrentPage - 1);
+        });
+    }
+
+    if (usersNextBtn) {
+        usersNextBtn.addEventListener('click', () => {
+            if (userCurrentPage < userTotalPages) fetchUsers(userCurrentPage + 1);
+        });
+    }
+
+    let nodeSearchTimeout = null;
+    if (nodeSearchInput) {
+        nodeSearchInput.addEventListener('input', () => {
+            clearTimeout(nodeSearchTimeout);
+            nodeSearchTimeout = setTimeout(() => {
+                fetchDevices(1);
+            }, 300);
+        });
+    }
+
+    if (nodeOnlineFilter) {
+        nodeOnlineFilter.addEventListener('change', () => {
+            fetchDevices(1);
+        });
+    }
+
+    if (nodesPrevBtn) {
+        nodesPrevBtn.addEventListener('click', () => {
+            if (nodeCurrentPage > 1) fetchDevices(nodeCurrentPage - 1);
+        });
+    }
+
+    if (nodesNextBtn) {
+        nodesNextBtn.addEventListener('click', () => {
+            if (nodeCurrentPage < nodeTotalPages) fetchDevices(nodeCurrentPage + 1);
+        });
+    }
 
     window.toggleUserStatus = async function(userId, newStatus) {
         let reason = null;
@@ -830,7 +981,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     targetUser.is_active = newStatus;
                     targetUser.block_reason = reason;
                 }
-                renderUsers(allUsers);
+                fetchUsers(userCurrentPage);
                 fetchStats();
             } else {
                 const errData = await res.json();
@@ -855,7 +1006,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 logTerminal(`User #${userId} account deleted and resources purged (Reason: ${finalReason}).`, 'warn');
                 allUsers = allUsers.filter(u => String(u.id) !== String(userId));
-                renderUsers(allUsers);
+                fetchUsers(userCurrentPage);
                 fetchStats();
             } else {
                 const errData = await res.json();
@@ -1500,7 +1651,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         if (isLoadingAllData) return;
         isLoadingAllData = true;
         try {
-            await Promise.all([fetchStats(), fetchUsers(), fetchDevices()]);
+            await Promise.all([fetchStats(), fetchUsers(userCurrentPage), fetchDevices(nodeCurrentPage)]);
         } finally {
             isLoadingAllData = false;
         }
