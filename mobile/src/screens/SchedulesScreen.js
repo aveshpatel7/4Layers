@@ -414,13 +414,6 @@ const normalizeTimeInput = (raw) => {
     return getDeviceName(schedule.device_id);
   };
 
-  const toggleDaySelection = (dayKey) => {
-    if (selectedDays.includes(dayKey)) {
-      setSelectedDays(prev => prev.filter(k => k !== dayKey));
-    } else {
-      setSelectedDays(prev => [...prev, dayKey]);
-    }
-  };
 
   const formatDaysLabel = (csvDays) => {
     if (!csvDays) return '';
