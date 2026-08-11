@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, Image, Linking } from 'react-native';
+import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, Image, Linking, BackHandler } from 'react-native';
 import { Text, TextInput, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
+import CustomAppModal from '../components/CustomAppModal';
 import logoImg from '../../assets/4layers_logo.png';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -25,6 +26,7 @@ export default function LoginScreen({ navigation }) {
   // Alert and Snackbar states
   const [errorMsg, setErrorMsg] = useState('');
   const [showSnackbar, setShowSnackbar] = useState(false);
+  const [blockedReason, setBlockedReason] = useState(null);
 
   // Clear stale token on land/mount to guarantee clean login handshake state
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function LoginScreen({ navigation }) {
         const parsed = new URL(url);
         const token = parsed.searchParams?.get('token') || url.match(/token=([^&]+)/)?.[1];
         const error = parsed.searchParams?.get('error') || url.match(/error=([^&]+)/)?.[1];
+        const reason = parsed.searchParams?.get('reason') || url.match(/reason=([^&]+)/)?.[1];
         
         if (token) {
           console.log('[GoogleOAuth] JWT token received, signing in...');
@@ -62,8 +65,12 @@ export default function LoginScreen({ navigation }) {
           setLoading(false);
         } else if (error) {
           console.error('[GoogleOAuth] Error from callback:', error);
-          setErrorMsg('Google Login failed: ' + decodeURIComponent(error));
-          setShowSnackbar(true);
+          if (error.includes('blocked') || reason) {
+            setBlockedReason(reason ? decodeURIComponent(reason) : 'Account suspended by administrator');
+          } else {
+            setErrorMsg('Google Login failed: ' + decodeURIComponent(error));
+            setShowSnackbar(true);
+          }
         }
       } catch (e) {
         console.error('[GoogleOAuth] Deep link parse error:', e);
@@ -101,12 +108,17 @@ export default function LoginScreen({ navigation }) {
         // Parse token from redirect URL
         const token = result.url.match(/token=([^&]+)/)?.[1];
         const error = result.url.match(/error=([^&]+)/)?.[1];
+        const reason = result.url.match(/reason=([^&]+)/)?.[1];
         
         if (token) {
           await signIn(token);
         } else if (error) {
-          setErrorMsg('Google Login failed: ' + decodeURIComponent(error));
-          setShowSnackbar(true);
+          if (error.includes('blocked') || reason) {
+            setBlockedReason(reason ? decodeURIComponent(reason) : 'Account suspended by administrator');
+          } else {
+            setErrorMsg('Google Login failed: ' + decodeURIComponent(error));
+            setShowSnackbar(true);
+          }
         }
       } else if (result.type === 'cancel') {
         console.log('[GoogleOAuth] User cancelled');
@@ -149,9 +161,16 @@ export default function LoginScreen({ navigation }) {
       }
     } catch (error) {
       console.error('[Login] Sync Error:', error);
-      const detail = error.response?.data?.detail || 'Handshake failed. Check credentials.';
-      setErrorMsg(detail);
-      setShowSnackbar(true);
+      if (error.response?.status === 403) {
+        const reason = error.response?.data?.reason || 
+                       (typeof error.response?.data?.detail === 'object' ? error.response?.data?.detail?.reason : null) || 
+                       'Account suspended by administrator';
+        setBlockedReason(reason);
+      } else {
+        const detail = error.response?.data?.detail || 'Handshake failed. Check credentials.';
+        setErrorMsg(detail);
+        setShowSnackbar(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -288,6 +307,20 @@ export default function LoginScreen({ navigation }) {
         >
           <Text style={{ color: '#FCA5A5', fontWeight: 'bold' }}>{errorMsg}</Text>
         </Snackbar>
+
+        <CustomAppModal
+          visible={!!blockedReason}
+          title="Account Access Denied"
+          message={`Your account has been blocked by the administrator.\n\nReason: ${blockedReason || 'Account suspended by administrator'}`}
+          iconName="lock-alert"
+          primaryText="OK"
+          onPrimary={() => {
+            setBlockedReason(null);
+            if (Platform.OS === 'android') {
+              BackHandler.exitApp();
+            }
+          }}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );

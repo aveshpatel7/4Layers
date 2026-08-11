@@ -16,6 +16,7 @@ class User(Base):
     phone_number = Column(String, nullable=True)
     terms_accepted = Column(Boolean, default=False, server_default=text("false"), nullable=False)
     is_active = Column(Boolean, default=True, server_default=text("true"), nullable=False)
+    block_reason = Column(String, nullable=True)
     profile_pic_url = Column(String, nullable=True)
 
     # Relationships

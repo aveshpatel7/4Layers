@@ -71,8 +71,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     if not getattr(user, "is_active", True):
+        reason = getattr(user, "block_reason", None) or "Account suspended by administrator."
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account has been blocked by administrator",
+            detail={"detail": "Account blocked", "reason": reason},
         )
     return user

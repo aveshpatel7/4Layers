@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.5.2">
+    <link rel="stylesheet" href="/admin/style.css?v=2.5.3">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.5.2" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.5.3" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.5.2</span>
+                    <span class="brand-sub">Smart Admin Console v2.5.3</span>
                 </div>
             </div>
 
@@ -423,7 +423,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.5.2"></script>
+    <script src="/admin/app.js?v=2.5.3"></script>
 </body>
 </html>
 """
@@ -809,18 +809,26 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.toggleUserStatus = async function(userId, newStatus) {
+        let reason = null;
+        if (!newStatus) {
+            reason = prompt("Enter reason for blocking this user account:", "Violation of Terms of Service");
+            if (reason === null) return;
+            reason = reason.trim() || "Account blocked by administrator";
+        }
+
         try {
             const res = await fetch(`/api/admin/users/${userId}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_active: newStatus })
+                body: JSON.stringify({ is_active: newStatus, reason: reason })
             });
 
             if (res.ok) {
-                logTerminal(`User #${userId} status updated to ${newStatus ? 'Active' : 'Blocked'}.`, 'success');
+                logTerminal(`User #${userId} status updated to ${newStatus ? 'Active' : 'Blocked'}${reason ? ' (Reason: ' + reason + ')' : ''}.`, 'success');
                 const targetUser = allUsers.find(u => String(u.id) === String(userId));
                 if (targetUser) {
                     targetUser.is_active = newStatus;
+                    targetUser.block_reason = reason;
                 }
                 renderUsers(allUsers);
                 fetchStats();
@@ -834,12 +842,18 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.deleteUserAccount = async function(userId) {
-        if (!confirm(`Are you sure you want to delete User #${userId}? All linked devices will be unlinked.`)) return;
+        const reason = prompt("Are you sure you want to delete this user? All linked devices will be unlinked.\n\nEnter reason for account removal/locking:", "Account deleted by administrator");
+        if (reason === null) return;
+        const finalReason = reason.trim() || "Account deleted by administrator";
 
         try {
-            const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: finalReason })
+            });
             if (res.ok) {
-                logTerminal(`User #${userId} deleted successfully.`, 'warn');
+                logTerminal(`User #${userId} account deleted and resources purged (Reason: ${finalReason}).`, 'warn');
                 allUsers = allUsers.filter(u => String(u.id) !== String(userId));
                 renderUsers(allUsers);
                 fetchStats();

@@ -113,6 +113,10 @@ def get_device_logs(node_id: str):
 
 class UserStatusUpdate(BaseModel):
     is_active: bool
+    reason: Optional[str] = None
+
+class UserDeleteRequest(BaseModel):
+    reason: Optional[str] = None
 
 class MqttPublishRequest(BaseModel):
     topic: str
@@ -194,6 +198,7 @@ def list_all_users(db: Session = Depends(get_db)):
             "auth_method": auth_method,
             "full_name": u.username,
             "is_active": bool(getattr(u, "is_active", True)),
+            "block_reason": getattr(u, "block_reason", None),
             "role": "user",
             "created_at": None,
             "device_count": device_count,
@@ -204,7 +209,7 @@ def list_all_users(db: Session = Depends(get_db)):
 
 @router.put("/users/{user_id}/status")
 def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = Depends(get_db)):
-    """Enable or block user account access."""
+    """Enable or block user account access with custom reason."""
     try:
         u_uuid = uuid.UUID(user_id)
     except ValueError:
@@ -215,13 +220,18 @@ def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = 
         raise HTTPException(status_code=404, detail="User not found")
     
     user.is_active = status_in.is_active
+    if status_in.reason is not None:
+        user.block_reason = status_in.reason
+    elif status_in.is_active:
+        user.block_reason = None
+        
     db.commit()
     db.refresh(user)
-    return {"message": "User status updated successfully", "is_active": bool(user.is_active)}
+    return {"message": "User status updated successfully", "is_active": bool(user.is_active), "block_reason": user.block_reason}
 
 @router.delete("/users/{user_id}")
-def delete_user_account(user_id: str, db: Session = Depends(get_db)):
-    """Delete a user account and purge all their linked homes and devices."""
+def delete_user_account(user_id: str, payload: Optional[UserDeleteRequest] = None, db: Session = Depends(get_db)):
+    """Delete a user account, purge linked resources, and lock access with reason."""
     try:
         u_uuid = uuid.UUID(user_id)
     except ValueError:
@@ -231,9 +241,16 @@ def delete_user_account(user_id: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    db.delete(user)
+    # Purge user owned homes and linked devices
+    user_homes = db.query(models.Home).filter(models.Home.owner_id == user.id).all()
+    for h in user_homes:
+        db.delete(h)
+
+    reason_str = (payload.reason if payload and payload.reason else None) or "Account deleted by administrator"
+    user.is_active = False
+    user.block_reason = reason_str
     db.commit()
-    return {"message": f"User {user.username} and all linked resources deleted successfully"}
+    return {"message": f"User {user.username} account deleted and resources purged.", "reason": reason_str}
 
 @router.get("/devices")
 def list_all_devices(db: Session = Depends(get_db)):

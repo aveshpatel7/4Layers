@@ -17,6 +17,7 @@ class UserResponse(UserBase):
     terms_accepted: bool = False
     profile_pic_url: Optional[str] = None
     is_active: bool = True
+    block_reason: Optional[str] = None
 
     model_config = {
         "from_attributes": True

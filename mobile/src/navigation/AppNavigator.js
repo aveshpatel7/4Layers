@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useReducer, useRef } from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator, Platform, BackHandler } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -10,10 +10,11 @@ import { useTheme } from 'react-native-paper';
 // Global Drawer Wrapper & Banner
 import GlobalDrawerWrapper from '../components/GlobalDrawerWrapper';
 import InAppBanner from '../components/InAppBanner';
+import CustomAppModal from '../components/CustomAppModal';
 
 // Auth Context
 import { AuthContext } from '../context/AuthContext';
-import { registerUnauthorizedHandler } from '../api/client';
+import { registerUnauthorizedHandler, registerBlockedHandler } from '../api/client';
 
 // Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -128,6 +129,7 @@ export default function AppNavigator() {
   const [permissionsGranted, setPermissionsGranted] = useState(true);
   const [userData, setUserData] = useState(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
+  const [blockedReason, setBlockedReason] = useState(null);
 
   const [state, dispatch] = React.useReducer(
     (prevState, action) => {
@@ -175,6 +177,12 @@ export default function AppNavigator() {
     
     // Register the 401 interceptor auto-logout callback
     registerUnauthorizedHandler(() => {
+      dispatch({ type: 'SIGN_OUT' });
+    });
+
+    // Register the 403 interceptor blocked account callback
+    registerBlockedHandler((reason) => {
+      setBlockedReason(reason || 'Account suspended by administrator');
       dispatch({ type: 'SIGN_OUT' });
     });
   }, []);
@@ -420,6 +428,20 @@ export default function AppNavigator() {
           </GlobalDrawerWrapper>
         )}
       </NavigationContainer>
+
+      <CustomAppModal
+        visible={!!blockedReason}
+        title="Account Access Denied"
+        message={`Your account has been blocked by the administrator.\n\nReason: ${blockedReason || 'Account suspended by administrator'}`}
+        iconName="lock-alert"
+        primaryText="OK"
+        onPrimary={() => {
+          setBlockedReason(null);
+          if (Platform.OS === 'android') {
+            BackHandler.exitApp();
+          }
+        }}
+      />
     </AuthContext.Provider>
   );
 }

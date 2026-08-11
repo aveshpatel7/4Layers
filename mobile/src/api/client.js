@@ -17,9 +17,14 @@ const apiClient = axios.create({
 });
 
 let onUnauthorized = () => {};
+let onBlocked = (reason) => {};
 
 export const registerUnauthorizedHandler = (handler) => {
   onUnauthorized = handler;
+};
+
+export const registerBlockedHandler = (handler) => {
+  onBlocked = handler;
 };
 
 // Add an interceptor to inject the JWT token from AsyncStorage into every outgoing request
@@ -40,16 +45,29 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle auto-logout on 401 errors
+// Response interceptor to handle auto-logout on 401 and custom lock modal on 403
 apiClient.interceptors.response.use(
   (response) => {
     return response;
   },
   async (error) => {
-    if (error.response && error.response.status === 401) {
+    if (error.response && error.response.status === 403) {
+      const reason = error.response.data?.reason || 
+                     (typeof error.response.data?.detail === 'object' ? error.response.data?.detail?.reason : null) || 
+                     'Account suspended by administrator';
+      console.log('[API Client] 403 Forbidden detected. Account blocked! Reason:', reason);
+      try {
+        await AsyncStorage.removeItem('user_token');
+        await AsyncStorage.removeItem('userData_cache');
+      } catch (e) {
+        console.error('[API Client] Error clearing token on 403:', e);
+      }
+      onBlocked(reason);
+    } else if (error.response && error.response.status === 401) {
       console.log('[API Client] 401 Unauthorized detected. Clearing token and forcing logout.');
       try {
         await AsyncStorage.removeItem('user_token');
+        await AsyncStorage.removeItem('userData_cache');
       } catch (e) {
         console.error('[API Client] Error removing token on 401:', e);
       }

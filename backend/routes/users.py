@@ -5,7 +5,7 @@ import urllib.parse
 import base64
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -92,9 +92,10 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
         )
 
     if not getattr(user, "is_active", True):
-        raise HTTPException(
+        reason = getattr(user, "block_reason", None) or "Account suspended by administrator."
+        return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account has been blocked by administrator",
+            content={"detail": "Account blocked", "reason": reason}
         )
 
     # Create token
@@ -215,7 +216,9 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
             db.refresh(user)
     
     if not getattr(user, "is_active", True):
-        return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?error=Account%20blocked%20by%20administrator")
+        reason = getattr(user, "block_reason", None) or "Account suspended by administrator."
+        encoded_reason = urllib.parse.quote(reason)
+        return RedirectResponse(f"{APP_DEEP_LINK_SCHEME}://auth?error=Account%20blocked&reason={encoded_reason}")
 
     # Create 4Layers JWT
     jwt_token = auth.create_access_token(data={"sub": user.username})
