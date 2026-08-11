@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.4.5">
+    <link rel="stylesheet" href="/admin/style.css?v=2.5.0">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.4.5" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.5.0" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.4.5</span>
+                    <span class="brand-sub">Smart Admin Console v2.5.0</span>
                 </div>
             </div>
 
@@ -423,7 +423,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.4.5"></script>
+    <script src="/admin/app.js?v=2.5.0"></script>
 </body>
 </html>
 """
@@ -684,7 +684,6 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Real-Time Search & Filter for Registered Users Directory
-    const userSearchInput = document.getElementById('user-search-input');
     if (userSearchInput) {
         userSearchInput.addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase().trim();
@@ -1282,8 +1281,11 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     let deviceLogsPollTimer = null;
     let lastSeenLogTimestamps = new Set();
     let hasNotifiedReboot = false;
+    let isPollingLogs = false;
 
     async function pollRemoteDeviceLogs() {
+        if (isPollingLogs) return;
+        isPollingLogs = true;
         const targetNode = monitorTargetNodeSelect ? monitorTargetNodeSelect.value : 'ALL';
         const queryTarget = targetNode || 'ALL';
 
@@ -1321,6 +1323,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             console.error("Device logs polling error:", err);
+        } finally {
+            isPollingLogs = false;
         }
     }
 
@@ -1443,10 +1447,15 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    function loadAllData() {
-        fetchStats();
-        fetchUsers();
-        fetchDevices();
+    let isLoadingAllData = false;
+    async function loadAllData() {
+        if (isLoadingAllData) return;
+        isLoadingAllData = true;
+        try {
+            await Promise.all([fetchStats(), fetchUsers(), fetchDevices()]);
+        } finally {
+            isLoadingAllData = false;
+        }
     }
 
     btnRefresh.addEventListener('click', loadAllData);
