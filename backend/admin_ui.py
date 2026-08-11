@@ -14,17 +14,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.5.1">
+    <link rel="stylesheet" href="/admin/style.css?v=2.5.2">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.5.1" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.5.2" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.5.1</span>
+                    <span class="brand-sub">Smart Admin Console v2.5.2</span>
                 </div>
             </div>
 
@@ -423,7 +423,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.5.1"></script>
+    <script src="/admin/app.js?v=2.5.2"></script>
 </body>
 </html>
 """
@@ -498,10 +498,19 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .term-line.success { color: #4ade80; }
 .term-line.warn { color: #fbbf24; }
 .term-line.error { color: #ef4444; font-weight: 700; background: rgba(239, 68, 68, 0.1); padding: 2px 4px; border-radius: 4px; }
-.table-responsive { overflow-x: auto; }
+.table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-#users-table { table-layout: fixed; width: 100%; }
+#users-table { table-layout: fixed; width: 100%; min-width: 1000px; }
 #users-table th, #users-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+#users-table th:nth-child(1), #users-table td:nth-child(1) { width: 90px; }
+#users-table th:nth-child(2), #users-table td:nth-child(2) { width: 160px; }
+#users-table th:nth-child(3), #users-table td:nth-child(3) { width: 180px; }
+#users-table th:nth-child(4), #users-table td:nth-child(4) { width: 130px; }
+#users-table th:nth-child(5), #users-table td:nth-child(5) { width: 70px; text-align: center; }
+#users-table th:nth-child(6), #users-table td:nth-child(6) { width: 100px; }
+#users-table th:nth-child(7), #users-table td:nth-child(7) { width: 140px; }
+#users-table th:nth-child(8), #users-table td:nth-child(8) { width: 90px; }
+#users-table th:nth-child(9), #users-table td:nth-child(9) { width: 140px; overflow: visible; }
 .data-table th { text-align: left; padding: 12px 16px; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); }
 .data-table td { padding: 14px 16px; font-size: 13.5px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
 .data-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
@@ -639,52 +648,62 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        usersTableBody.innerHTML = users.map(u => `
+        usersTableBody.innerHTML = users.map(u => {
+            const rawId = String(u.id || '');
+            const shortId = rawId ? (rawId.length > 8 ? rawId.substring(0, 8) + '...' : rawId) : 'N/A';
+            const fullName = escapeHtml(u.full_name || u.username || 'User');
+            const username = escapeHtml(u.username || '');
+            const email = escapeHtml(u.email || '');
+            const phone = escapeHtml(u.phone_number || 'Not Registered');
+            const isActive = !!u.is_active;
+
+            return `
             <tr>
-                <td>#${u.id}</td>
-                <td>
-                    <strong>${escapeHtml(u.full_name || u.username)}</strong>
-                    <br><small style="color:var(--text-secondary)">@${escapeHtml(u.username)}</small>
+                <td title="Full User ID: ${escapeHtml(rawId)}">#${shortId}</td>
+                <td title="${fullName} (@${username})">
+                    <strong>${fullName}</strong>
+                    <br><small style="color:var(--text-secondary)">@${username}</small>
                 </td>
-                <td>
-                    <a href="mailto:${escapeHtml(u.email)}" style="color:var(--accent-blue);text-decoration:none;font-weight:500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'" title="Send email to ${escapeHtml(u.email)}">
-                        <i class="fa-regular fa-envelope" style="margin-right:4px;font-size:11px;"></i>${escapeHtml(u.email)}
+                <td title="${email}">
+                    <a href="mailto:${email}" style="color:var(--accent-blue);text-decoration:none;font-weight:500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'" title="Send email to ${email}">
+                        <i class="fa-regular fa-envelope" style="margin-right:4px;font-size:11px;"></i>${email}
                     </a>
                 </td>
-                <td>
-                    <span style="font-size:12px;font-weight:600;color:${u.phone_number && u.phone_number !== 'N/A' ? 'var(--accent-green)' : 'var(--text-secondary)'};">
-                        ${escapeHtml(u.phone_number || 'Not Registered')}
+                <td title="${phone}">
+                    <span style="font-size:12px;font-weight:600;color:${phone && phone !== 'Not Registered' && phone !== 'N/A' ? 'var(--accent-green)' : 'var(--text-secondary)'};">
+                        ${phone}
                     </span>
                 </td>
-                <td style="text-align:center;">
+                <td style="text-align:center;" title="${u.terms_accepted ? 'Terms & Conditions Accepted' : 'Terms & Conditions Pending'}">
                     ${u.terms_accepted 
-                        ? '<span style="color:var(--accent-green);font-weight:bold;font-size:14px;" title="T&C Accepted">✅</span>' 
-                        : '<span style="color:var(--accent-red);font-weight:bold;font-size:14px;" title="T&C Pending">❌</span>'}
+                        ? '<span style="color:var(--accent-green);font-weight:bold;font-size:14px;">✅</span>' 
+                        : '<span style="color:var(--accent-red);font-weight:bold;font-size:14px;">❌</span>'}
                 </td>
-                <td>
+                <td title="Auth Method: ${u.auth_method}">
                     ${u.auth_method === 'google'
                         ? '<span class="badge blue" style="background:rgba(66,133,244,0.15);color:#4285F4;border:1px solid rgba(66,133,244,0.3);"><i class="fa-brands fa-google"></i> Google</span>'
                         : '<span class="badge gray" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-envelope"></i> Email</span>'}
                 </td>
-                <td style="white-space:nowrap;">
-                    <span class="badge blue">${u.device_count || 0} Devices</span>
-                    <span class="badge gray" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);margin-left:4px;">${u.room_count || 0} Rooms</span>
+                <td style="white-space:nowrap;" title="${u.device_count || 0} Devices, ${u.room_count || 0} Rooms">
+                    <span class="badge blue">${u.device_count || 0} Devs</span>
+                    <span class="badge gray" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);margin-left:4px;">${u.room_count || 0} Rms</span>
                 </td>
-                <td>
-                    ${u.is_active 
+                <td title="Account Status: ${isActive ? 'Active' : 'Blocked'}">
+                    ${isActive 
                         ? '<span class="badge green">Active</span>' 
                         : '<span class="badge red">Blocked</span>'}
                 </td>
-                <td style="white-space:nowrap;">
-                    <button class="btn ${u.is_active ? 'btn-danger' : 'btn-primary'}" onclick="toggleUserStatus('${u.id}', ${!u.is_active})" style="padding:4px 10px;font-size:11px;">
-                        ${u.is_active ? 'Block' : 'Unblock'}
+                <td style="white-space:nowrap;min-width:140px;overflow:visible;">
+                    <button class="btn ${isActive ? 'btn-danger' : 'btn-primary'}" onclick="toggleUserStatus('${u.id}', ${!isActive})" style="padding:4px 10px;font-size:11px;min-width:60px;justify-content:center;">
+                        ${isActive ? 'Block' : 'Unblock'}
                     </button>
-                    <button class="btn btn-outline" onclick="deleteUserAccount('${u.id}')" style="padding:4px 10px;font-size:11px;color:var(--accent-red)">
+                    <button class="btn btn-outline" onclick="deleteUserAccount('${u.id}')" style="padding:4px 10px;font-size:11px;color:var(--accent-red);margin-left:4px;">
                         Delete
                     </button>
                 </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
     }
 
     // Real-Time Search & Filter for Registered Users Directory
