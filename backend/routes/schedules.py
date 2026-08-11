@@ -14,27 +14,40 @@ def create_schedule(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new device auto-toggle schedule. Verifies device ownership."""
+    """Create a new device auto-toggle schedule. Verifies device ownership or NodeShare access."""
+    print(f"[SCHEDULE CREATE] Received POST /api/schedules from User '{current_user.email}' ({current_user.id}): device_id={schedule_data.device_id}, action={schedule_data.action}, time={schedule_data.time}, days={schedule_data.days}, actions={schedule_data.actions}")
+
     device = db.query(models.Device).filter(models.Device.id == schedule_data.device_id).first()
 
     if not device:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
 
-    is_authorized = False
-    if device.home.owner_id == current_user.id:
-        is_authorized = True
-    else:
-        base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
-        if base_node_id:
-            share = db.query(models.NodeShare).filter(
-                models.NodeShare.node_id == base_node_id,
-                models.NodeShare.shared_with_user_id == current_user.id
-            ).first()
-            if share:
-                is_authorized = True
+    target_devices = [device]
+    if schedule_data.actions and isinstance(schedule_data.actions, list):
+        for act in schedule_data.actions:
+            d_id = act.get("device_id")
+            if d_id and str(d_id) != str(schedule_data.device_id):
+                sub_dev = db.query(models.Device).filter(models.Device.id == d_id).first()
+                if sub_dev:
+                    target_devices.append(sub_dev)
 
-    if not is_authorized:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    for dev_item in target_devices:
+        is_auth = False
+        if dev_item.home.owner_id == current_user.id:
+            is_auth = True
+        else:
+            base_node_id = dev_item.node_id.split('_')[0] if dev_item.node_id and '_' in dev_item.node_id else dev_item.node_id
+            if base_node_id:
+                share = db.query(models.NodeShare).filter(
+                    models.NodeShare.node_id == base_node_id,
+                    models.NodeShare.shared_with_user_id == current_user.id
+                ).first()
+                if share:
+                    is_auth = True
+
+        if not is_auth:
+            print(f"[SCHEDULE CREATE] Access denied for User '{current_user.email}' on device '{dev_item.name}' ({dev_item.id})")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Access denied for device '{dev_item.name}'")
         
     actions_data = None
     if schedule_data.actions and isinstance(schedule_data.actions, list):
@@ -53,6 +66,7 @@ def create_schedule(
     db.add(new_schedule)
     db.commit()
     db.refresh(new_schedule)
+    print(f"[SCHEDULE CREATE] Successfully created Schedule {new_schedule.id} for User '{current_user.email}'")
     return new_schedule
 
 @router.get("", response_model=List[schemas.ScheduleResponse])
