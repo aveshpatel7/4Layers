@@ -269,8 +269,9 @@ def startup_event():
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR;"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN DEFAULT FALSE;"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_pic_url TEXT;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
             conn.commit()
-            print("PostgreSQL migration: Verified actions_json, expo_push_token, phone_number, terms_accepted, and profile_pic_url columns.")
+            print("PostgreSQL migration: Verified actions_json, expo_push_token, phone_number, terms_accepted, profile_pic_url, and is_active columns.")
     except Exception as m_err:
         print("PostgreSQL migration notice:", m_err)
     print("Database tables initialized.")

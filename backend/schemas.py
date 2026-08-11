@@ -16,6 +16,7 @@ class UserResponse(UserBase):
     phone_number: Optional[str] = None
     terms_accepted: bool = False
     profile_pic_url: Optional[str] = None
+    is_active: bool = True
 
     model_config = {
         "from_attributes": True
