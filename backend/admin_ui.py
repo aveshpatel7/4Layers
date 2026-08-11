@@ -8,23 +8,23 @@ ADMIN_HTML = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>4Layers Smart Home — Admin Management Console</title>
+    <title>4Layers Smart Home - Admin Management Console</title>
     <!-- Google Fonts & FontAwesome -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.5.6">
+    <link rel="stylesheet" href="/admin/style.css?v=2.5.7">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.5.6" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.5.7" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.5.6</span>
+                    <span class="brand-sub">Smart Admin Console v2.5.7</span>
                 </div>
             </div>
 
@@ -423,7 +423,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/app.js?v=2.5.6"></script>
+    <script src="/admin/app.js?v=2.5.7"></script>
 </body>
 </html>
 """
@@ -676,8 +676,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td style="text-align:center;" title="${u.terms_accepted ? 'Terms & Conditions Accepted' : 'Terms & Conditions Pending'}">
                     ${u.terms_accepted 
-                        ? '<span style="color:var(--accent-green);font-weight:bold;font-size:14px;">✅</span>' 
-                        : '<span style="color:var(--accent-red);font-weight:bold;font-size:14px;">❌</span>'}
+                        ? '<span style="color:var(--accent-green);font-weight:bold;font-size:14px;">\u2705</span>' 
+                        : '<span style="color:var(--accent-red);font-weight:bold;font-size:14px;">\u274C</span>'}
                 </td>
                 <td title="Auth Method: ${u.auth_method}">
                     ${u.auth_method === 'google'
