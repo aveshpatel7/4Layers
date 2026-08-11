@@ -21,11 +21,11 @@ import BrandLogo from '../components/BrandLogo';
 import WheelColumn from '../components/WheelColumn';
 
 const TOKENS = {
-  bg: '#0b0f19',
-  surface: '#1c1c1e',
-  accent: '#00E676',
+  bg: '#0E0E0E',
+  surface: '#1C1B1B',
+  accent: '#1fa971',
   border: 'rgba(255,255,255,0.08)',
-  textPrimary: '#FFFFFF',
+  textPrimary: '#E5E2E1',
   textSecondary: '#9CA3AF',
   error: '#EF4444'
 };
@@ -932,7 +932,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end'
   },
   modalContent: {
-    backgroundColor: '#0b0f19',
+    backgroundColor: '#1C1B1B',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
