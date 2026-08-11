@@ -21,14 +21,24 @@ import BrandLogo from '../components/BrandLogo';
 import WheelColumn from '../components/WheelColumn';
 
 const TOKENS = {
-  bg: '#0E0E0E',
-  surface: '#1C1B1B',
-  accent: '#1fa971',
+  bg: '#0b0f19',
+  surface: '#1c1c1e',
+  accent: '#00E676',
   border: 'rgba(255,255,255,0.08)',
-  textPrimary: '#E5E2E1',
+  textPrimary: '#FFFFFF',
   textSecondary: '#9CA3AF',
   error: '#EF4444'
 };
+
+const DAY_BUTTONS = [
+  { key: 'sun', label: 'S' },
+  { key: 'mon', label: 'M' },
+  { key: 'tue', label: 'T' },
+  { key: 'wed', label: 'W' },
+  { key: 'thu', label: 'T' },
+  { key: 'fri', label: 'F' },
+  { key: 'sat', label: 'S' }
+];
 
 const WEEKDAYS = [
   { key: 'mon', label: 'M' },
@@ -44,16 +54,9 @@ const HOURS_LIST = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', 
 const MINUTES_LIST = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
 const DAY_OPTIONS = [
-  { label: 'Everyday', days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] },
+  { label: 'Everyday', days: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] },
   { label: 'Weekdays', days: ['mon', 'tue', 'wed', 'thu', 'fri'] },
-  { label: 'Weekends', days: ['sat', 'sun'] },
-  { label: 'Mon', days: ['mon'] },
-  { label: 'Tue', days: ['tue'] },
-  { label: 'Wed', days: ['wed'] },
-  { label: 'Thu', days: ['thu'] },
-  { label: 'Fri', days: ['fri'] },
-  { label: 'Sat', days: ['sat'] },
-  { label: 'Sun', days: ['sun'] },
+  { label: 'Weekends', days: ['sat', 'sun'] }
 ];
 
 const getUniqueDevices = (devList, roomList = []) => {
@@ -71,8 +74,11 @@ export default function SchedulesScreen() {
   const [rooms, setRooms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Add Schedule Modal
+  // Add Schedule Modal States
   const [modalVisible, setModalVisible] = useState(false);
+  const [scheduleName, setScheduleName] = useState('');
+  const [showTimeWheel, setShowTimeWheel] = useState(false);
+  const [showRoomPicker, setShowRoomPicker] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState('ALL');
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [selectedDeviceIds, setSelectedDeviceIds] = useState([]);
@@ -81,21 +87,23 @@ export default function SchedulesScreen() {
   const [wheelHour, setWheelHour] = useState('08');
   const [wheelMinute, setWheelMinute] = useState('00');
   const [wheelPeriod, setWheelPeriod] = useState('AM');
-  const [selectedDays, setSelectedDays] = useState(['mon', 'tue', 'wed', 'thu', 'fri']);
-  const [selectedDayOptionLabel, setSelectedDayOptionLabel] = useState('Weekdays');
+  const [selectedDays, setSelectedDays] = useState(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']);
+  const [selectedDayOptionLabel, setSelectedDayOptionLabel] = useState('Everyday');
   const [isSaving, setIsSaving] = useState(false);
 
   const toggleDeviceSelection = (id) => {
     if (selectedDeviceIds.includes(id)) {
-      if (selectedDeviceIds.length > 1) {
-        setSelectedDeviceIds(selectedDeviceIds.filter(dId => dId !== id));
-      }
+      setSelectedDeviceIds(prev => prev.filter(dId => dId !== id));
     } else {
-      if (selectedDeviceIds.length < 6) {
-        setSelectedDeviceIds([...selectedDeviceIds, id]);
-      } else {
-        Alert.alert('Limit Reached', 'You can select up to 6 switches in a single schedule.');
-      }
+      setSelectedDeviceIds(prev => [...prev, id]);
+    }
+  };
+
+  const toggleDaySelection = (dayKey) => {
+    if (selectedDays.includes(dayKey)) {
+      setSelectedDays(prev => prev.filter(d => d !== dayKey));
+    } else {
+      setSelectedDays(prev => [...prev, dayKey]);
     }
   };
 
@@ -165,7 +173,7 @@ export default function SchedulesScreen() {
     setWheelMinute(mStr);
     setWheelPeriod(period);
     setSelectedDayOptionLabel('Everyday');
-    setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+    setSelectedDays(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']);
 
     const hh24 = rawHours.toString().padStart(2, '0');
     setScheduleTime(`${hh24}:${mStr}`);
@@ -174,9 +182,15 @@ export default function SchedulesScreen() {
     if (devices.length > 0) {
       setSelectedDeviceId(devices[0].id);
       setSelectedDeviceIds([devices[0].id]);
+    } else {
+      setSelectedDeviceIds([]);
     }
 
-    console.log('[Schedules DEBUG] handleOpenCreateModal - Total Devices:', devices.length, 'selectedRoomId:', selectedRoomId);
+    setScheduleName('');
+    setShowTimeWheel(false);
+    setShowRoomPicker(false);
+    setSelectedAction('ON');
+
     setModalVisible(true);
   };
 
@@ -534,183 +548,90 @@ const normalizeTimeInput = (raw) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Schedule Rule</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <MaterialCommunityIcons name="close" size={24} color={TOKENS.textSecondary} />
+            {/* Top Navigation Header Row */}
+            <View style={styles.newHeaderRow}>
+              {/* Close Button */}
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.iconCircleBtn} activeOpacity={0.7}>
+                <MaterialCommunityIcons name="close" size={20} color={TOKENS.textPrimary} />
+              </TouchableOpacity>
+
+              {/* Tappable Time Display Badge (Top Left) */}
+              <TouchableOpacity
+                style={[styles.timeBadgePill, showTimeWheel && styles.timeBadgePillActive]}
+                onPress={() => setShowTimeWheel(!showTimeWheel)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="clock-outline" size={16} color={showTimeWheel ? TOKENS.bg : TOKENS.accent} />
+                <Text style={[styles.timeBadgeText, showTimeWheel && styles.timeBadgeTextActive]}>
+                  {wheelHour}:{wheelMinute} {wheelPeriod}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Name Input in Center */}
+              <View style={styles.nameInputWrapper}>
+                <TextInput
+                  style={styles.headerNameInput}
+                  value={scheduleName}
+                  onChangeText={setScheduleName}
+                  placeholder="NAME"
+                  placeholderTextColor="#6B7280"
+                  maxLength={22}
+                />
+              </View>
+
+              {/* Room Selector Button (Top Right) */}
+              <TouchableOpacity
+                style={[styles.roomPill, showRoomPicker && styles.roomPillActive]}
+                onPress={() => setShowRoomPicker(!showRoomPicker)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.roomPillText, showRoomPicker && styles.roomPillTextActive]} numberOfLines={1}>
+                  {selectedRoomId === 'ALL' ? 'Room' : (rooms.find(r => r.id === selectedRoomId)?.name || 'Room')}
+                </Text>
+                <MaterialCommunityIcons
+                  name={showRoomPicker ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color={showRoomPicker ? TOKENS.bg : TOKENS.textSecondary}
+                />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {rooms.length > 0 && (
-                <>
-                  <Text style={styles.label}>Select Room</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={[styles.deviceChipsRow, { marginBottom: 12 }]}
+            {/* Room Dropdown Selection Menu */}
+            {showRoomPicker && (
+              <View style={styles.roomPickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomChipsScroll}>
+                  <TouchableOpacity
+                    style={[styles.roomChipItem, selectedRoomId === 'ALL' && styles.roomChipItemActive]}
+                    onPress={() => { setSelectedRoomId('ALL'); setShowRoomPicker(false); }}
+                    activeOpacity={0.8}
                   >
+                    <Text style={[styles.roomChipText, selectedRoomId === 'ALL' && styles.roomChipTextActive]}>All Rooms</Text>
+                  </TouchableOpacity>
+                  {rooms.map(room => (
                     <TouchableOpacity
-                      style={[
-                        styles.deviceChip,
-                        selectedRoomId === 'ALL' && styles.deviceChipSelected
-                      ]}
-                      onPress={() => {
-                        setSelectedRoomId('ALL');
-                        if (devices.length > 0) setSelectedDeviceId(devices[0].id);
-                      }}
+                      key={room.id}
+                      style={[styles.roomChipItem, selectedRoomId === room.id && styles.roomChipItemActive]}
+                      onPress={() => { setSelectedRoomId(room.id); setShowRoomPicker(false); }}
                       activeOpacity={0.8}
                     >
-                      <MaterialCommunityIcons
-                        name="home-outline"
-                        size={16}
-                        color={selectedRoomId === 'ALL' ? TOKENS.bg : TOKENS.textSecondary}
-                      />
-                      <Text style={[
-                        styles.deviceChipText,
-                        selectedRoomId === 'ALL' && styles.deviceChipTextSelected
-                      ]}>
-                        All Rooms
-                      </Text>
+                      <Text style={[styles.roomChipText, selectedRoomId === room.id && styles.roomChipTextActive]}>{room.name}</Text>
                     </TouchableOpacity>
-
-                    {rooms.map((room) => {
-                      const isSelected = selectedRoomId === room.id;
-                      return (
-                        <TouchableOpacity
-                          key={room.id}
-                          style={[
-                            styles.deviceChip,
-                            isSelected && styles.deviceChipSelected
-                          ]}
-                          onPress={() => {
-                            setSelectedRoomId(room.id);
-                            const roomDevs = devices.filter(d => d.room_id === room.id);
-                            if (roomDevs.length > 0) setSelectedDeviceId(roomDevs[0].id);
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <MaterialCommunityIcons
-                            name="door"
-                            size={16}
-                            color={isSelected ? TOKENS.bg : TOKENS.textSecondary}
-                          />
-                          <Text style={[
-                            styles.deviceChipText,
-                            isSelected && styles.deviceChipTextSelected
-                          ]}>
-                            {room.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </>
-              )}
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 8 }}>
-                <Text style={[styles.label, { marginTop: 0, marginBottom: 0 }]}>Select Appliance / Switch</Text>
-                <Text style={{ fontSize: 11, color: TOKENS.accent, fontWeight: '800' }}>
-                  {selectedDeviceIds.length} Selected (Max 6)
-                </Text>
-              </View>
-              {filteredDevices.length === 0 ? (
-                <Text style={styles.warningText}>No devices available in this room.</Text>
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.deviceChipsRow}
-                >
-                  {filteredDevices.map((dev) => {
-                    const isSelected = selectedDeviceIds.includes(dev.id);
-                    const devIcon = dev.type === 'fan' ? 'fan' : dev.type === 'light' ? 'lightbulb-outline' : 'power';
-                    const room = rooms.find(r => r.id === dev.room_id);
-                    const labelText = room && selectedRoomId === 'ALL' && rooms.length > 1 ? `${dev.name} (${room.name})` : dev.name;
-
-                    return (
-                      <TouchableOpacity
-                        key={dev.id}
-                        style={[
-                          styles.deviceChip,
-                          isSelected && styles.deviceChipSelected
-                        ]}
-                        onPress={() => toggleDeviceSelection(dev.id)}
-                        activeOpacity={0.8}
-                      >
-                        <MaterialCommunityIcons
-                          name={isSelected ? 'check-circle' : devIcon}
-                          size={16}
-                          color={isSelected ? TOKENS.bg : TOKENS.textSecondary}
-                        />
-                        <Text style={[
-                          styles.deviceChipText,
-                          isSelected && styles.deviceChipTextSelected
-                        ]}>
-                          {labelText}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  ))}
                 </ScrollView>
-              )}
-
-              <Text style={styles.label}>Action</Text>
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.actionOption, selectedAction === 'ON' && styles.actionOptionOn]}
-                  onPress={() => setSelectedAction('ON')}
-                >
-                  <Text style={[styles.actionOptionText, selectedAction === 'ON' && styles.actionOptionTextOn]}>TURN ON</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionOption, selectedAction === 'OFF' && styles.actionOptionOff]}
-                  onPress={() => setSelectedAction('OFF')}
-                >
-                  <Text style={[styles.actionOptionText, selectedAction === 'OFF' && styles.actionOptionTextOff]}>TURN OFF</Text>
-                </TouchableOpacity>
               </View>
+            )}
 
-              <Text style={styles.label}>Execution Time & Repeat</Text>
-
-              {/* Header Badge Displaying Current Selection */}
-              <View style={styles.wheelHeaderBadge}>
-                <MaterialCommunityIcons name="calendar-clock" size={18} color={TOKENS.accent} style={{ marginRight: 6 }} />
-                <Text style={styles.wheelHeaderDayText}>{selectedDayOptionLabel}</Text>
-                <Text style={styles.wheelHeaderDot}>•</Text>
-                <Text style={styles.wheelHeaderTimeText}>
-                  {wheelHour}:{wheelMinute} <Text style={styles.wheelHeaderPeriodText}>{wheelPeriod}</Text>
-                </Text>
-              </View>
-
-              {/* Inline Wheel Picker Card */}
-              <View style={styles.wheelPickerCard}>
-                {/* Column Titles Bar ABOVE the Wheel Box */}
+            {/* Collapsible Time Wheel Picker */}
+            {showTimeWheel && (
+              <View style={styles.inlineWheelWrapper}>
                 <View style={styles.wheelHeaderLabelsRow}>
-                  <Text style={[styles.wheelColTitleHeader, { flex: 1.4 }]}>REPEAT / DAY</Text>
                   <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>HOUR</Text>
                   <Text style={[styles.wheelColTitleHeader, { flex: 1 }]}>MIN</Text>
                   <Text style={[styles.wheelColTitleHeader, { flex: 0.9 }]}>AM/PM</Text>
                 </View>
 
-                {/* 4 Wheel Picker Columns Container */}
                 <View style={styles.wheelColumnsContainer}>
-                  {/* Center Selection Highlight Lens */}
                   <View style={styles.wheelSelectionHighlight} pointerEvents="none" />
-
-                  {/* 1. Day / Frequency Column */}
-                  <WheelColumn
-                    data={DAY_OPTIONS.map(o => ({ label: o.label, value: o.label }))}
-                    selectedValue={selectedDayOptionLabel}
-                    onValueChange={(val) => {
-                      const opt = DAY_OPTIONS.find(o => o.label === val);
-                      if (opt) handleSelectDayOption(opt);
-                    }}
-                    flex={1.4}
-                    isLooping={false}
-                  />
-
-                  {/* 2. Hours Column */}
                   <WheelColumn
                     data={HOURS_LIST.map(h => ({ label: h, value: h }))}
                     selectedValue={wheelHour}
@@ -718,10 +639,7 @@ const normalizeTimeInput = (raw) => {
                     flex={1}
                     isLooping={true}
                   />
-
                   <Text style={styles.wheelColon}>:</Text>
-
-                  {/* 3. Minutes Column */}
                   <WheelColumn
                     data={MINUTES_LIST.map(m => ({ label: m, value: m }))}
                     selectedValue={wheelMinute}
@@ -729,8 +647,6 @@ const normalizeTimeInput = (raw) => {
                     flex={1}
                     isLooping={true}
                   />
-
-                  {/* 4. Period Column (AM/PM) */}
                   <WheelColumn
                     data={[{ label: 'AM', value: 'AM' }, { label: 'PM', value: 'PM' }]}
                     selectedValue={wheelPeriod}
@@ -740,28 +656,110 @@ const normalizeTimeInput = (raw) => {
                   />
                 </View>
               </View>
+            )}
 
-              <View style={styles.actionButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setModalVisible(false)}
-                  disabled={isSaving}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
+            {/* Action Segment (Turn ON vs Turn OFF) */}
+            <View style={styles.actionSegmentRow}>
+              <TouchableOpacity
+                style={[styles.actionSegmentBtn, selectedAction === 'ON' && styles.actionSegmentBtnOn]}
+                onPress={() => setSelectedAction('ON')}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="power" size={16} color={selectedAction === 'ON' ? TOKENS.bg : TOKENS.accent} />
+                <Text style={[styles.actionSegmentText, selectedAction === 'ON' && styles.actionSegmentTextOn]}>TURN ON</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionSegmentBtn, selectedAction === 'OFF' && styles.actionSegmentBtnOff]}
+                onPress={() => setSelectedAction('OFF')}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="power-off" size={16} color={selectedAction === 'OFF' ? '#FFF' : TOKENS.error} />
+                <Text style={[styles.actionSegmentText, selectedAction === 'OFF' && styles.actionSegmentTextOff]}>TURN OFF</Text>
+              </TouchableOpacity>
+            </View>
 
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.saveButton]}
-                  onPress={handleCreateSchedule}
-                  disabled={isSaving || devices.length === 0}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color={TOKENS.bg} />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Create Rule</Text>
-                  )}
-                </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              {/* Middle Appliances Grid (Visual Selection) */}
+              <View style={styles.appliancesGridSection}>
+                <View style={styles.gridHeaderRow}>
+                  <Text style={styles.gridTitle}>APPLIANCES</Text>
+                  <Text style={styles.gridSubtitle}>{selectedDeviceIds.length} Selected</Text>
+                </View>
+
+                {filteredDevices.length === 0 ? (
+                  <View style={styles.emptyGridState}>
+                    <Text style={styles.emptyGridText}>No appliances found in this room.</Text>
+                  </View>
+                ) : (
+                  <View style={styles.gridContainer}>
+                    {filteredDevices.map(dev => {
+                      const isSelected = selectedDeviceIds.includes(dev.id);
+                      const devIcon = dev.type === 'fan' ? 'fan' : dev.type === 'light' ? 'lightbulb-outline' : 'power';
+
+                      return (
+                        <TouchableOpacity
+                          key={dev.id}
+                          style={[styles.applianceCard, isSelected && styles.applianceCardSelected]}
+                          onPress={() => toggleDeviceSelection(dev.id)}
+                          activeOpacity={0.8}
+                        >
+                          <View style={[styles.circleIconContainer, isSelected && styles.circleIconContainerSelected]}>
+                            <MaterialCommunityIcons
+                              name={isSelected ? 'check' : devIcon}
+                              size={28}
+                              color={isSelected ? TOKENS.bg : TOKENS.accent}
+                            />
+                          </View>
+                          <Text style={[styles.applianceCardText, isSelected && styles.applianceCardTextSelected]} numberOfLines={1}>
+                            {dev.name}
+                          </Text>
+                          {selectedRoomId === 'ALL' && dev.room_id && (
+                            <Text style={styles.applianceCardSubtext} numberOfLines={1}>
+                              {rooms.find(r => r.id === dev.room_id)?.name}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
+
+              {/* Bottom Days Selector */}
+              <View style={styles.daysSelectorSection}>
+                <Text style={styles.daysSectionTitle}>REPEAT DAYS</Text>
+                <View style={styles.daysRowContainer}>
+                  {DAY_BUTTONS.map(dayItem => {
+                    const isSelected = selectedDays.includes(dayItem.key);
+                    return (
+                      <TouchableOpacity
+                        key={dayItem.key}
+                        style={[styles.dayCircleBtn, isSelected && styles.dayCircleBtnSelected]}
+                        onPress={() => toggleDaySelection(dayItem.key)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.dayCircleText, isSelected && styles.dayCircleTextSelected]}>
+                          {dayItem.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Full Width Prominent Create Schedule Button */}
+              <TouchableOpacity
+                style={[styles.createRuleBtn, (isSaving || selectedDeviceIds.length === 0) && styles.createRuleBtnDisabled]}
+                onPress={handleCreateSchedule}
+                disabled={isSaving || selectedDeviceIds.length === 0}
+                activeOpacity={0.85}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={TOKENS.bg} />
+                ) : (
+                  <Text style={styles.createRuleBtnText}>Create Schedule</Text>
+                )}
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
@@ -937,247 +935,325 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end'
   },
-  wheelModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
   modalContent: {
-    backgroundColor: TOKENS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '85%',
+    backgroundColor: '#0b0f19',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+    maxHeight: '90%',
     borderTopWidth: 1,
-    borderTopColor: TOKENS.border
+    borderTopColor: 'rgba(255,255,255,0.1)'
   },
-  modalHeader: {
+  newHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: TOKENS.textPrimary
-  },
-  label: {
-    fontSize: 12,
-    color: TOKENS.textSecondary,
-    marginBottom: 8,
-    marginTop: 14,
-    fontWeight: '600',
-    textTransform: 'uppercase'
-  },
-  deviceChipsRow: {
-    paddingVertical: 4,
+    justifyContent: 'space-between',
+    marginBottom: 16,
     gap: 8
   },
-  deviceChip: {
+  iconCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1c1c1e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  timeBadgePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: '#171616',
+    backgroundColor: '#1c1c1e',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    gap: 6
+    borderColor: 'rgba(255,255,255,0.08)'
   },
-  deviceChipSelected: {
+  timeBadgePillActive: {
     backgroundColor: TOKENS.accent,
     borderColor: TOKENS.accent
   },
-  deviceChipText: {
+  timeBadgeText: {
     fontSize: 13,
+    fontWeight: '800',
+    color: TOKENS.textPrimary
+  },
+  timeBadgeTextActive: {
+    color: TOKENS.bg
+  },
+  nameInputWrapper: {
+    flex: 1,
+    marginHorizontal: 4
+  },
+  headerNameInput: {
+    fontSize: 14,
     fontWeight: '700',
+    color: TOKENS.textPrimary,
+    textAlign: 'center',
+    backgroundColor: '#1c1c1e',
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  roomPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#1c1c1e',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    maxWidth: 90
+  },
+  roomPillActive: {
+    backgroundColor: TOKENS.accent,
+    borderColor: TOKENS.accent
+  },
+  roomPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: TOKENS.textPrimary
+  },
+  roomPillTextActive: {
+    color: TOKENS.bg
+  },
+  roomPickerContainer: {
+    marginBottom: 12,
+    backgroundColor: '#161618',
+    borderRadius: 14,
+    padding: 8
+  },
+  roomChipsScroll: {
+    gap: 8,
+    paddingHorizontal: 4
+  },
+  roomChipItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#242426',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)'
+  },
+  roomChipItemActive: {
+    backgroundColor: TOKENS.accent,
+    borderColor: TOKENS.accent
+  },
+  roomChipText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: TOKENS.textSecondary
   },
-  deviceChipTextSelected: {
+  roomChipTextActive: {
     color: TOKENS.bg,
     fontWeight: '800'
   },
-  deviceOptionTextSelected: {
-    color: TOKENS.accent
-  },
-  warningText: {
-    color: TOKENS.error,
-    fontSize: 12
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12
-  },
-  actionOption: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: TOKENS.border,
-    backgroundColor: TOKENS.bg
-  },
-  actionOptionOn: {
-    borderColor: TOKENS.accent,
-    backgroundColor: 'rgba(34, 197, 94, 0.15)'
-  },
-  actionOptionOff: {
-    borderColor: TOKENS.error,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)'
-  },
-  actionOptionText: {
-    color: TOKENS.textPrimary,
-    fontWeight: '700',
-    fontSize: 12
-  },
-  actionOptionTextOn: {
-    color: TOKENS.accent
-  },
-  actionOptionTextOff: {
-    color: TOKENS.error
-  },
-  input: {
-    backgroundColor: TOKENS.bg,
-    borderWidth: 1,
-    borderColor: TOKENS.border,
-    borderRadius: 8,
-    padding: 12,
-    color: TOKENS.textPrimary,
-    fontSize: 14
-  },
-  timeSelectorCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#171717',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  timeSelectorLeftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeSelectorIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  timeSelectorMainText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  timeSelectorSubText: {
-    fontSize: 11,
-    color: TOKENS.textSecondary,
-    marginTop: 2,
-  },
-  wheelModalCard: {
-    width: '90%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    backgroundColor: TOKENS.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 20,
-    overflow: 'hidden',
-  },
-  wheelModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  wheelModalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: TOKENS.textPrimary,
-  },
-  doneWheelBtn: {
-    backgroundColor: TOKENS.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  doneWheelBtnText: {
-    color: TOKENS.bg,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  wheelPickerCard: {
+  inlineWheelWrapper: {
     backgroundColor: '#141414',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255,255,255,0.08)',
     padding: 12,
-    marginTop: 4,
-    marginBottom: 16,
+    marginBottom: 16
   },
-  wheelHeaderBadge: {
+  actionSegmentRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16
+  },
+  actionSegmentBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    gap: 6,
+    paddingVertical: 12,
     borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: 10,
+    backgroundColor: '#1c1c1e',
     borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.2)',
+    borderColor: 'rgba(255,255,255,0.08)'
   },
-  wheelHeaderDayText: {
-    fontSize: 14,
+  actionSegmentBtnOn: {
+    backgroundColor: TOKENS.accent,
+    borderColor: TOKENS.accent
+  },
+  actionSegmentBtnOff: {
+    backgroundColor: TOKENS.error,
+    borderColor: TOKENS.error
+  },
+  actionSegmentText: {
+    fontSize: 12,
     fontWeight: '800',
-    color: '#E5E2E1',
-    letterSpacing: 0.5,
+    color: TOKENS.textPrimary
   },
-  wheelHeaderDot: {
-    fontSize: 14,
-    color: TOKENS.accent,
-    marginHorizontal: 8,
+  actionSegmentTextOn: {
+    color: TOKENS.bg
   },
-  wheelHeaderTimeText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: TOKENS.accent,
-    letterSpacing: 1,
+  actionSegmentTextOff: {
+    color: '#FFF'
   },
-  wheelHeaderPeriodText: {
+  appliancesGridSection: {
+    marginTop: 4,
+    marginBottom: 16
+  },
+  gridHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  gridTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: TOKENS.textSecondary,
+    letterSpacing: 0.8
+  },
+  gridSubtitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: TOKENS.accent
+  },
+  emptyGridState: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#161618',
+    borderRadius: 16
+  },
+  emptyGridText: {
     fontSize: 13,
-    fontWeight: '800',
+    color: TOKENS.textSecondary
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12
+  },
+  applianceCard: {
+    width: '48%',
+    backgroundColor: '#1c1c1e',
+    borderRadius: 18,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.06)'
+  },
+  applianceCardSelected: {
+    backgroundColor: 'rgba(0, 230, 118, 0.12)',
+    borderColor: TOKENS.accent
+  },
+  circleIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#2a2a2c',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10
+  },
+  circleIconContainerSelected: {
+    backgroundColor: TOKENS.accent
+  },
+  applianceCardText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: TOKENS.textPrimary,
+    textAlign: 'center'
+  },
+  applianceCardTextSelected: {
+    color: TOKENS.accent
+  },
+  applianceCardSubtext: {
+    fontSize: 10,
+    color: TOKENS.textSecondary,
+    marginTop: 2
+  },
+  daysSelectorSection: {
+    marginBottom: 20
+  },
+  daysSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: TOKENS.textSecondary,
+    letterSpacing: 0.8,
+    marginBottom: 10
+  },
+  daysRowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  dayCircleBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#1c1c1e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  dayCircleBtnSelected: {
+    backgroundColor: TOKENS.accent,
+    borderColor: TOKENS.accent
+  },
+  dayCircleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: TOKENS.textSecondary
+  },
+  dayCircleTextSelected: {
+    color: TOKENS.bg,
+    fontWeight: '900'
+  },
+  createRuleBtn: {
+    backgroundColor: TOKENS.accent,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: TOKENS.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4
+  },
+  createRuleBtnDisabled: {
+    opacity: 0.5
+  },
+  createRuleBtnText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: TOKENS.bg,
+    letterSpacing: 0.5
   },
   wheelHeaderLabelsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 4,
-    marginBottom: 4,
+    marginBottom: 4
   },
   wheelColTitleHeader: {
     fontSize: 9,
     fontWeight: '800',
     color: TOKENS.textSecondary,
     letterSpacing: 0.8,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   wheelColumnsContainer: {
     flexDirection: 'row',
@@ -1187,7 +1263,7 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 10,
     position: 'relative',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   wheelSelectionHighlight: {
     position: 'absolute',
@@ -1195,97 +1271,16 @@ const styles = StyleSheet.create({
     right: 8,
     top: 53,
     height: 44,
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: 'rgba(0, 230, 118, 0.15)',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(34, 197, 94, 0.4)',
-  },
-  wheelColumnBox: {
-    height: 132,
-    alignItems: 'center',
-  },
-  wheelScrollPadding: {
-    paddingVertical: 44,
-  },
-  wheelCell: {
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  wheelCellText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  wheelCellTextSelected: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: TOKENS.accent,
+    borderColor: 'rgba(0, 230, 118, 0.4)'
   },
   wheelColon: {
     fontSize: 20,
     fontWeight: '900',
     color: TOKENS.accent,
-    alignSelf: 'center',
-  },
-  weekdaysContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6
-  },
-  dayChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: TOKENS.bg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: TOKENS.border
-  },
-  dayChipSelected: {
-    backgroundColor: TOKENS.accent,
-    borderColor: TOKENS.accent
-  },
-  dayChipText: {
-    color: TOKENS.textSecondary,
-    fontSize: 12,
-    fontWeight: '700'
-  },
-  dayChipTextSelected: {
-    color: TOKENS.bg,
-    fontWeight: '800'
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-    marginBottom: 10
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  cancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: TOKENS.border
-  },
-  cancelButtonText: {
-    color: TOKENS.textPrimary,
-    fontWeight: '700'
-  },
-  saveButton: {
-    backgroundColor: TOKENS.accent
-  },
-  saveButtonText: {
-    color: TOKENS.bg,
-    fontWeight: '700'
+    alignSelf: 'center'
   },
   cardActionButtons: {
     flexDirection: 'row',
