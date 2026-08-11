@@ -8,8 +8,11 @@ from backend.routes import users, devices, homes, rooms, schedules, alerts, hist
 from backend import mqtt, admin_ui
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
+import logging
 from backend.database import SessionLocal
 from backend import models
+
+logger = logging.getLogger("main")
 
 # Initialize FastAPI App (v1.0.1 Admin Production)
 app = FastAPI(
@@ -255,8 +258,6 @@ def startup_event():
         
     if is_prod:
         if not secret_key or secret_key == "smartnest_super_secret_key_change_me_in_production":
-            import logging
-            logger = logging.getLogger("UVicorn")
             logger.warning("SECURITY WARNING: Using fallback SECRET_KEY in production environment.")
 
     # Create database tables if they do not exist
