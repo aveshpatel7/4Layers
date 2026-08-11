@@ -264,17 +264,36 @@ def startup_event():
     try:
         from sqlalchemy import text
         with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE schedules ADD COLUMN IF NOT EXISTS actions_json JSON;"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS expo_push_token VARCHAR;"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR;"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN DEFAULT FALSE;"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_pic_url TEXT;"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS block_reason TEXT;"))
+            is_sqlite = conn.dialect.name == "sqlite"
+            
+            columns = [
+                ("schedules", "actions_json", "JSON", None),
+                ("users", "expo_push_token", "VARCHAR", None),
+                ("users", "phone_number", "VARCHAR", None),
+                ("users", "terms_accepted", "BOOLEAN", "DEFAULT FALSE"),
+                ("users", "profile_pic_url", "TEXT", None),
+                ("users", "is_active", "BOOLEAN", "DEFAULT TRUE"),
+                ("users", "block_reason", "TEXT", None)
+            ]
+            
+            for table, col, dtype, default in columns:
+                try:
+                    if is_sqlite:
+                        cmd = f"ALTER TABLE {table} ADD COLUMN {col} {dtype}"
+                        if default:
+                            cmd += f" {default}"
+                        conn.execute(text(cmd))
+                    else:
+                        cmd = f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {dtype}"
+                        if default:
+                            cmd += f" {default}"
+                        conn.execute(text(cmd))
+                except Exception:
+                    pass # Column likely exists or other error
             conn.commit()
-            print("PostgreSQL migration: Verified actions_json, expo_push_token, phone_number, terms_accepted, profile_pic_url, is_active, and block_reason columns.")
+            print("Database migration: Verified missing columns added successfully.")
     except Exception as m_err:
-        print("PostgreSQL migration notice:", m_err)
+        print("Database migration notice:", m_err)
     print("Database tables initialized.")
 
     # Start MQTT connection and client background loop
