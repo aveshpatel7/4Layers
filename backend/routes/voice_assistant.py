@@ -387,6 +387,8 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
     namespace = header.get("namespace")
     name = header.get("name")
 
+    print(f"[ALEXA INCOMING] Namespace: {namespace} | Name: {name} | Payload: {json.dumps(body)}")
+
     # Extract token from HTTP header OR directive scope
     headers = request.headers
     auth_header = headers.get("Authorization", "")
@@ -416,6 +418,8 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
         user = db.query(models.User).first()
 
     devices = _get_user_accessible_devices(db, user)
+
+    response_payload = None
 
     if namespace == "Alexa.Discovery" and name == "Discover":
         endpoints = []
@@ -462,7 +466,7 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
                 ]
             })
 
-        return {
+        response_payload = {
             "event": {
                 "header": {
                     "namespace": "Alexa.Discovery",
@@ -476,10 +480,16 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
 
     elif (namespace == "Alexa" and name == "ReportState") or namespace == "Alexa.ReportState":
         endpoint_id = directive.get("endpoint", {}).get("endpointId")
-        dev = db.query(models.Device).filter(models.Device.id == UUID(endpoint_id)).first() if endpoint_id else None
+        dev = None
+        if endpoint_id:
+            try:
+                dev = db.query(models.Device).filter(models.Device.id == UUID(endpoint_id)).first()
+            except Exception:
+                dev = db.query(models.Device).filter(models.Device.node_id == endpoint_id).first()
 
         if not dev:
-            return {
+            print(f"[ALEXA WARN] Endpoint ID '{endpoint_id}' not found in database.")
+            response_payload = {
                 "event": {
                     "header": {
                         "namespace": "Alexa",
@@ -494,59 +504,68 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
                     }
                 }
             }
+        else:
+            state_dict = dev.current_state or {}
+            if isinstance(state_dict, str):
+                try: state_dict = json.loads(state_dict)
+                except: state_dict = {}
+            
+            power_status = "ON" if str(state_dict.get("status", "OFF")).upper() == "ON" else "OFF"
+            is_reachable = "OK" if dev.is_online else "UNREACHABLE"
+            now_iso = datetime.datetime.utcnow().isoformat() + "Z"
 
-        state_dict = dev.current_state or {}
-        if isinstance(state_dict, str):
-            try: state_dict = json.loads(state_dict)
-            except: state_dict = {}
-        
-        power_status = "ON" if str(state_dict.get("status", "OFF")).upper() == "ON" else "OFF"
-        is_reachable = "OK" if dev.is_online else "UNREACHABLE"
-        now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-
-        res_header = {
-            "namespace": "Alexa",
-            "name": "StateReport",
-            "payloadVersion": "3",
-            "messageId": header.get("messageId")
-        }
-        if header.get("correlationToken"):
-            res_header["correlationToken"] = header.get("correlationToken")
-
-        return {
-            "event": {
-                "header": res_header,
-                "endpoint": {"endpointId": str(dev.id)},
-                "payload": {}
-            },
-            "context": {
-                "properties": [
-                    {
-                        "namespace": "Alexa.PowerController",
-                        "name": "powerState",
-                        "value": power_status,
-                        "timeOfSample": now_iso,
-                        "uncertaintyInMilliseconds": 50
-                    },
-                    {
-                        "namespace": "Alexa.EndpointHealth",
-                        "name": "connectivity",
-                        "value": {"value": is_reachable},
-                        "timeOfSample": now_iso,
-                        "uncertaintyInMilliseconds": 50
-                    }
-                ]
+            res_header = {
+                "namespace": "Alexa",
+                "name": "StateReport",
+                "payloadVersion": "3",
+                "messageId": header.get("messageId")
             }
-        }
+            if header.get("correlationToken"):
+                res_header["correlationToken"] = header.get("correlationToken")
+
+            response_payload = {
+                "event": {
+                    "header": res_header,
+                    "endpoint": {
+                        "scope": {"type": "BearerToken", "token": token or ""},
+                        "endpointId": str(dev.id)
+                    },
+                    "payload": {}
+                },
+                "context": {
+                    "properties": [
+                        {
+                            "namespace": "Alexa.PowerController",
+                            "name": "powerState",
+                            "value": power_status,
+                            "timeOfSample": now_iso,
+                            "uncertaintyInMilliseconds": 50
+                        },
+                        {
+                            "namespace": "Alexa.EndpointHealth",
+                            "name": "connectivity",
+                            "value": {"value": is_reachable},
+                            "timeOfSample": now_iso,
+                            "uncertaintyInMilliseconds": 50
+                        }
+                    ]
+                }
+            }
 
     elif namespace == "Alexa.PowerController":
         endpoint_id = directive.get("endpoint", {}).get("endpointId")
-        dev = db.query(models.Device).filter(models.Device.id == UUID(endpoint_id)).first() if endpoint_id else None
+        dev = None
+        if endpoint_id:
+            try:
+                dev = db.query(models.Device).filter(models.Device.id == UUID(endpoint_id)).first()
+            except Exception:
+                dev = db.query(models.Device).filter(models.Device.node_id == endpoint_id).first()
         
         target_state = "ON" if name == "TurnOn" else "OFF"
         
         if not dev:
-            return {
+            print(f"[ALEXA WARN] Endpoint ID '{endpoint_id}' not found in database for PowerController.")
+            response_payload = {
                 "event": {
                     "header": {
                         "namespace": "Alexa",
@@ -561,69 +580,76 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
                     }
                 }
             }
+        else:
+            state_dict = dev.current_state or {}
+            if isinstance(state_dict, str):
+                try: state_dict = json.loads(state_dict)
+                except: state_dict = {}
+            
+            state_dict["status"] = target_state
+            dev.current_state = state_dict
+            dev.updated_at = datetime.datetime.utcnow()
+            db.commit()
 
-        state_dict = dev.current_state or {}
-        if isinstance(state_dict, str):
-            try: state_dict = json.loads(state_dict)
-            except: state_dict = {}
-        
-        state_dict["status"] = target_state
-        dev.current_state = state_dict
-        dev.updated_at = datetime.datetime.utcnow()
-        db.commit()
+            mqtt.publish_control_message(dev.node_id, state_dict)
 
-        mqtt.publish_control_message(dev.node_id, state_dict)
-
-        now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-        res_header = {
-            "namespace": "Alexa",
-            "name": "Response",
-            "payloadVersion": "3",
-            "messageId": header.get("messageId")
-        }
-        if header.get("correlationToken"):
-            res_header["correlationToken"] = header.get("correlationToken")
-
-        return {
-            "event": {
-                "header": res_header,
-                "endpoint": {"endpointId": str(dev.id)},
-                "payload": {}
-            },
-            "context": {
-                "properties": [
-                    {
-                        "namespace": "Alexa.PowerController",
-                        "name": "powerState",
-                        "value": target_state,
-                        "timeOfSample": now_iso,
-                        "uncertaintyInMilliseconds": 50
-                    },
-                    {
-                        "namespace": "Alexa.EndpointHealth",
-                        "name": "connectivity",
-                        "value": {"value": "OK"},
-                        "timeOfSample": now_iso,
-                        "uncertaintyInMilliseconds": 50
-                    }
-                ]
-            }
-        }
-
-    return {
-        "event": {
-            "header": {
+            now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+            res_header = {
                 "namespace": "Alexa",
-                "name": "ErrorResponse",
+                "name": "Response",
                 "payloadVersion": "3",
                 "messageId": header.get("messageId")
-            },
-            "payload": {
-                "type": "INVALID_DIRECTIVE",
-                "message": f"Unsupported directive: {namespace}.{name}"
+            }
+            if header.get("correlationToken"):
+                res_header["correlationToken"] = header.get("correlationToken")
+
+            response_payload = {
+                "event": {
+                    "header": res_header,
+                    "endpoint": {
+                        "scope": {"type": "BearerToken", "token": token or ""},
+                        "endpointId": str(dev.id)
+                    },
+                    "payload": {}
+                },
+                "context": {
+                    "properties": [
+                        {
+                            "namespace": "Alexa.PowerController",
+                            "name": "powerState",
+                            "value": target_state,
+                            "timeOfSample": now_iso,
+                            "uncertaintyInMilliseconds": 50
+                        },
+                        {
+                            "namespace": "Alexa.EndpointHealth",
+                            "name": "connectivity",
+                            "value": {"value": "OK"},
+                            "timeOfSample": now_iso,
+                            "uncertaintyInMilliseconds": 50
+                        }
+                    ]
+                }
+            }
+
+    if not response_payload:
+        response_payload = {
+            "event": {
+                "header": {
+                    "namespace": "Alexa",
+                    "name": "ErrorResponse",
+                    "payloadVersion": "3",
+                    "messageId": header.get("messageId")
+                },
+                "payload": {
+                    "type": "INVALID_DIRECTIVE",
+                    "message": f"Unsupported directive: {namespace}.{name}"
+                }
             }
         }
-    }
+
+    print(f"[ALEXA OUTGOING] Response: {json.dumps(response_payload)}")
+    return response_payload
 
 # ----------------------------------------------------------------------
 # 4. In-App Natural Voice Command Parser
