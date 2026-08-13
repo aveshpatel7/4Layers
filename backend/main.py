@@ -22,19 +22,27 @@ app = FastAPI(
     version="1.0.1"
 )
 
-# Configure CORS Middleware for all origins, headers, and methods
+# Configure CORS Middleware for authorized origins
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
-if allowed_origins_env and allowed_origins_env != "*":
-    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
-    if "*" not in allowed_origins:
-        allowed_origins.append("*")
+if allowed_origins_env:
+    if allowed_origins_env.strip() == "*":
+        allowed_origins = ["*"]
+    else:
+        allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
 else:
-    allowed_origins = ["*"]
+    allowed_origins = [
+        "https://4layers.in",
+        "https://admin.4layers.in",
+        "http://localhost:8081",
+        "http://localhost:19006",
+        "http://localhost:3000",
+        "*"
+    ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -44,11 +52,10 @@ from fastapi import Request
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     import traceback
-    print(f"[500 Internal Error] Path: {request.url.path} | Error: {exc}\n{traceback.format_exc()}")
+    print(f"[500 Internal Server Error] Path: {request.url.path} | Error: {exc}\n{traceback.format_exc()}", flush=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal Server Error: {str(exc)}"},
-        headers={"Access-Control-Allow-Origin": "*"}
+        content={"detail": "An internal server error occurred. Please try again later."}
     )
 
 # Register routes

@@ -103,7 +103,7 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
     return {"access_token": access_token, "token_type": "bearer"}
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "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")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 PUBLIC_BACKEND_URL = os.getenv("PUBLIC_BACKEND_URL", "https://edabtynvpy.ap-south-1.awsapprunner.com")
 APP_DEEP_LINK_SCHEME = "4layers"
 
@@ -113,7 +113,7 @@ def get_google_callback_url(request: Request) -> str:
         base = "https://" + base[7:]
     return f"{base.rstrip('/')}/api/users/google/callback"
 
-@router.get("/google-login")
+@router.get("/google-login", dependencies=[Depends(auth_rate_limiter)])
 def google_oauth_start(request: Request):
     """
     Server-side Google OAuth start. Redirects the user's browser to Google's

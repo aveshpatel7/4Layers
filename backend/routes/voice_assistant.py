@@ -8,6 +8,7 @@ from uuid import UUID
 
 from backend.database import get_db
 from backend import models, auth, mqtt, schemas
+from backend.rate_limit import auth_rate_limiter
 
 router = APIRouter(tags=["Voice Assistant Integration"])
 
@@ -63,14 +64,14 @@ def _render_login_page(redirect_uri: str = "", state: str = "", client_id: str =
     </html>
     """
 
-@router.get("/oauth/authorize", response_class=HTMLResponse)
+@router.get("/oauth/authorize", response_class=HTMLResponse, dependencies=[Depends(auth_rate_limiter)])
 def oauth_authorize_page(request: Request, client_id: str = "", redirect_uri: str = "", state: str = "", response_type: str = "code"):
     """Render 4Layers OAuth2 login page for Google Home and Alexa Account Linking."""
     print(f"[OAUTH GET AUTHORIZE] client_id={client_id} | redirect_uri={redirect_uri} | state={state}")
     html = _render_login_page(redirect_uri, state, client_id, response_type)
     return HTMLResponse(content=html)
 
-@router.post("/oauth/authorize")
+@router.post("/oauth/authorize", dependencies=[Depends(auth_rate_limiter)])
 async def oauth_authorize_submit(
     request: Request,
     db: Session = Depends(get_db)
@@ -133,7 +134,7 @@ async def oauth_authorize_submit(
     
     return JSONResponse(content={"access_token": access_token, "token_type": "Bearer"})
 
-@router.api_route("/oauth/token", methods=["GET", "POST"])
+@router.api_route("/oauth/token", methods=["GET", "POST"], dependencies=[Depends(auth_rate_limiter)])
 async def oauth_token_endpoint(request: Request):
     """Exchange authorization code or refresh token for OAuth access token (Universal format support)."""
     form_data = {}

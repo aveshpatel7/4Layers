@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status
@@ -11,7 +12,11 @@ from backend.database import get_db
 from backend import models
 
 # Authentication Configuration
+auth_logger = logging.getLogger("auth")
 SECRET_KEY = os.getenv("SECRET_KEY", "smartnest_super_secret_key_change_me_in_production")
+if os.getenv("ENVIRONMENT") == "production" and (not os.getenv("SECRET_KEY") or SECRET_KEY == "smartnest_super_secret_key_change_me_in_production"):
+    auth_logger.warning("SECURITY ALERT: Using default fallback SECRET_KEY in production! Please set SECRET_KEY in environment variables.")
+
 ALGORITHM = "HS256"
 # Set token expiration to 1 Year (525,600 minutes) so users stay logged in like SmartLife/Tuya apps
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "525600"))

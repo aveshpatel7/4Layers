@@ -12,6 +12,9 @@ dist/
 # SQLite databases (local databases containing user data)
 smartnest.db
 test_smartnest.db
+backend.db.sqlite
+*.db
+*.sqlite
 *.db-journal
 *.db-wal
 *.db-shm
