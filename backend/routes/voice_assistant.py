@@ -15,10 +15,14 @@ router = APIRouter(tags=["Voice Assistant Integration"])
 # 1. OAuth2 Account Linking Endpoints (for Google Home & Alexa)
 # ----------------------------------------------------------------------
 
-@router.get("/oauth/authorize", response_class=HTMLResponse)
-def oauth_authorize_page(request: Request, client_id: str = "", redirect_uri: str = "", state: str = "", response_type: str = "code"):
-    """Render 4Layers OAuth2 login page for Google Home and Alexa Account Linking."""
-    html_content = f"""
+def _render_login_page(redirect_uri: str = "", state: str = "", client_id: str = "", response_type: str = "code", error_msg: str = None):
+    error_html = f"""
+    <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #EF4444; color: #EF4444; padding: 12px; border-radius: 10px; font-size: 13px; text-align: center; margin-bottom: 16px;">
+        {error_msg}
+    </div>
+    """ if error_msg else ""
+
+    return f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -29,8 +33,8 @@ def oauth_authorize_page(request: Request, client_id: str = "", redirect_uri: st
             .card {{ background: #1C1B1B; padding: 32px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
             h2 {{ color: #22C55E; margin-top: 0; text-align: center; font-size: 24px; }}
             p {{ color: #9CA3AF; text-align: center; font-size: 14px; margin-bottom: 24px; }}
-            input {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #161515; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; box-sizing: border-box; }}
-            button {{ width: 100%; padding: 14px; background: #22C55E; border: none; border-radius: 12px; color: #000; font-weight: bold; font-size: 16px; cursor: pointer; }}
+            input {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #161515; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 14px; }}
+            button {{ width: 100%; padding: 14px; background: #22C55E; border: none; border-radius: 12px; color: #000; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 8px; }}
             button:hover {{ background: #16a34a; }}
             .logo {{ text-align: center; font-size: 28px; font-weight: bold; margin-bottom: 8px; color: #fff; }}
         </style>
@@ -39,82 +43,124 @@ def oauth_authorize_page(request: Request, client_id: str = "", redirect_uri: st
         <div class="card">
             <div class="logo">4Layers <span style="color:#22C55E;">IoT</span></div>
             <p>Link your account with Google Assistant & Alexa</p>
+            {error_html}
             <form action="/oauth/authorize" method="post">
                 <input type="hidden" name="redirect_uri" value="{redirect_uri}">
                 <input type="hidden" name="state" value="{state}">
                 <input type="hidden" name="client_id" value="{client_id}">
+                <input type="hidden" name="response_type" value="{response_type}">
                 
-                <label>Email Address</label>
+                <label style="font-size: 13px; color: #9CA3AF;">Email Address</label>
                 <input type="email" name="username" required placeholder="your@email.com">
                 
-                <label>Password</label>
+                <label style="font-size: 13px; color: #9CA3AF;">Password</label>
                 <input type="password" name="password" required placeholder="••••••••">
                 
-                <button type="submit">Authorize & Link</button>
+                <button type="submit">Authorize & Link Account</button>
             </form>
         </div>
     </body>
     </html>
     """
-    return HTMLResponse(content=html_content)
+
+@router.get("/oauth/authorize", response_class=HTMLResponse)
+def oauth_authorize_page(request: Request, client_id: str = "", redirect_uri: str = "", state: str = "", response_type: str = "code"):
+    """Render 4Layers OAuth2 login page for Google Home and Alexa Account Linking."""
+    print(f"[OAUTH GET AUTHORIZE] client_id={client_id} | redirect_uri={redirect_uri} | state={state}")
+    html = _render_login_page(redirect_uri, state, client_id, response_type)
+    return HTMLResponse(content=html)
 
 @router.post("/oauth/authorize")
-def oauth_authorize_submit(
-    username: str = Form(...),
-    password: str = Form(...),
-    redirect_uri: str = Form(""),
-    state: str = Form(""),
-    client_id: str = Form(""),
+async def oauth_authorize_submit(
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Authenticate user and issue auth code / token for OAuth linking."""
-    user = db.query(models.User).filter(models.User.email == username.strip().lower()).first()
+    try:
+        form = await request.form()
+        form_data = dict(form)
+    except Exception:
+        form_data = {}
+
+    username = str(form_data.get("username", "")).strip().lower()
+    password = str(form_data.get("password", ""))
+    redirect_uri = str(form_data.get("redirect_uri", ""))
+    state = str(form_data.get("state", ""))
+    client_id = str(form_data.get("client_id", ""))
+    response_type = str(form_data.get("response_type", "code"))
+
+    print(f"[OAUTH POST AUTHORIZE] User attempt: {username} | redirect_uri: {redirect_uri}")
+
+    user = db.query(models.User).filter(models.User.email == username).first() if username else None
     if not user or not auth.verify_password(password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        print(f"[OAUTH AUTHORIZE FAIL] Invalid credentials for: {username}")
+        html = _render_login_page(redirect_uri, state, client_id, response_type, error_msg="Invalid email address or password. Please try again.")
+        return HTMLResponse(content=html, status_code=200)
     
     access_token = auth.create_access_token(data={"sub": str(user.id)})
     
-    # Record Google Home linking event for dynamic mobile UI state
+    # Record linking events for both Alexa and Google Home in DB
     try:
-        existing_alert = db.query(models.Alert).filter(
-            models.Alert.user_id == user.id,
-            models.Alert.type == "google_home_linked"
-        ).first()
-        if not existing_alert:
-            new_alert = models.Alert(
-                user_id=user.id,
-                type="google_home_linked",
-                message="Google Assistant successfully linked to your 4Layers account.",
-                is_read=True
-            )
-            db.add(new_alert)
-            db.commit()
+        for alert_type, msg in [
+            ("alexa_linked", "Amazon Alexa successfully linked to your 4Layers account."),
+            ("google_home_linked", "Google Assistant successfully linked to your 4Layers account.")
+        ]:
+            existing_alert = db.query(models.Alert).filter(
+                models.Alert.user_id == user.id,
+                models.Alert.type == alert_type
+            ).first()
+            if not existing_alert:
+                new_alert = models.Alert(
+                    user_id=user.id,
+                    type=alert_type,
+                    message=msg,
+                    is_read=True
+                )
+                db.add(new_alert)
+        db.commit()
     except Exception as e:
         print("[OAuth] Error saving linking alert:", e)
 
     if redirect_uri:
-        delimiter = "&" if "?" in redirect_uri else "?"
-        target_url = f"{redirect_uri}{delimiter}code={access_token}&state={state}"
+        if response_type in ("token", "implicit"):
+            target_url = f"{redirect_uri}#access_token={access_token}&token_type=Bearer&state={state}"
+        else:
+            delimiter = "&" if "?" in redirect_uri else "?"
+            target_url = f"{redirect_uri}{delimiter}code={access_token}&state={state}"
+        
+        print(f"[OAUTH AUTHORIZE SUCCESS] User '{user.username}' authorized! Redirecting to: {target_url}")
         return RedirectResponse(url=target_url, status_code=302)
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return JSONResponse(content={"access_token": access_token, "token_type": "Bearer"})
 
-@router.post("/oauth/token")
-def oauth_token_endpoint(
-    grant_type: str = Form(...),
-    code: str = Form(None),
-    client_id: str = Form(None),
-    client_secret: str = Form(None),
-    refresh_token: str = Form(None)
-):
-    """Exchange authorization code or refresh token for OAuth access token."""
-    token = code or refresh_token or "demo_token"
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "expires_in": 3600 * 24 * 30, # 30 days
-        "refresh_token": token
-    }
+@router.api_route("/oauth/token", methods=["GET", "POST"])
+async def oauth_token_endpoint(request: Request):
+    """Exchange authorization code or refresh token for OAuth access token (Universal format support)."""
+    form_data = {}
+    if request.method == "POST":
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            try: form_data = await request.json()
+            except: pass
+        else:
+            try:
+                form = await request.form()
+                form_data = dict(form)
+            except: pass
+
+    query_params = dict(request.query_params)
+    combined = {**query_params, **form_data}
+
+    code = combined.get("code") or combined.get("refresh_token") or "demo_token"
+    grant_type = combined.get("grant_type") or "authorization_code"
+
+    print(f"[OAUTH TOKEN SUCCESS] Issued token for grant_type={grant_type}, code={code[:15]}...")
+    return JSONResponse(content={
+        "access_token": code,
+        "token_type": "Bearer",
+        "expires_in": 2592000, # 30 days
+        "refresh_token": code
+    })
 
 @router.get("/api/voice/status")
 def get_voice_integration_status(current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
