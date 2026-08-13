@@ -148,3 +148,11 @@ class PendingInvitation(Base):
     # Relationships
     invited_by_user = relationship("User")
 
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(String, nullable=False)
+
+

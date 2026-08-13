@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -100,6 +100,31 @@ def serve_admin_logo():
     if ADMIN_LOGO_BYTES:
         return Response(content=ADMIN_LOGO_BYTES, media_type="image/png", headers=NO_CACHE_HEADERS)
     return Response(status_code=404)
+
+from backend.database import engine, Base, get_db
+
+@app.get("/api/app/version")
+def get_app_version(db=Depends(get_db)):
+    """Public endpoint to check the latest mobile app version & OTA update settings."""
+    def get_setting(key: str, default: str) -> str:
+        try:
+            row = db.query(models.AppSetting).filter(models.AppSetting.key == key).first()
+            if row and row.value is not None:
+                return row.value
+        except Exception:
+            pass
+        return os.getenv(key.upper(), default)
+
+    latest_version = get_setting("latest_version", "1.0.0")
+    force_update_str = get_setting("force_update", "false")
+    force_update = force_update_str.lower() in ["true", "1", "yes"]
+    apk_url = get_setting("apk_url", "https://4layers.in/latest.apk")
+
+    return {
+        "latest_version": latest_version,
+        "force_update": force_update,
+        "apk_url": apk_url
+    }
 
 scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
 
@@ -263,6 +288,12 @@ def startup_event():
     # Create database tables if they do not exist
     Base.metadata.create_all(bind=engine)
     
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR PRIMARY KEY, value VARCHAR);"))
+    except Exception as table_err:
+        logger.info("Table creation status for app_settings: %s", table_err)
+
     columns = [
         ("schedules", "actions_json", "JSON", None),
         ("users", "expo_push_token", "VARCHAR", None),

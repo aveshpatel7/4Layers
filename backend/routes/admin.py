@@ -557,3 +557,58 @@ async def upload_firmware_file(file: UploadFile = File(...)):
         "latest_url": "/firmware/latest.bin",
         "named_url": f"/firmware/{filename}"
     }
+
+
+class AppVersionUpdatePayload(BaseModel):
+    latest_version: str
+    force_update: bool = False
+    apk_url: str = "https://4layers.in/latest.apk"
+
+@router.get("/app/version")
+def admin_get_app_version(db: Session = Depends(get_db)):
+    """Retrieve current mobile app OTA version settings for admin control."""
+    def get_setting(key: str, default: str) -> str:
+        try:
+            row = db.query(models.AppSetting).filter(models.AppSetting.key == key).first()
+            if row and row.value is not None:
+                return row.value
+        except Exception:
+            pass
+        return os.getenv(key.upper(), default)
+
+    return {
+        "latest_version": get_setting("latest_version", "1.0.0"),
+        "force_update": get_setting("force_update", "false").lower() in ["true", "1", "yes"],
+        "apk_url": get_setting("apk_url", "https://4layers.in/latest.apk")
+    }
+
+@router.post("/app/version")
+def admin_update_app_version(payload: AppVersionUpdatePayload, db: Session = Depends(get_db)):
+    """Update mobile app OTA version settings."""
+    settings_map = {
+        "latest_version": payload.latest_version.strip(),
+        "force_update": "true" if payload.force_update else "false",
+        "apk_url": payload.apk_url.strip()
+    }
+    for key, val in settings_map.items():
+        try:
+            row = db.query(models.AppSetting).filter(models.AppSetting.key == key).first()
+            if not row:
+                row = models.AppSetting(key=key, value=val)
+                db.add(row)
+            else:
+                row.value = val
+                db.add(row)
+        except Exception as e:
+            logger.error(f"Error updating AppSetting {key}: {e}")
+    db.commit()
+    return {
+        "status": "SUCCESS",
+        "message": "App version settings updated successfully",
+        "data": {
+            "latest_version": payload.latest_version.strip(),
+            "force_update": payload.force_update,
+            "apk_url": payload.apk_url.strip()
+        }
+    }
+

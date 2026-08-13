@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo, useReducer, useRef } from 'react';
-import { View, ActivityIndicator, Platform, BackHandler } from 'react-native';
+import { View, ActivityIndicator, Platform, BackHandler, Linking, Alert } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
+import * as Application from 'expo-application';
+import * as FileSystem from 'expo-file-system';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 // Global Drawer Wrapper & Banner
 import GlobalDrawerWrapper from '../components/GlobalDrawerWrapper';
@@ -14,7 +17,22 @@ import CustomAppModal from '../components/CustomAppModal';
 
 // Auth Context
 import { AuthContext } from '../context/AuthContext';
-import { registerUnauthorizedHandler, registerBlockedHandler } from '../api/client';
+import apiClient, { registerUnauthorizedHandler, registerBlockedHandler } from '../api/client';
+
+const isVersionGreater = (latest, current) => {
+  if (!latest || !current) return false;
+  const parse = (v) => String(v).replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const l = parse(latest);
+  const c = parse(current);
+  const maxLen = Math.max(l.length, c.length);
+  for (let i = 0; i < maxLen; i++) {
+    const lNum = l[i] || 0;
+    const cNum = c[i] || 0;
+    if (lNum > cNum) return true;
+    if (lNum < cNum) return false;
+  }
+  return false;
+};
 
 // Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -130,6 +148,88 @@ export default function AppNavigator() {
   const [userData, setUserData] = useState(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
   const [blockedReason, setBlockedReason] = useState(null);
+
+  // In-App OTA Update State
+  const [updateModalInfo, setUpdateModalInfo] = useState(null);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState(0);
+
+  // OTA Version Check on launch
+  useEffect(() => {
+    const checkAppVersion = async () => {
+      try {
+        const currentVersion = Application.nativeApplicationVersion || '1.0.0';
+        console.log(`[OTA Check] Local App Version: ${currentVersion}`);
+        const res = await apiClient.get('/api/app/version');
+        if (res.data && res.data.latest_version) {
+          const { latest_version, force_update, apk_url } = res.data;
+          console.log(`[OTA Check] Server Version: ${latest_version}, Force: ${force_update}, URL: ${apk_url}`);
+          if (isVersionGreater(latest_version, currentVersion)) {
+            setUpdateModalInfo({
+              latest_version,
+              force_update: !!force_update,
+              apk_url: apk_url || 'https://4layers.in/latest.apk',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[OTA Check] Version check failed:', err.message);
+      }
+    };
+
+    checkAppVersion();
+  }, []);
+
+  const handleDownloadAndInstall = async () => {
+    if (!updateModalInfo || !updateModalInfo.apk_url) return;
+
+    if (Platform.OS !== 'android') {
+      Linking.openURL(updateModalInfo.apk_url);
+      return;
+    }
+
+    try {
+      setIsDownloadingUpdate(true);
+      setUpdateProgress(0);
+
+      const fileUri = FileSystem.cacheDirectory + '4layers_update.apk';
+
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      if (fileInfo.exists) {
+        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      }
+
+      const downloadResumable = FileSystem.createDownloadResumable(
+        updateModalInfo.apk_url,
+        fileUri,
+        {},
+        (progressData) => {
+          if (progressData.totalBytesExpectedToWrite > 0) {
+            const pct = progressData.totalBytesWritten / progressData.totalBytesExpectedToWrite;
+            setUpdateProgress(pct);
+          }
+        }
+      );
+
+      const result = await downloadResumable.downloadAsync();
+      setIsDownloadingUpdate(false);
+
+      if (result && result.uri) {
+        const contentUri = await FileSystem.getContentUriAsync(result.uri);
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          type: 'application/vnd.android.package-archive',
+        });
+      } else {
+        Alert.alert('Update Failed', 'Downloaded file is invalid. Please try again.');
+      }
+    } catch (error) {
+      console.error('[OTA UPDATE ERROR]', error);
+      setIsDownloadingUpdate(false);
+      Alert.alert('Update Error', 'Could not download update. Please check your internet connection.');
+    }
+  };
 
   const [state, dispatch] = React.useReducer(
     (prevState, action) => {
@@ -441,6 +541,25 @@ export default function AppNavigator() {
             BackHandler.exitApp();
           }
         }}
+      />
+
+      <CustomAppModal
+        visible={!!updateModalInfo}
+        title="Update Available"
+        message={
+          isDownloadingUpdate
+            ? `Downloading new version... ${Math.round(updateProgress * 100)}%\n\nPlease wait while the APK file is downloaded to your device.`
+            : `A new version (${updateModalInfo?.latest_version || '2.0.0'}) of 4Layers is available. Please update to get the latest features and bug fixes.`
+        }
+        iconName="cloud-download-outline"
+        primaryText={isDownloadingUpdate ? `${Math.round(updateProgress * 100)}%` : "Update Now"}
+        secondaryText={updateModalInfo?.force_update ? null : "Later"}
+        onPrimary={isDownloadingUpdate ? () => {} : handleDownloadAndInstall}
+        onSecondary={
+          updateModalInfo?.force_update || isDownloadingUpdate
+            ? null
+            : () => setUpdateModalInfo(null)
+        }
       />
     </AuthContext.Provider>
   );
