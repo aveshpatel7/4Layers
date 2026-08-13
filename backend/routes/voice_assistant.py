@@ -240,7 +240,15 @@ async def google_fulfillment(request: Request, db: Session = Depends(get_db)):
                     "ordered": True
                 }
 
-            google_devices.append({
+            room_hint = None
+            if dev.room and dev.room.name:
+                room_hint = dev.room.name
+            elif dev.room_id:
+                room_obj = db.query(models.Room).filter(models.Room.id == dev.room_id).first()
+                if room_obj and room_obj.name:
+                    room_hint = room_obj.name
+
+            dev_payload = {
                 "id": str(dev.id),
                 "type": dev_type,
                 "traits": traits,
@@ -248,7 +256,11 @@ async def google_fulfillment(request: Request, db: Session = Depends(get_db)):
                 "willReportState": True,
                 "attributes": attributes,
                 "deviceInfo": {"manufacturer": "4Layers IoT", "model": "4L-NODE-ESP32"}
-            })
+            }
+            if room_hint:
+                dev_payload["roomHint"] = room_hint
+
+            google_devices.append(dev_payload)
 
         return {
             "requestId": request_id,
