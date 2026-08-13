@@ -421,7 +421,13 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
                 "friendlyName": dev.name,
                 "description": f"4Layers {category} in {dev.node_id}",
                 "displayCategories": [category],
+                "cookie": {},
                 "capabilities": [
+                    {
+                        "type": "AlexaInterface",
+                        "interface": "Alexa",
+                        "version": "3"
+                    },
                     {
                         "type": "AlexaInterface",
                         "interface": "Alexa.PowerController",
