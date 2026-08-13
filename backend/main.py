@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 from backend.database import engine, Base
+from sqlalchemy import text
 from backend.routes import users, devices, homes, rooms, schedules, alerts, history, voice_assistant, admin, sharing
 from backend import mqtt, admin_ui
 from apscheduler.schedulers.background import BackgroundScheduler

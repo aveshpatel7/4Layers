@@ -97,62 +97,80 @@ def on_message(client, userdata, msg):
         # Parse topic: home/device/{node_id}/status
         parts = msg.topic.split('/')
         if len(parts) == 4 and parts[0] == "home" and parts[1] == "device" and parts[3] == "status":
-            node_id = parts[2]
+            raw_node_id = parts[2]
             
             # 1. Strict JSON payload validation
             payload_str = msg.payload.decode("utf-8").strip()
             try:
                 state_data = json.loads(payload_str)
             except json.JSONDecodeError as err:
-                logger.error("Invalid JSON payload dropped on node %s: %s (Error: %s)", node_id, payload_str, err)
+                logger.error("Invalid JSON payload dropped on node %s: %s (Error: %s)", raw_node_id, payload_str, err)
                 return
             
             if not isinstance(state_data, dict):
-                logger.error("Dropped payload on node %s; must be a JSON object: %s", node_id, payload_str)
+                logger.error("Dropped payload on node %s; must be a JSON object: %s", raw_node_id, payload_str)
                 return
 
-            # Target node determination
-            target_node_id = node_id
-            if "channel" in state_data:
-                target_node_id = f"{node_id}_{state_data['channel']}"
+            # Extract base node ID (e.g., '4L_123456' from '4L_123456_1' or '4L_123456')
+            parts_node = raw_node_id.rsplit('_', 1)
+            if len(parts_node) == 2 and parts_node[1].isdigit():
+                base_node_id = parts_node[0]
+            else:
+                base_node_id = raw_node_id
 
             # Update database in callback thread
             db: Session = SessionLocal()
             try:
+                # 2. LWT Handling: check if abrupt disconnect or offline LWT arrived
+                if state_data.get("status") == "OFFLINE":
+                    all_chan_devices = db.query(models.Device).filter(
+                        (models.Device.node_id == base_node_id) | 
+                        (models.Device.node_id.like(f"{base_node_id}_%"))
+                    ).all()
+
+                    if all_chan_devices:
+                        for device in all_chan_devices:
+                            was_online = device.is_online
+                            device.is_online = False
+                            device.updated_at = datetime.utcnow()
+                            db.add(device)
+
+                            if was_online:
+                                # Log history
+                                history_entry = models.DeviceHistory(
+                                    device_id=device.id,
+                                    change_type="status_confirmed",
+                                    previous_state=device.current_state or {},
+                                    new_state={"status": "OFFLINE"}
+                                )
+                                db.add(history_entry)
+
+                                # Create alert if home owner exists
+                                if device.home and device.home.owner_id:
+                                    alert_entry = models.Alert(
+                                        user_id=device.home.owner_id,
+                                        device_id=device.id,
+                                        type="device_offline",
+                                        message=f"Smart Nest Device '{device.name}' is now OFFLINE.",
+                                        is_read=False
+                                    )
+                                    db.add(alert_entry)
+
+                        db.commit()
+                        logger.info("LWT Offline handled: Marked %d channel devices OFFLINE for node %s (DB records & user mappings preserved).", len(all_chan_devices), base_node_id)
+                    else:
+                        logger.warning("LWT Offline received for node %s, but no matching devices found in DB.", base_node_id)
+                    return
+
+                # Target node determination for normal status updates
+                target_node_id = raw_node_id
+                if "channel" in state_data:
+                    target_node_id = f"{base_node_id}_{state_data['channel']}"
+
                 device = db.query(models.Device).filter(models.Device.node_id == target_node_id).first()
                 
                 if device:
                     device.last_seen = datetime.utcnow()
-                    
-                    # 2. LWT Handling: check if offline LWT arrived
-                    if state_data.get("status") == "OFFLINE":
-                        device.is_online = False
-                        device.updated_at = datetime.utcnow()
-                        db.add(device)
-
-                        # Log history
-                        history_entry = models.DeviceHistory(
-                            device_id=device.id,
-                            change_type="status_confirmed",
-                            previous_state=device.current_state or {},
-                            new_state={"status": "OFFLINE"}
-                        )
-                        db.add(history_entry)
-
-                        # Create alert
-                        alert_entry = models.Alert(
-                            user_id=device.home.owner_id,
-                            device_id=device.id,
-                            type="device_offline",
-                            message=f"Smart Nest Device '{device.name}' is now OFFLINE.",
-                            is_read=False
-                        )
-                        db.add(alert_entry)
-                        db.commit()
-                        logger.info("LWT Offline handled: Device node %s marked offline.", target_node_id)
-                        return
-
-                    # Normal status confirmation handling
                     previous_state = device.current_state or {}
                     was_offline = not device.is_online
                     
@@ -180,7 +198,7 @@ def on_message(client, userdata, msg):
                         )
                         db.add(history_entry)
 
-                        if was_offline:
+                        if was_offline and device.home and device.home.owner_id:
                             alert_entry = models.Alert(
                                 user_id=device.home.owner_id,
                                 device_id=device.id,
