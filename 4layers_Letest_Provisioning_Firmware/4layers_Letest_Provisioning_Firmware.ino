@@ -679,27 +679,51 @@ void setup() {
     }
   }
 
-  // 4. Retrieve saved WiFi configurations
+  // 4. Retrieve saved WiFi configurations (Read-Only mode = true for NVS safety)
   preferences.begin("wifi", true);
   ssid = preferences.getString("ssid", "");
   password = preferences.getString("pass", "");
   preferences.end();
 
-  // 5. Connect WiFi or start configuration portal
+  // 5. Resilient WiFi Connection with 3 Retries (20-second timeout per attempt)
   if (ssid.length() > 0) {
-    Serial.printf("Attempting WiFi Connection to saved network: %s\n", ssid.c_str());
+    Serial.printf("Saved WiFi credentials found for SSID: %s\n", ssid.c_str());
     WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid.c_str(), password.c_str());
-    
-    int retries = 0;
-    while (WiFi.status() != WL_CONNECTED && retries < 20) { // wait up to 10s
-      delay(500);
-      Serial.print(".");
-      digitalWrite(STATUS_LED, !digitalRead(STATUS_LED)); // slow toggle
-      retries++;
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
+
+    bool connected = false;
+    const int MAX_ATTEMPTS = 3;
+    const int TIMEOUT_PER_ATTEMPT_SECONDS = 20;
+
+    for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      Serial.printf("[WiFi] Attempt %d/%d: Connecting to '%s'...\n", attempt, MAX_ATTEMPTS, ssid.c_str());
+      
+      WiFi.disconnect(true);
+      delay(200);
+      WiFi.begin(ssid.c_str(), password.c_str());
+
+      int retries = 0;
+      int max_retries = TIMEOUT_PER_ATTEMPT_SECONDS * 2; // 500ms steps -> 20 seconds
+      while (WiFi.status() != WL_CONNECTED && retries < max_retries) {
+        delay(500);
+        Serial.print(".");
+        digitalWrite(STATUS_LED, !digitalRead(STATUS_LED)); // toggle LED
+        retries++;
+      }
+      Serial.println();
+
+      if (WiFi.status() == WL_CONNECTED) {
+        connected = true;
+        break;
+      }
+
+      Serial.printf("[WiFi] Attempt %d failed. Waiting 3 seconds before next retry...\n", attempt);
+      digitalWrite(STATUS_LED, HIGH);
+      delay(3000);
     }
-    
-    if (WiFi.status() == WL_CONNECTED) {
+
+    if (connected && WiFi.status() == WL_CONNECTED) {
       Serial.println("\nWiFi Connected Successfully!");
       Serial.print("Local IP Address: ");
       Serial.println(WiFi.localIP());
@@ -717,7 +741,7 @@ void setup() {
       client.setBufferSize(1024);
       client.setCallback(callback);
     } else {
-      Serial.println("\nConnection Timeout. Reverting to Setup Mode AP.");
+      Serial.println("\nAll 3 WiFi Connection Attempts Failed. Reverting to Setup Mode AP.");
       startSetupPortal();
     }
   } else {
