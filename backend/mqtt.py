@@ -283,3 +283,6 @@ def publish_message(topic: str, payload: dict | str):
         logger.info("Enqueued MQTT publish to topic %s: %s", topic, payload_str)
     except Exception as e:
         logger.error("Failed to enqueue MQTT publish to %s: %s", topic, e)
+
+# Backward-compatibility alias
+publish_device_control = publish_control_message

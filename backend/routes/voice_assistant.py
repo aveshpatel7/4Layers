@@ -285,7 +285,7 @@ async def google_fulfillment(request: Request, db: Session = Depends(get_db)):
         payload_commands = inputs[0].get("payload", {}).get("commands", [])
 
         for cmd in payload_commands:
-            target_ids = [d["id"] for d in cmd.get("devices", [])]
+            target_ids = [d["id"] for d in cmd.get("devices", []) if "id" in d]
             execution_list = cmd.get("execution", [])
 
             for exec_item in execution_list:
@@ -293,18 +293,34 @@ async def google_fulfillment(request: Request, db: Session = Depends(get_db)):
                 params = exec_item.get("params", {})
 
                 for dev_id in target_ids:
-                    dev = db.query(models.Device).filter(models.Device.id == UUID(dev_id)).first()
+                    dev = None
+                    try:
+                        dev_uuid = UUID(str(dev_id))
+                        dev = db.query(models.Device).filter(models.Device.id == dev_uuid).first()
+                    except Exception as e:
+                        logger.error("[Google Fulfillment] Invalid UUID or DB lookup error for dev_id %s: %s", dev_id, e)
+                        dev = None
+
                     if dev:
                         state_dict = dev.current_state or {}
                         if isinstance(state_dict, str):
-                            try: state_dict = json.loads(state_dict)
-                            except: state_dict = {}
+                            try:
+                                state_dict = json.loads(state_dict)
+                            except Exception:
+                                state_dict = {}
+                        elif not isinstance(state_dict, dict):
+                            state_dict = {}
+
+                        state_dict = dict(state_dict)
 
                         if command_name == "action.devices.commands.OnOff":
-                            new_on = params.get("on", False)
+                            new_on = bool(params.get("on", False))
                             state_dict["status"] = "ON" if new_on else "OFF"
                         elif command_name == "action.devices.commands.SetFanSpeed":
-                            speed_val = int(params.get("fanSpeed", 1))
+                            try:
+                                speed_val = int(params.get("fanSpeed", 1))
+                            except (ValueError, TypeError):
+                                speed_val = 1
                             state_dict["value"] = speed_val
                             if speed_val == 0:
                                 state_dict["status"] = "OFF"
@@ -312,19 +328,31 @@ async def google_fulfillment(request: Request, db: Session = Depends(get_db)):
                                 state_dict["status"] = "ON"
 
                         dev.current_state = state_dict
+                        from sqlalchemy.orm.attributes import flag_modified
+                        flag_modified(dev, "current_state")
                         db.commit()
 
-                        # Publish MQTT command to physical board
-                        mqtt.publish_device_control(dev.node_id, state_dict)
+                        # Publish MQTT command asynchronously / non-blockingly
+                        mqtt.publish_control_message(dev.node_id, state_dict)
+
+                        is_on = state_dict.get("status") in ["ON", True, 1]
+                        res_states = {
+                            "on": is_on,
+                            "online": True
+                        }
+                        if dev.node_id and dev.node_id.endswith('_5'):
+                            res_states["currentFanSpeedSetting"] = str(state_dict.get("value", 1))
 
                         commands_res.append({
                             "ids": [str(dev.id)],
                             "status": "SUCCESS",
-                            "states": {
-                                "on": state_dict.get("status") == "ON",
-                                "currentFanSpeedSetting": str(state_dict.get("value", 1)),
-                                "online": True
-                            }
+                            "states": res_states
+                        })
+                    else:
+                        commands_res.append({
+                            "ids": [str(dev_id)],
+                            "status": "ERROR",
+                            "errorCode": "deviceNotFound"
                         })
 
         return {
@@ -423,7 +451,7 @@ async def alexa_fulfillment(request: Request, db: Session = Depends(get_db)):
             dev.current_state = state_dict
             db.commit()
 
-            mqtt.publish_device_control(dev.node_id, state_dict)
+            mqtt.publish_control_message(dev.node_id, state_dict)
 
             return {
                 "event": {
@@ -521,7 +549,7 @@ def process_voice_command(
         if updated:
             dev.current_state = state_dict
             modified_devices.append(dev)
-            mqtt.publish_device_control(dev.node_id, state_dict)
+            mqtt.publish_control_message(dev.node_id, state_dict)
 
     db.commit()
 
