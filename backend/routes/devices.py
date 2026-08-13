@@ -129,17 +129,22 @@ def get_devices(
             conditions.append(models.Device.node_id.like(f"{nid}_%"))
         shared_devices = db.query(models.Device).filter(or_(*conditions)).all()
 
-    # Combine and deduplicate by device ID
-    device_map = {d.id: d for d in owned_devices + shared_devices}
+    # Combine and deduplicate by string representation of device ID and node_id
+    device_map = {}
+    for d in owned_devices + shared_devices:
+        device_map[str(d.id)] = d
 
-    valid_devices = []
+    valid_devices_map = {}
     for d in device_map.values():
         if d.node_id and "_" in d.node_id:
             suffix = d.node_id.rsplit('_', 1)[-1]
             if suffix.isdigit() and int(suffix) > 6:
                 continue
-        valid_devices.append(d)
+        # Ensure node_id uniqueness across final list
+        if d.node_id not in valid_devices_map:
+            valid_devices_map[d.node_id] = d
     
+    valid_devices = list(valid_devices_map.values())
     valid_devices.sort(key=lambda x: x.node_id or "")
     return valid_devices
 

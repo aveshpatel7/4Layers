@@ -201,8 +201,11 @@ export default function DashboardScreen({ navigation }) {
           }
         });
         
+        // Deduplicate array by device id as a bulletproof frontend safety net
+        const uniqueDevicesList = Array.from(new Map(formattedList.map(d => [d.id, d])).values());
+
         // Sort devices by node_id to ensure stable ordering in the dashboard
-        formattedList.sort((a, b) => {
+        uniqueDevicesList.sort((a, b) => {
           if (!a.node_id || !b.node_id) return 0;
           return a.node_id.localeCompare(b.node_id, undefined, { numeric: true, sensitivity: 'base' });
         });
@@ -210,7 +213,7 @@ export default function DashboardScreen({ navigation }) {
         const now = Date.now();
         setDevices((prev) => {
           // Merge with prev to respect active optimistic toggle locks (within 2 seconds)
-          return formattedList.map(newDev => {
+          return uniqueDevicesList.map(newDev => {
             const lockTime = toggleLockRef.current[newDev.id];
             if (lockTime && (now - lockTime < 2000)) {
               const existingDev = prev.find(p => p.id === newDev.id);
