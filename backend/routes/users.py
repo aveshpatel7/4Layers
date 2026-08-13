@@ -236,18 +236,29 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="refresh" content="0;url={deep_link}">
     <script>
-        setTimeout(function() {{ window.location.href = "{deep_link}"; }}, 50);
-        setTimeout(function() {{ window.location.href = "{intent_link}"; }}, 400);
+        function openApp() {{
+            window.location.href = "{deep_link}";
+            setTimeout(function() {{
+                window.location.href = "{intent_link}";
+            }}, 300);
+        }}
+        window.onload = openApp;
     </script>
     <style>
-        body {{ background-color: #0E0E0E; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding-top: 60px; }}
-        .btn {{ display: inline-block; background-color: #22C55E; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; margin-top: 25px; font-weight: bold; font-size: 16px; }}
+        body {{ background-color: #0E0E0E; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box; }}
+        .card {{ background: #1C1B1B; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
+        .btn {{ display: block; background-color: #22C55E; color: #000; padding: 16px 28px; text-decoration: none; border-radius: 12px; margin-top: 25px; font-weight: bold; font-size: 16px; border: none; width: 100%; box-sizing: border-box; cursor: pointer; text-align: center; }}
+        .btn:hover {{ background-color: #16a34a; }}
+        .logo {{ font-size: 28px; font-weight: bold; margin-bottom: 8px; color: #fff; }}
     </style>
 </head>
 <body>
-    <h2>Login Successful!</h2>
-    <p>Opening 4Layers SmartNest app...</p>
-    <a href="{deep_link}" class="btn">Open App Now</a>
+    <div class="card">
+        <div class="logo">4Layers <span style="color:#22C55E;">IoT</span></div>
+        <h2 style="margin-top: 16px; font-size: 22px;">Login Successful!</h2>
+        <p style="color: #9CA3AF; font-size: 14px;">Redirecting back to 4Layers SmartNest app...</p>
+        <a href="{deep_link}" onclick="openApp()" class="btn">Open App Now</a>
+    </div>
 </body>
 </html>"""
     return HTMLResponse(content=html_content)
@@ -268,21 +279,35 @@ def handle_mangled_google_path(rest: str, request: Request):
         
     if token:
         deep_link = f"{APP_DEEP_LINK_SCHEME}://auth?token={token}"
+        intent_link = f"intent://auth?token={token}#Intent;scheme={APP_DEEP_LINK_SCHEME};package=com.smartnest.app;end"
         from fastapi.responses import HTMLResponse
         return HTMLResponse(content=f"""<!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="refresh" content="0;url={deep_link}">
-    <script>window.location.href = "{deep_link}";</script>
+    <script>
+        function openApp() {{
+            window.location.href = "{deep_link}";
+            setTimeout(function() {{
+                window.location.href = "{intent_link}";
+            }}, 300);
+        }}
+        window.onload = openApp;
+    </script>
     <style>
-        body {{ background-color: #0E0E0E; color: white; font-family: sans-serif; text-align: center; padding-top: 60px; }}
-        .btn {{ display: inline-block; background-color: #22C55E; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; }}
+        body {{ background-color: #0E0E0E; color: white; font-family: sans-serif; text-align: center; padding: 40px 20px; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box; }}
+        .card {{ background: #1C1B1B; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
+        .btn {{ display: block; background-color: #22C55E; color: #000; padding: 16px 28px; text-decoration: none; border-radius: 12px; margin-top: 25px; font-weight: bold; font-size: 16px; border: none; width: 100%; box-sizing: border-box; cursor: pointer; text-align: center; }}
     </style>
 </head>
 <body>
-    <h2>Login Successful!</h2>
-    <p>Opening 4Layers SmartNest app...</p>
-    <a href="{deep_link}" class="btn">Open App Now</a>
+    <div class="card">
+        <div style="font-size: 28px; font-weight: bold; margin-bottom: 8px; color: #fff;">4Layers <span style="color:#22C55E;">IoT</span></div>
+        <h2 style="margin-top: 16px; font-size: 22px;">Login Successful!</h2>
+        <p style="color: #9CA3AF; font-size: 14px;">Redirecting back to 4Layers SmartNest app...</p>
+        <a href="{deep_link}" onclick="openApp()" class="btn">Open App Now</a>
+    </div>
 </body>
 </html>""")
     

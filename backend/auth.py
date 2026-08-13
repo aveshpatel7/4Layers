@@ -61,15 +61,27 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        sub_claim: str = payload.get("sub")
+        if sub_claim is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
         
-    user = db.query(models.User).filter(models.User.username == username).first()
+    # Lookup user by username, UUID ID, or email
+    user = db.query(models.User).filter(models.User.username == sub_claim).first()
+    if user is None:
+        try:
+            from uuid import UUID
+            user = db.query(models.User).filter(models.User.id == UUID(sub_claim)).first()
+        except Exception:
+            pass
+
+    if user is None:
+        user = db.query(models.User).filter(models.User.email == str(sub_claim).lower().strip()).first()
+
     if user is None:
         raise credentials_exception
+
     if not getattr(user, "is_active", True):
         reason = getattr(user, "block_reason", None) or "Account suspended by administrator."
         raise HTTPException(
