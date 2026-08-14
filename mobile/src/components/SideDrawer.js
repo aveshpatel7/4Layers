@@ -211,7 +211,14 @@ export default function SideDrawer({
               </TouchableOpacity>
             </View>
 
-            <View style={styles.profileCard}>
+            <TouchableOpacity
+              style={styles.profileCard}
+              activeOpacity={0.7}
+              onPress={() => {
+                onClose();
+                if (navigation) navigation.navigate('SettingsTab', { screen: 'Settings' });
+              }}
+            >
               <View style={styles.avatarCircle}>
                 {userProfileData?.profile_pic_url ? (
                   <Image
@@ -229,7 +236,11 @@ export default function SideDrawer({
                 </Text>
                 <Text style={styles.userRole}>Smart Home Owner</Text>
               </View>
-            </View>
+              <View style={styles.profileSettingsIconBox}>
+                <MaterialCommunityIcons name="cog" size={16} color={TOKENS.accent} />
+                <MaterialCommunityIcons name="chevron-right" size={16} color={TOKENS.textSecondary} />
+              </View>
+            </TouchableOpacity>
 
             <ScrollView style={styles.menuList} showsVerticalScrollIndicator={false}>
               {menuItems.map((item) => {
@@ -272,18 +283,23 @@ export default function SideDrawer({
 
             <View style={styles.drawerFooter}>
               <TouchableOpacity
-                style={styles.settingsFooterBtn}
+                style={styles.addDeviceFooterBtn}
                 onPress={() => {
                   onClose();
-                  if (navigation) navigation.navigate('SettingsTab', { screen: 'Settings' });
+                  if (navigation) navigation.navigate('HomeTab', { screen: 'RoomSelection' });
                 }}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
               >
-                <View style={styles.settingsLeftGroup}>
-                  <MaterialCommunityIcons name="cog" size={24} color={TOKENS.accent} />
-                  <Text style={styles.settingsBtnText}>Settings</Text>
+                <View style={styles.addDeviceLeftGroup}>
+                  <View style={styles.addDeviceIconCircle}>
+                    <MaterialCommunityIcons name="plus" size={20} color="#000" />
+                  </View>
+                  <View style={styles.addDeviceTextGroup}>
+                    <Text style={styles.addDeviceBtnTitle}>Add Switchboard</Text>
+                    <Text style={styles.addDeviceBtnSub}>Pair relays & channels</Text>
+                  </View>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={TOKENS.textSecondary} />
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#000" />
               </TouchableOpacity>
             </View>
           </View>
@@ -612,31 +628,64 @@ const styles = StyleSheet.create({
     color: TOKENS.accent,
     fontWeight: '700'
   },
+  profileSettingsIconBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: TOKENS.border
+  },
   drawerFooter: {
     borderTopWidth: 1,
     borderTopColor: TOKENS.border,
     paddingHorizontal: 14,
-    paddingVertical: 12
+    paddingVertical: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)'
   },
-  settingsFooterBtn: {
+  addDeviceFooterBtn: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: TOKENS.cardBg,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: TOKENS.border
+    backgroundColor: TOKENS.accent,
+    paddingVertical: 13,
+    paddingHorizontal: 15,
+    borderRadius: 16,
+    shadowColor: TOKENS.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4
   },
-  settingsLeftGroup: {
+  addDeviceLeftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10
+    gap: 12,
+    flex: 1
   },
-  settingsBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: TOKENS.textPrimary
+  addDeviceIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  addDeviceTextGroup: {
+    flex: 1
+  },
+  addDeviceBtnTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: -0.2
+  },
+  addDeviceBtnSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(0, 0, 0, 0.7)'
   }
 });
