@@ -232,7 +232,7 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
     html_content = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Authenticating SmartNest...</title>
+    <title>Authenticating 4Layers...</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="refresh" content="0;url={deep_link}">
     <script>
@@ -256,7 +256,7 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
     <div class="card">
         <div class="logo">4Layers <span style="color:#22C55E;">IoT</span></div>
         <h2 style="margin-top: 16px; font-size: 22px;">Login Successful!</h2>
-        <p style="color: #9CA3AF; font-size: 14px;">Redirecting back to 4Layers SmartNest app...</p>
+        <p style="color: #9CA3AF; font-size: 14px;">Redirecting back to 4Layers app...</p>
         <a href="{deep_link}" onclick="openApp()" class="btn">Open App Now</a>
     </div>
 </body>
@@ -305,7 +305,7 @@ def handle_mangled_google_path(rest: str, request: Request):
     <div class="card">
         <div style="font-size: 28px; font-weight: bold; margin-bottom: 8px; color: #fff;">4Layers <span style="color:#22C55E;">IoT</span></div>
         <h2 style="margin-top: 16px; font-size: 22px;">Login Successful!</h2>
-        <p style="color: #9CA3AF; font-size: 14px;">Redirecting back to 4Layers SmartNest app...</p>
+        <p style="color: #9CA3AF; font-size: 14px;">Redirecting back to 4Layers app...</p>
         <a href="{deep_link}" onclick="openApp()" class="btn">Open App Now</a>
     </div>
 </body>

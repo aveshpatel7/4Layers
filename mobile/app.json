@@ -3,7 +3,7 @@
     "name": "4Layers",
     "slug": "smartnest-mobile",
     "scheme": "4layers",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "icon": "./assets/4layers_logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -45,7 +45,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow SmartNest to access the camera to scan device QR codes."
+          "cameraPermission": "Allow 4Layers to access the camera to scan device QR codes."
         }
       ],
       [
@@ -56,7 +56,7 @@
             "peripheral",
             "central"
           ],
-          "bluetoothAlwaysPermission": "Allow SmartNest to connect to your smart switchboard devices."
+          "bluetoothAlwaysPermission": "Allow 4Layers to connect to your smart switchboard devices."
         }
       ]
     ],

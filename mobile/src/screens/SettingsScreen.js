@@ -319,7 +319,7 @@ export default function SettingsScreen({ navigation }) {
   const handleLogout = () => {
     Alert.alert(
       'Logout',
-      'Are you sure you want to log out of SmartNest?',
+      'Are you sure you want to log out of 4Layers?',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Logout', onPress: () => signOut() }

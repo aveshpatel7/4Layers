@@ -66,7 +66,7 @@ export default function PermissionSplashScreen({ onPermissionsGranted }) {
               PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
               {
                 title: 'Location & Bluetooth Permission',
-                message: '4Layers SmartNest requires Location and Bluetooth permissions to discover and pair IoT hardware devices.',
+                message: '4Layers requires Location and Bluetooth permissions to discover and pair IoT hardware devices.',
                 buttonPositive: 'Grant Permissions'
               }
             );

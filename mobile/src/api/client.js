@@ -9,7 +9,7 @@ let baseURL = USE_LOCAL_BACKEND
   ? (Platform.OS === 'web' ? 'http://localhost:8000' : 'http://10.0.2.2:8000')
   : 'https://edabtynvpy.ap-south-1.awsapprunner.com';
 
-console.log(`[SmartNest API Client] Initialized. Base URL: ${baseURL}`);
+console.log(`[4Layers API Client] Initialized. Base URL: ${baseURL}`);
 
 const apiClient = axios.create({
   baseURL,

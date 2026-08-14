@@ -447,7 +447,7 @@ def provision_device(
     home = db.query(models.Home).filter(models.Home.owner_id == current_user.id).first()
     if not home:
         home = models.Home(
-            name="SmartNest Home",
+            name="4Layers Home",
             owner_id=current_user.id
         )
         db.add(home)

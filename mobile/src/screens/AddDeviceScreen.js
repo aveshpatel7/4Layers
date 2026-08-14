@@ -115,7 +115,7 @@ export default function AddDeviceScreen({ navigation }) {
         if (homesRes.data && homesRes.data.length > 0) {
           activeHomeId = homesRes.data[0].id;
         } else {
-          const createHomeRes = await apiClient.post('/api/homes', { name: '4Layers SmartNest' });
+          const createHomeRes = await apiClient.post('/api/homes', { name: '4Layers Home' });
           activeHomeId = createHomeRes.data.id;
         }
         setHomeId(activeHomeId);

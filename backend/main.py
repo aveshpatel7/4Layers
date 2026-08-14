@@ -17,7 +17,7 @@ logger = logging.getLogger("main")
 
 # Initialize FastAPI App (v1.0.1 Admin Production)
 app = FastAPI(
-    title="SmartNest Home Automation Backend",
+    title="4Layers Home Automation Backend",
     description="A backend for managing users, IoT devices, and real-time state synchronization via MQTT.",
     version="1.0.1"
 )
@@ -354,7 +354,7 @@ def read_root():
     """Welcome endpoint to verify backend status."""
     return {
         "status": "online",
-        "service": "SmartNest Home Automation API",
+        "service": "4Layers Home Automation API",
         "mqtt_broker": mqtt.MQTT_BROKER,
         "docs_url": "/docs"
     }

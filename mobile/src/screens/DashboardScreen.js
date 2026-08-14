@@ -651,7 +651,7 @@ export default function DashboardScreen({ navigation }) {
           </View> : filteredDevices.length === 0 ? (
             <View style={styles.emptyWelcomeContainer}>
               <MaterialCommunityIcons name="router-wireless" size={44} color={TOKENS.accent} />
-              <Text style={styles.emptyWelcomeTitle}>Welcome to 4Layers SmartNest</Text>
+              <Text style={styles.emptyWelcomeTitle}>Welcome to 4Layers</Text>
               <Text style={styles.emptyWelcomeSubtitle}>
                 No smart switchboard devices linked to your account yet. Add your first hardware to start controlling your home.
               </Text>

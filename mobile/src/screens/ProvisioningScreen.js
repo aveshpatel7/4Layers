@@ -159,7 +159,7 @@ export default function ProvisioningScreen({ route, navigation }) {
       if (homesRes.data && homesRes.data.length > 0) {
         activeHomeId = homesRes.data[0].id;
       } else {
-        const createHomeRes = await apiClient.post('/api/homes', { name: 'SmartNest Home' });
+        const createHomeRes = await apiClient.post('/api/homes', { name: '4Layers Home' });
         activeHomeId = createHomeRes.data.id;
         setHomes([createHomeRes.data]);
       }
@@ -262,12 +262,12 @@ export default function ProvisioningScreen({ route, navigation }) {
             // Clean detected SSID and ensure it is not the ESP32 setup AP itself
             const cleanSsid = detectedSsid ? detectedSsid.replace(/"/g, '') : '';
             const lowerSsid = cleanSsid.toLowerCase();
-            if (cleanSsid && cleanSsid !== '<unknown ssid>' && !lowerSsid.includes('setup') && !lowerSsid.includes('smartnest')) {
+            if (cleanSsid && cleanSsid !== '<unknown ssid>' && !lowerSsid.includes('setup') && !lowerSsid.includes('smartnest') && !lowerSsid.includes('4layers')) {
               setSsid(cleanSsid);
 
               // Read saved password for this detected SSID from AsyncStorage
               try {
-                const savedPasswordsStr = await AsyncStorage.getItem('@SmartNest:wifi_passwords');
+                const savedPasswordsStr = (await AsyncStorage.getItem('@4Layers:wifi_passwords')) || (await AsyncStorage.getItem('@SmartNest:wifi_passwords'));
                 if (savedPasswordsStr) {
                   const savedPasswords = JSON.parse(savedPasswordsStr);
                   if (savedPasswords[cleanSsid]) {
@@ -361,7 +361,7 @@ export default function ProvisioningScreen({ route, navigation }) {
 
   const loadSavedWifiCredentials = async () => {
     try {
-      const savedPasswordsStr = await AsyncStorage.getItem('@SmartNest:wifi_passwords') || '{}';
+      const savedPasswordsStr = (await AsyncStorage.getItem('@4Layers:wifi_passwords')) || (await AsyncStorage.getItem('@SmartNest:wifi_passwords')) || '{}';
       const savedPasswords = JSON.parse(savedPasswordsStr);
       const list = Object.entries(savedPasswords).map(([name, pass]) => ({ ssid: name, pass }));
       setSavedWifiList(list);
@@ -478,10 +478,10 @@ export default function ProvisioningScreen({ route, navigation }) {
 
     // Save this password for the SSID locally in AsyncStorage
     try {
-      const savedPasswordsStr = await AsyncStorage.getItem('@SmartNest:wifi_passwords') || '{}';
+      const savedPasswordsStr = (await AsyncStorage.getItem('@4Layers:wifi_passwords')) || (await AsyncStorage.getItem('@SmartNest:wifi_passwords')) || '{}';
       const savedPasswords = JSON.parse(savedPasswordsStr);
       savedPasswords[ssid.trim()] = wifiPassword.trim();
-      await AsyncStorage.setItem('@SmartNest:wifi_passwords', JSON.stringify(savedPasswords));
+      await AsyncStorage.setItem('@4Layers:wifi_passwords', JSON.stringify(savedPasswords));
     } catch (e) {
       console.warn('[AsyncStorage] Error saving wifi password:', e);
     }
@@ -489,7 +489,7 @@ export default function ProvisioningScreen({ route, navigation }) {
     setDevicesList([]);
     setIsScanning(true);
     setCurrentStage('SCANNING');
-    setStatusText('Scanning for SmartNest devices...');
+    setStatusText('Scanning for 4Layers devices...');
 
     manager.startDeviceScan(null, null, (error, device) => {
       if (error) {
@@ -500,8 +500,8 @@ export default function ProvisioningScreen({ route, navigation }) {
         return;
       }
 
-      // Filter by name "SmartNest"
-      if (device && device.name && device.name.includes('SmartNest')) {
+      // Filter by name "4Layers" or "SmartNest"
+      if (device && device.name && (device.name.includes('4Layers') || device.name.includes('4L') || device.name.includes('SmartNest'))) {
         setDevicesList((prevList) => {
           if (prevList.some((d) => d.id === device.id)) {
             return prevList;
@@ -527,10 +527,10 @@ export default function ProvisioningScreen({ route, navigation }) {
 
     // Save this password for the SSID locally in AsyncStorage
     try {
-      const savedPasswordsStr = await AsyncStorage.getItem('@SmartNest:wifi_passwords') || '{}';
+      const savedPasswordsStr = (await AsyncStorage.getItem('@4Layers:wifi_passwords')) || (await AsyncStorage.getItem('@SmartNest:wifi_passwords')) || '{}';
       const savedPasswords = JSON.parse(savedPasswordsStr);
       savedPasswords[ssid.trim()] = wifiPassword.trim();
-      await AsyncStorage.setItem('@SmartNest:wifi_passwords', JSON.stringify(savedPasswords));
+      await AsyncStorage.setItem('@4Layers:wifi_passwords', JSON.stringify(savedPasswords));
     } catch (e) {
       console.warn('[AsyncStorage] Error saving wifi password:', e);
     }
@@ -541,7 +541,7 @@ export default function ProvisioningScreen({ route, navigation }) {
       applyConnection: 'PENDING',
       provisionCloud: 'PENDING'
     });
-    setStatusText('Connecting to local SmartNest Hotspot (192.168.4.1)...');
+    setStatusText('Connecting to local 4Layers Hotspot (192.168.4.1)...');
 
     try {
       const localUrl = `http://192.168.4.1/config?ssid=${encodeURIComponent(ssid.trim())}&pass=${encodeURIComponent(wifiPassword.trim())}`;
@@ -644,7 +644,7 @@ export default function ProvisioningScreen({ route, navigation }) {
       } else {
         Alert.alert(
           'Connection Failed',
-          'Could not complete device pairing handshake.\n\nInstructions:\n1. Open your phone\'s Wi-Fi settings.\n2. Connect to the "SmartNest-Setup-XXXXXX" network (no password).\n3. Return here and try again.',
+          'Could not complete device pairing handshake.\n\nInstructions:\n1. Open your phone\'s Wi-Fi settings.\n2. Connect to the "4Layers-Setup-XXXXXX" or "SmartNest-Setup-XXXXXX" network (no password).\n3. Return here and try again.',
           [
             { text: 'Open Wi-Fi Settings', onPress: handleOpenWifiSettings },
             { text: 'Cancel', style: 'cancel' }
@@ -1055,7 +1055,7 @@ export default function ProvisioningScreen({ route, navigation }) {
                 labelStyle={styles.primaryBtnText}
                 icon="bluetooth"
               >
-                Scan for SmartNest
+                Scan for 4Layers
               </Button>
             )}
           </View>
@@ -1071,13 +1071,13 @@ export default function ProvisioningScreen({ route, navigation }) {
                   {isScanning ? (
                     <>
                       <ActivityIndicator size="small" color={TOKENS.accent} style={{ marginBottom: 12 }} />
-                      <Text style={styles.scanText}>Waiting for SmartNest advertisement...</Text>
+                      <Text style={styles.scanText}>Waiting for 4Layers advertisement...</Text>
                     </>
                   ) : (
                     <View style={{ alignItems: 'center', width: '100%', paddingHorizontal: 12 }}>
                       <MaterialCommunityIcons name="bluetooth-off" size={40} color={TOKENS.textSecondary} style={{ marginBottom: 12 }} />
                       <Text style={[styles.scanText, { color: TOKENS.error, fontWeight: 'bold', fontSize: 14, textAlign: 'center' }]}>
-                        No SmartNest devices found nearby.
+                        No 4Layers devices found nearby.
                       </Text>
                       <Text style={{ fontSize: 12, color: TOKENS.textSecondary, marginTop: 6, marginBottom: 16, textAlign: 'center', lineHeight: 16 }}>
                         Ensure your switchboard hardware is powered ON and within range.

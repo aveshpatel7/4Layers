@@ -88,7 +88,7 @@ export default function RoomSelectionScreen({ navigation }) {
         }
       } else {
         // No home found, create one first
-        const createHomeRes = await apiClient.post('/api/homes', { name: '4Layers SmartNest' });
+        const createHomeRes = await apiClient.post('/api/homes', { name: '4Layers Home' });
         setActiveHomeId(createHomeRes.data.id);
         setRooms([]);
         setFlowMode('NEW');

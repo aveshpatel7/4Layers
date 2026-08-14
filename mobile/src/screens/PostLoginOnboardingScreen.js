@@ -147,14 +147,14 @@ export default function PostLoginOnboardingScreen({ route, navigation, onOnboard
 
             <Text style={styles.cardTitle}>Terms & Privacy Policy</Text>
             <Text style={styles.cardDescription}>
-              Please review and accept 4Layers SmartNest Terms of Service and Privacy Policy to access your console.
+              Please review and accept 4Layers Terms of Service and Privacy Policy to access your console.
             </Text>
 
             <View style={styles.termsBox}>
               <ScrollView style={{ maxHeight: 140 }}>
                 <Text style={styles.termsText}>
                   <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>1. Device Control & Automation:{'\n'}</Text>
-                  You agree to use 4Layers SmartNest IoT Cloud infrastructure safely in accordance with hardware electrical ratings.{'\n\n'}
+                  You agree to use 4Layers IoT Cloud infrastructure safely in accordance with hardware electrical ratings.{'\n\n'}
                   <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>2. Data Privacy & Encryption:{'\n'}</Text>
                   Telemetry data, switchboard relay states, and scheduled automation profiles are encrypted in transit via SSL/TLS and MQTT WSS.{'\n\n'}
                   <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>3. Account Security:{'\n'}</Text>
