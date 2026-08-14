@@ -234,30 +234,42 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
 <head>
     <title>Authenticating 4Layers...</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="refresh" content="0;url={deep_link}">
-    <script>
-        function openApp() {{
-            window.location.href = "{deep_link}";
-            setTimeout(function() {{
-                window.location.href = "{intent_link}";
-            }}, 300);
-        }}
-        window.onload = openApp;
-    </script>
     <style>
-        body {{ background-color: #0E0E0E; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box; }}
+        body {{ background-color: #0E0E0E; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 20px; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box; }}
         .card {{ background: #1C1B1B; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
-        .btn {{ display: block; background-color: #22C55E; color: #000; padding: 16px 28px; text-decoration: none; border-radius: 12px; margin-top: 25px; font-weight: bold; font-size: 16px; border: none; width: 100%; box-sizing: border-box; cursor: pointer; text-align: center; }}
+        .btn {{ display: block; background-color: #22C55E; color: #000; padding: 16px 20px; text-decoration: none; border-radius: 12px; margin-top: 20px; font-weight: bold; font-size: 16px; border: none; width: 100%; box-sizing: border-box; cursor: pointer; text-align: center; }}
         .btn:hover {{ background-color: #16a34a; }}
+        .btn-alt {{ display: block; background-color: transparent; color: #9CA3AF; padding: 12px; text-decoration: none; border-radius: 12px; margin-top: 10px; font-size: 13px; border: 1px solid rgba(255,255,255,0.1); width: 100%; box-sizing: border-box; cursor: pointer; text-align: center; }}
         .logo {{ font-size: 28px; font-weight: bold; margin-bottom: 8px; color: #fff; }}
     </style>
+    <script>
+        var deepLink = "{deep_link}";
+        var intentLink = "{intent_link}";
+        
+        function openApp() {{
+            try {{
+                window.location.href = deepLink;
+            }} catch(e) {{}}
+            
+            setTimeout(function() {{
+                try {{
+                    window.location.href = intentLink;
+                }} catch(e) {{}}
+            }}, 500);
+        }}
+
+        window.addEventListener("DOMContentLoaded", function() {{
+            setTimeout(openApp, 250);
+        }});
+    </script>
 </head>
 <body>
     <div class="card">
         <div class="logo">4Layers <span style="color:#22C55E;">IoT</span></div>
         <h2 style="margin-top: 16px; font-size: 22px;">Login Successful!</h2>
-        <p style="color: #9CA3AF; font-size: 14px;">Redirecting back to 4Layers app...</p>
-        <a href="{deep_link}" onclick="openApp()" class="btn">Open App Now</a>
+        <p style="color: #9CA3AF; font-size: 14px; margin-bottom: 8px;">Returning to your 4Layers app...</p>
+        <button type="button" onclick="openApp()" class="btn">Open App Now</button>
+        <a href="{intent_link}" class="btn-alt">Alternative: Launch 4Layers App</a>
     </div>
 </body>
 </html>"""
@@ -285,28 +297,31 @@ def handle_mangled_google_path(rest: str, request: Request):
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="refresh" content="0;url={deep_link}">
+    <style>
+        body {{ background-color: #0E0E0E; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box; }}
+        .card {{ background: #1C1B1B; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
+        .btn {{ display: block; background-color: #22C55E; color: #000; padding: 16px 20px; text-decoration: none; border-radius: 12px; margin-top: 20px; font-weight: bold; font-size: 16px; border: none; width: 100%; box-sizing: border-box; cursor: pointer; text-align: center; }}
+        .btn-alt {{ display: block; background-color: transparent; color: #9CA3AF; padding: 12px; text-decoration: none; border-radius: 12px; margin-top: 10px; font-size: 13px; border: 1px solid rgba(255,255,255,0.1); width: 100%; box-sizing: border-box; cursor: pointer; text-align: center; }}
+    </style>
     <script>
+        var deepLink = "{deep_link}";
+        var intentLink = "{intent_link}";
         function openApp() {{
-            window.location.href = "{deep_link}";
+            window.location.href = deepLink;
             setTimeout(function() {{
-                window.location.href = "{intent_link}";
-            }}, 300);
+                window.location.href = intentLink;
+            }}, 500);
         }}
         window.onload = openApp;
     </script>
-    <style>
-        body {{ background-color: #0E0E0E; color: white; font-family: sans-serif; text-align: center; padding: 40px 20px; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box; }}
-        .card {{ background: #1C1B1B; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
-        .btn {{ display: block; background-color: #22C55E; color: #000; padding: 16px 28px; text-decoration: none; border-radius: 12px; margin-top: 25px; font-weight: bold; font-size: 16px; border: none; width: 100%; box-sizing: border-box; cursor: pointer; text-align: center; }}
-    </style>
 </head>
 <body>
     <div class="card">
         <div style="font-size: 28px; font-weight: bold; margin-bottom: 8px; color: #fff;">4Layers <span style="color:#22C55E;">IoT</span></div>
         <h2 style="margin-top: 16px; font-size: 22px;">Login Successful!</h2>
-        <p style="color: #9CA3AF; font-size: 14px;">Redirecting back to 4Layers app...</p>
-        <a href="{deep_link}" onclick="openApp()" class="btn">Open App Now</a>
+        <p style="color: #9CA3AF; font-size: 14px; margin-bottom: 8px;">Returning to your 4Layers app...</p>
+        <button type="button" onclick="openApp()" class="btn">Open App Now</button>
+        <a href="{intent_link}" class="btn-alt">Alternative: Launch 4Layers App</a>
     </div>
 </body>
 </html>""")
