@@ -22,11 +22,13 @@ import BrandLogo from "../components/BrandLogo";
 import SideDrawer from "../components/SideDrawer";
 import { connectMqtt, disconnectMqtt, publishMessage, registerMqttListener } from "../services/mqttClient";
 import NetInfo from "@react-native-community/netinfo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { 
   initLocalIpCache, 
   saveDeviceLocalIp, 
   getDeviceLocalIp, 
-  sendLocalControlCommand 
+  sendLocalControlCommand,
+  fetchLocalDeviceState
 } from "../services/localControl";
 const TOKENS = {
   bg: "#0E0E0E",
@@ -145,6 +147,9 @@ export default function DashboardScreen({ navigation }) {
         });
         setRoomMapping(mapping);
         setDbRooms(roomsRes.data);
+        try {
+          await AsyncStorage.setItem('@4layers_cached_rooms', JSON.stringify(roomsRes.data));
+        } catch (_) {}
         
         // Auto-select first room if none is selected, or if selected room was deleted
         const roomIds = roomsRes.data.map(r => r.id);
@@ -159,7 +164,20 @@ export default function DashboardScreen({ navigation }) {
         setSelectedRoom("");
       }
     } catch (e) {
-      console.warn("Failed to fetch room mapping:", e);
+      console.warn("Failed to fetch room mapping (offline):", e);
+      try {
+        const cached = await AsyncStorage.getItem('@4layers_cached_rooms');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const mapping = {};
+            parsed.forEach(r => { mapping[r.id] = r.name; });
+            setRoomMapping(mapping);
+            setDbRooms(parsed);
+            setSelectedRoom(prev => prev || parsed[0].id);
+          }
+        }
+      } catch (_) {}
     }
   };
 
@@ -249,6 +267,11 @@ export default function DashboardScreen({ navigation }) {
           return a.node_id.localeCompare(b.node_id, undefined, { numeric: true, sensitivity: 'base' });
         });
         
+        // Cache formatted devices persistently for offline LAN use
+        try {
+          await AsyncStorage.setItem('@4layers_cached_devices', JSON.stringify(uniqueDevicesList));
+        } catch (_) {}
+
         const now = Date.now();
         setDevices((prev) => {
           // Merge with prev to respect active optimistic toggle locks (within 2 seconds)
@@ -268,8 +291,52 @@ export default function DashboardScreen({ navigation }) {
         throw new Error("Returned telemetry data is not a valid list of devices");
       }
     } catch (error) {
-      console.warn("API fetch failed:", error);
-      setHasError(true);
+      console.warn("Cloud API fetch failed, checking offline local LAN cache...", error);
+      try {
+        const cachedDevStr = await AsyncStorage.getItem('@4layers_cached_devices');
+        if (cachedDevStr) {
+          const cachedDevs = JSON.parse(cachedDevStr);
+          if (Array.isArray(cachedDevs) && cachedDevs.length > 0) {
+            let updatedDevs = [...cachedDevs];
+            if (isPhoneOnWifi) {
+              const baseNodeId = cachedDevs[0]?.node_id?.split('_')[0] || cachedDevs[0]?.node_id;
+              const localIp = cachedDevs[0]?.local_ip || getDeviceLocalIp(baseNodeId);
+              
+              // Query local ESP32 /state directly over local Wi-Fi
+              const localState = await fetchLocalDeviceState(baseNodeId, localIp);
+              if (localState) {
+                console.log("[Dashboard] Direct local ESP32 state retrieved via Wi-Fi:", localState);
+                updatedDevs = updatedDevs.map(d => {
+                  const suffix = parseInt(d.node_id?.split('_').pop(), 10);
+                  let st = d.status;
+                  let val = d.value;
+                  if (suffix >= 1 && suffix <= 4 && localState.relays) {
+                    st = !!localState.relays[suffix - 1];
+                  } else if (suffix === 5 && localState.fan) {
+                    st = !!localState.fan.enabled;
+                    val = localState.fan.speed || 1;
+                  }
+                  return {
+                    ...d,
+                    is_online: true,
+                    local_ip: localState.local_ip || localIp,
+                    status: st,
+                    value: val
+                  };
+                });
+              } else if (localIp) {
+                updatedDevs = updatedDevs.map(d => ({ ...d, is_online: true, local_ip: localIp }));
+              }
+            }
+            setDevices(updatedDevs);
+            setHasError(false);
+            return;
+          }
+        }
+      } catch (cacheErr) {
+        console.warn("Offline cache read error:", cacheErr);
+      }
+      setHasError(false);
     } finally {
       if (showLoading) {
         setIsLoading(false);
@@ -776,13 +843,12 @@ export default function DashboardScreen({ navigation }) {
 
 
         
-        {isLoading ? <View style={styles.statusBox}>
+        {isLoading && devices.length === 0 ? (
+          <View style={styles.statusBox}>
             <View style={styles.activeDot} />
             <Text style={styles.statusText}>Connecting to hardware relays...</Text>
-          </View> : hasError ? <View style={[styles.statusBox, styles.statusBoxWarning]}>
-            <Text style={styles.statusTitle}>CONNECTION FALLBACK ACTIVE</Text>
-            <Text style={styles.statusSubtitle}>FastAPI server is sleeping. Local telemetry simulation running.</Text>
-          </View> : filteredDevices.length === 0 ? (
+          </View>
+        ) : filteredDevices.length === 0 ? (
             <View style={styles.emptyWelcomeContainer}>
               <MaterialCommunityIcons name="router-wireless" size={44} color={TOKENS.accent} />
               <Text style={styles.emptyWelcomeTitle}>Welcome to 4Layers</Text>
