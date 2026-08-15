@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const LOCAL_IP_STORAGE_KEY = "@4layers_device_local_ips";
-const REQUEST_TIMEOUT_MS = 1500; // 1.5 seconds fast timeout
+const REQUEST_TIMEOUT_MS = 1000; // 1.0 second ultra-fast timeout for Local-First fallback
 
 // In-memory cache for instant zero-latency lookups
 const localIpCache = {};
@@ -99,7 +99,8 @@ export async function sendLocalControlCommand(nodeId, channel, state, providedLo
     urlsToTry.push(`http://${targetIp}/control?${query}`);
   }
 
-  // 2. mDNS hostnames (4layers-{node_id}.local)
+  // 2. mDNS hostnames (NODE_ID.local & 4layers-{node_id}.local)
+  urlsToTry.push(`http://${baseNodeId}.local/control?${query}`);
   const sanitized = sanitizeMdnsHost(baseNodeId);
   urlsToTry.push(`http://4layers-${sanitized}.local/control?${query}`);
   if (sanitized !== baseNodeId.toLowerCase()) {

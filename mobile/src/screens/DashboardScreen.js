@@ -398,35 +398,32 @@ export default function DashboardScreen({ navigation }) {
       // 1. Optimistic UI update: Turn ALL room devices ON or OFF
       setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: nextStatus } : d));
 
-      // 2. Direct MQTT publish for Master Switch channel (Fast Cloud Path)
-      publishMessage(`home/device/${baseNodeId}/control`, {
-        channel: masterChannel,
-        status: nextStatusStr
-      });
-
-      // 3. Cloud HTTP sync with 1.5s timeout & Local LAN Fallback
-      let cloudSucceeded = false;
+      // STEP 1: LOCAL HIT FIRST (Direct Local IP / mDNS with 1.0s fast timeout)
+      let localSucceeded = false;
       try {
-        const cloudPromise = apiClient.post('/api/devices/bulk-control', {
-          device_ids: roomDevIds,
-          state: { status: nextStatusStr }
-        });
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud API Timeout')), 1500));
-        await Promise.race([cloudPromise, timeoutPromise]);
-        cloudSucceeded = true;
-      } catch (err) {
-        console.log("[Dashboard] Cloud master control failed or timed out. Triggering Local LAN Fallback...");
+        await sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, target.local_ip);
+        localSucceeded = true;
+        console.log("[Dashboard] Master switch executed via Local LAN ⚡ (0.1s)");
+      } catch (localErr) {
+        console.log("[Dashboard] Local LAN unreachable/timed out. Falling back to Cloud...");
       }
 
-      if (!cloudSucceeded) {
+      // STEP 2: FALLBACK TO CLOUD (if Local Hit fails / user away on cellular data)
+      if (!localSucceeded) {
         try {
-          await sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, target.local_ip);
-          console.log("[Dashboard] Master switch executed via Local LAN fallback.");
-        } catch (localErr) {
-          console.warn("[Dashboard] Both Cloud and Local LAN master control failed:", localErr);
+          publishMessage(`home/device/${baseNodeId}/control`, {
+            channel: masterChannel,
+            status: nextStatusStr
+          });
+          await apiClient.post('/api/devices/bulk-control', {
+            device_ids: roomDevIds,
+            state: { status: nextStatusStr }
+          });
+        } catch (cloudErr) {
+          console.warn("[Dashboard] Both Local LAN and Cloud master control failed:", cloudErr);
           if (target.is_online === false) {
             setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: !nextStatus } : d));
-            Alert.alert("Device Unreachable", "Could not reach switchboard via Cloud or Local Wi-Fi.");
+            Alert.alert("Device Unreachable", "Could not reach switchboard via Local Wi-Fi or Cloud.");
           }
         }
       }
@@ -452,42 +449,41 @@ export default function DashboardScreen({ navigation }) {
       });
     });
 
-    // 2. Direct MQTT publish over WebSockets (Fast Cloud Path)
-    const topic = `home/device/${baseNodeId}/control`;
-    const togglePayload = {
-      channel,
-      status: nextStatusStr
-    };
     const speedVal = (channel === 5 || target.type === 'fan') ? ((typeof target.value === 'number' && !isNaN(target.value)) ? target.value : 1) : null;
-    if (speedVal !== null) {
-      togglePayload.speed = speedVal;
-    }
-    publishMessage(topic, togglePayload);
 
-    // 3. HTTP sync with 1.5s timeout + Smart Local LAN Fallback (mDNS & Local IP)
-    let cloudSucceeded = false;
+    // STEP 1: LOCAL HIT FIRST (Direct Local IP / mDNS with 1.0s fast timeout)
+    let localSucceeded = false;
     try {
-      const cloudHttpPromise = apiClient.post(`/api/devices/${id}/control`, {
-        state: togglePayload
-      });
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud API Timeout')), 1500));
-      await Promise.race([cloudHttpPromise, timeoutPromise]);
-      cloudSucceeded = true;
-    } catch (cloudErr) {
-      console.log(`[Dashboard] Cloud control failed/timed out for ${target.name}. Initiating Local LAN fallback...`);
+      await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, speedVal);
+      localSucceeded = true;
+      console.log(`[Dashboard] Device ${target.name} toggled instantly via Local LAN ⚡ (0.1s)`);
+    } catch (localErr) {
+      console.log(`[Dashboard] Local LAN unreachable/timed out for ${target.name}. Falling back to AWS Cloud...`);
     }
 
-    if (!cloudSucceeded) {
+    // STEP 2: FALLBACK TO CLOUD (MQTT & Cloud API if Local Hit fails / phone is on 4G/5G)
+    if (!localSucceeded) {
+      const topic = `home/device/${baseNodeId}/control`;
+      const togglePayload = {
+        channel,
+        status: nextStatusStr
+      };
+      if (speedVal !== null) {
+        togglePayload.speed = speedVal;
+      }
+
       try {
-        await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, speedVal);
-        console.log(`[Dashboard] Device ${target.name} successfully toggled via Local LAN.`);
-      } catch (localErr) {
-        console.warn(`[Dashboard] Both Cloud and Local LAN failed for ${target.name}:`, localErr);
+        publishMessage(topic, togglePayload);
+        await apiClient.post(`/api/devices/${id}/control`, {
+          state: togglePayload
+        });
+      } catch (cloudErr) {
+        console.warn(`[Dashboard] Both Local LAN and Cloud failed for ${target.name}:`, cloudErr);
         if (target.is_online === false) {
           setDevices((prev) => prev.map((d) => d.id === id ? { ...d, status: !nextStatus } : d));
           Alert.alert(
             "Device Unreachable",
-            `Could not reach "${target.name || 'Switch'}" via Cloud or Local Wi-Fi network.`
+            `Could not reach "${target.name || 'Switch'}" via Local Wi-Fi or Cloud.`
           );
         }
       }
@@ -539,34 +535,32 @@ export default function DashboardScreen({ navigation }) {
       });
     });
 
-    // 2. Direct MQTT publish
-    const topic = `home/device/${baseNodeId}/control`;
-    const adjustPayload = {
-      channel,
-      status: nextStatusStr,
-      speed: nextVal
-    };
-    publishMessage(topic, adjustPayload);
-
-    // 3. HTTP sync with 1.5s timeout + Local LAN Fallback
-    let cloudSucceeded = false;
+    // STEP 1: LOCAL HIT FIRST (Direct Local IP / mDNS with 1.0s fast timeout)
+    let localSucceeded = false;
     try {
-      const cloudHttpPromise = apiClient.post(`/api/devices/${id}/control`, {
-        state: adjustPayload
-      });
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud API Timeout')), 1500));
-      await Promise.race([cloudHttpPromise, timeoutPromise]);
-      cloudSucceeded = true;
-    } catch (cloudErr) {
-      console.log(`[Dashboard] Cloud adjust failed/timed out for ${target.name}. Initiating Local LAN fallback...`);
+      await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, nextVal);
+      localSucceeded = true;
+      console.log(`[Dashboard] Fan speed adjusted instantly via Local LAN ⚡ (0.1s)`);
+    } catch (localErr) {
+      console.log(`[Dashboard] Local LAN unreachable for fan speed. Falling back to Cloud...`);
     }
 
-    if (!cloudSucceeded) {
+    // STEP 2: FALLBACK TO CLOUD (MQTT & Cloud API if Local Hit fails)
+    if (!localSucceeded) {
+      const topic = `home/device/${baseNodeId}/control`;
+      const adjustPayload = {
+        channel,
+        status: nextStatusStr,
+        speed: nextVal
+      };
+
       try {
-        await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, nextVal);
-        console.log(`[Dashboard] Fan speed adjusted via Local LAN.`);
-      } catch (localErr) {
-        console.warn(`[Dashboard] Both Cloud and Local LAN failed for fan speed:`, localErr);
+        publishMessage(topic, adjustPayload);
+        await apiClient.post(`/api/devices/${id}/control`, {
+          state: adjustPayload
+        });
+      } catch (cloudErr) {
+        console.warn(`[Dashboard] Both Local LAN and Cloud failed for fan speed:`, cloudErr);
       }
     }
   };
