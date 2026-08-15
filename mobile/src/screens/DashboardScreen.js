@@ -422,7 +422,6 @@ export default function DashboardScreen({ navigation }) {
         await sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, target.local_ip);
         localSucceeded = true;
         console.log("[Dashboard] Master switch executed via Local LAN ⚡ (0.1s)");
-        showFeedbackToast("⚡ Switched via Local Wi-Fi (0.1s)", "lan");
       } catch (localErr) {
         console.log("[Dashboard] Local LAN unreachable/timed out. Falling back to Cloud...");
       }
@@ -438,7 +437,6 @@ export default function DashboardScreen({ navigation }) {
             device_ids: roomDevIds,
             state: { status: nextStatusStr }
           });
-          showFeedbackToast("☁️ Switched via AWS Cloud", "cloud");
         } catch (cloudErr) {
           console.warn("[Dashboard] Both Local LAN and Cloud master control failed:", cloudErr);
           setDevices((prev) => prev.map((d) => {
@@ -448,7 +446,6 @@ export default function DashboardScreen({ navigation }) {
             }
             return d;
           }));
-          showFeedbackToast("Switchboard Unreachable", "offline");
         }
       }
       return;
@@ -481,7 +478,6 @@ export default function DashboardScreen({ navigation }) {
       await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, speedVal);
       localSucceeded = true;
       console.log(`[Dashboard] Device ${target.name} toggled instantly via Local LAN ⚡ (0.1s)`);
-      showFeedbackToast("⚡ Switched via Local Wi-Fi (0.1s)", "lan");
     } catch (localErr) {
       console.log(`[Dashboard] Local LAN unreachable/timed out for ${target.name}. Falling back to AWS Cloud...`);
     }
@@ -502,7 +498,6 @@ export default function DashboardScreen({ navigation }) {
         await apiClient.post(`/api/devices/${id}/control`, {
           state: togglePayload
         });
-        showFeedbackToast("☁️ Switched via AWS Cloud", "cloud");
       } catch (cloudErr) {
         console.warn(`[Dashboard] Both Local LAN and Cloud failed for ${target.name}:`, cloudErr);
         delete toggleLockRef.current[id];
@@ -513,7 +508,6 @@ export default function DashboardScreen({ navigation }) {
           }
           return d;
         }));
-        showFeedbackToast("Switchboard Unreachable", "offline");
       }
     }
   };
@@ -575,7 +569,6 @@ export default function DashboardScreen({ navigation }) {
       await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, nextVal);
       localSucceeded = true;
       console.log(`[Dashboard] Fan speed adjusted instantly via Local LAN ⚡ (0.1s)`);
-      showFeedbackToast("⚡ Fan Speed Set via Local Wi-Fi", "lan");
     } catch (localErr) {
       console.log(`[Dashboard] Local LAN unreachable for fan speed. Falling back to Cloud...`);
     }
@@ -594,7 +587,6 @@ export default function DashboardScreen({ navigation }) {
         await apiClient.post(`/api/devices/${id}/control`, {
           state: adjustPayload
         });
-        showFeedbackToast("☁️ Fan Speed Set via AWS Cloud", "cloud");
       } catch (cloudErr) {
         console.warn(`[Dashboard] Both Local LAN and Cloud failed for fan speed:`, cloudErr);
         setDevices((prev) => prev.map((d) => {
@@ -604,7 +596,6 @@ export default function DashboardScreen({ navigation }) {
           }
           return d;
         }));
-        showFeedbackToast("Fan Unreachable", "offline");
       }
     }
   };
@@ -768,20 +759,6 @@ export default function DashboardScreen({ navigation }) {
           )}
         </View>
       </View>
-
-      {/* Floating Connectivity Feedback Toast Banner */}
-      {feedbackToast && (
-        <View style={[styles.floatingToast, feedbackToast.type === 'lan' ? styles.floatingToastLan : styles.floatingToastCloud]}>
-          <MaterialCommunityIcons
-            name={feedbackToast.type === 'lan' ? "lightning-bolt" : "cloud-check"}
-            size={14}
-            color={feedbackToast.type === 'lan' ? "#1fa971" : "#38BDF8"}
-          />
-          <Text style={[styles.floatingToastText, feedbackToast.type === 'lan' ? styles.floatingToastTextLan : styles.floatingToastTextCloud]}>
-            {feedbackToast.text}
-          </Text>
-        </View>
-      )}
 
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
 
