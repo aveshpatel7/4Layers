@@ -75,8 +75,14 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
         </Text>
         
         {isOnline ? (
-          hasSettings && (
-            <View style={styles.cardHeaderRight}>
+          <View style={styles.cardHeaderRight}>
+            {!!device?.local_ip && (
+              <View style={styles.lanBadge}>
+                <MaterialCommunityIcons name="lightning-bolt" size={10} color={TOKENS.accentGreen} />
+                <Text style={styles.lanBadgeText}>LAN</Text>
+              </View>
+            )}
+            {hasSettings && (
               <TouchableOpacity
                 style={styles.gearButtonInline}
                 onPress={() => setModalVisible(true)}
@@ -84,8 +90,8 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
               >
                 <MaterialCommunityIcons name="cog" size={15} color={TOKENS.accentGreen} />
               </TouchableOpacity>
-            </View>
-          )
+            )}
+          </View>
         ) : (
           <View style={styles.offlineBadge}>
             <View style={styles.offlineRedDot} />
@@ -230,6 +236,23 @@ const styles = StyleSheet.create({
     width: "100%",
     justifyContent: "center",
     alignItems: "center"
+  },
+  lanBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "rgba(31, 169, 113, 0.15)",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(31, 169, 113, 0.3)"
+  },
+  lanBadgeText: {
+    fontSize: 8,
+    fontWeight: "900",
+    color: TOKENS.accentGreen,
+    letterSpacing: 0.5
   },
   offlineBadge: {
     flexDirection: "row",

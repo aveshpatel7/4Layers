@@ -70,6 +70,18 @@ export default function DashboardScreen({ navigation }) {
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [username, setUsername] = useState("User");
 
+  // Visual LAN vs Cloud Connectivity Feedback State
+  const [feedbackToast, setFeedbackToast] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
+  const showFeedbackToast = (text, type = "lan") => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setFeedbackToast({ text, type });
+    toastTimeoutRef.current = setTimeout(() => {
+      setFeedbackToast(null);
+    }, 2200);
+  };
+
   // Voice Control Modal State
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [voiceText, setVoiceText] = useState("");
@@ -404,6 +416,7 @@ export default function DashboardScreen({ navigation }) {
         await sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, target.local_ip);
         localSucceeded = true;
         console.log("[Dashboard] Master switch executed via Local LAN ⚡ (0.1s)");
+        showFeedbackToast("⚡ Switched via Local Wi-Fi (0.1s)", "lan");
       } catch (localErr) {
         console.log("[Dashboard] Local LAN unreachable/timed out. Falling back to Cloud...");
       }
@@ -419,6 +432,7 @@ export default function DashboardScreen({ navigation }) {
             device_ids: roomDevIds,
             state: { status: nextStatusStr }
           });
+          showFeedbackToast("☁️ Switched via AWS Cloud", "cloud");
         } catch (cloudErr) {
           console.warn("[Dashboard] Both Local LAN and Cloud master control failed:", cloudErr);
           if (target.is_online === false) {
@@ -457,6 +471,7 @@ export default function DashboardScreen({ navigation }) {
       await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, speedVal);
       localSucceeded = true;
       console.log(`[Dashboard] Device ${target.name} toggled instantly via Local LAN ⚡ (0.1s)`);
+      showFeedbackToast("⚡ Switched via Local Wi-Fi (0.1s)", "lan");
     } catch (localErr) {
       console.log(`[Dashboard] Local LAN unreachable/timed out for ${target.name}. Falling back to AWS Cloud...`);
     }
@@ -477,6 +492,7 @@ export default function DashboardScreen({ navigation }) {
         await apiClient.post(`/api/devices/${id}/control`, {
           state: togglePayload
         });
+        showFeedbackToast("☁️ Switched via AWS Cloud", "cloud");
       } catch (cloudErr) {
         console.warn(`[Dashboard] Both Local LAN and Cloud failed for ${target.name}:`, cloudErr);
         if (target.is_online === false) {
@@ -541,6 +557,7 @@ export default function DashboardScreen({ navigation }) {
       await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, nextVal);
       localSucceeded = true;
       console.log(`[Dashboard] Fan speed adjusted instantly via Local LAN ⚡ (0.1s)`);
+      showFeedbackToast("⚡ Fan Speed Set via Local Wi-Fi", "lan");
     } catch (localErr) {
       console.log(`[Dashboard] Local LAN unreachable for fan speed. Falling back to Cloud...`);
     }
@@ -559,6 +576,7 @@ export default function DashboardScreen({ navigation }) {
         await apiClient.post(`/api/devices/${id}/control`, {
           state: adjustPayload
         });
+        showFeedbackToast("☁️ Fan Speed Set via AWS Cloud", "cloud");
       } catch (cloudErr) {
         console.warn(`[Dashboard] Both Local LAN and Cloud failed for fan speed:`, cloudErr);
       }
@@ -693,15 +711,51 @@ export default function DashboardScreen({ navigation }) {
             <MaterialCommunityIcons name="chevron-down" size={14} color={TOKENS.accent} />
           </TouchableOpacity>
 
-          {/* Status Indicator Dot Only (Blue = Connected, Red = Disconnected) */}
-          <View style={styles.statusDotWrapper}>
-            <View style={[
-              styles.statusDotOnly,
-              !hasError ? styles.statusDotConnected : styles.statusDotDisconnected
-            ]} />
-          </View>
+          {/* Smart Connectivity Mode Badge (LAN ⚡ / Cloud ☁️ / Offline 🔴) */}
+          {hasError || (filteredDevices.length > 0 && filteredDevices.every(d => d.is_online === false)) ? (
+            <TouchableOpacity
+              style={styles.offlineHeaderPill}
+              onPress={() => Alert.alert("🔴 Offline Mode", "Hardware switchboard is currently unreachable. Check power and Wi-Fi connection.")}
+              activeOpacity={0.7}
+            >
+              <View style={styles.offlineRedDotSmall} />
+              <Text style={styles.offlineHeaderText}>Offline</Text>
+            </TouchableOpacity>
+          ) : filteredDevices.some(d => !!d.local_ip) ? (
+            <TouchableOpacity
+              style={styles.lanHeaderPill}
+              onPress={() => Alert.alert("⚡ Local Wi-Fi Mode (LAN)", "Direct high-speed 0.1s connection to switchboard over your local Wi-Fi network.")}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="lightning-bolt" size={12} color="#1fa971" />
+              <Text style={styles.lanHeaderText}>LAN ⚡</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.cloudHeaderPill}
+              onPress={() => Alert.alert("☁️ AWS Cloud Mode", "Connected via AWS Serverless MQTT Cloud Server.")}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="cloud-check" size={12} color="#38BDF8" />
+              <Text style={styles.cloudHeaderText}>Cloud</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+
+      {/* Floating Connectivity Feedback Toast Banner */}
+      {feedbackToast && (
+        <View style={[styles.floatingToast, feedbackToast.type === 'lan' ? styles.floatingToastLan : styles.floatingToastCloud]}>
+          <MaterialCommunityIcons
+            name={feedbackToast.type === 'lan' ? "lightning-bolt" : "cloud-check"}
+            size={14}
+            color={feedbackToast.type === 'lan' ? "#1fa971" : "#38BDF8"}
+          />
+          <Text style={[styles.floatingToastText, feedbackToast.type === 'lan' ? styles.floatingToastTextLan : styles.floatingToastTextCloud]}>
+            {feedbackToast.text}
+          </Text>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
 
@@ -1784,5 +1838,99 @@ const styles = StyleSheet.create({
     color: '#002112',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  lanHeaderPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(31, 169, 113, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(31, 169, 113, 0.4)'
+  },
+  lanHeaderText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#1fa971',
+    letterSpacing: 0.4
+  },
+  cloudHeaderPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)'
+  },
+  cloudHeaderText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#38BDF8',
+    letterSpacing: 0.3
+  },
+  offlineHeaderPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)'
+  },
+  offlineRedDotSmall: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444'
+  },
+  offlineHeaderText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#EF4444',
+    letterSpacing: 0.3
+  },
+  floatingToast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 95 : 65,
+    alignSelf: 'center',
+    zIndex: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5
+  },
+  floatingToastLan: {
+    backgroundColor: '#0a2318',
+    borderWidth: 1,
+    borderColor: 'rgba(31, 169, 113, 0.5)'
+  },
+  floatingToastCloud: {
+    backgroundColor: '#0c2233',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.5)'
+  },
+  floatingToastText: {
+    fontSize: 11,
+    fontWeight: '800'
+  },
+  floatingToastTextLan: {
+    color: '#34D399'
+  },
+  floatingToastTextCloud: {
+    color: '#38BDF8'
   }
 });
