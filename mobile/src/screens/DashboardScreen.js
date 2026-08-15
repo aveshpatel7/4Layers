@@ -386,6 +386,12 @@ export default function DashboardScreen({ navigation }) {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
 
+    // IF DEVICE IS OFFLINE, DO NOT TOGGLE OR SEND NETWORK CALLS
+    if (target.is_online === false) {
+      showFeedbackToast("Switchboard is Offline", "offline");
+      return;
+    }
+
     const isMaster = target.type === 'master' || target.node_id?.endsWith('_6') || target.node_id?.endsWith('_7') || target.name?.toLowerCase().includes('master');
     const nextStatus = !target.status;
     const nextStatusStr = nextStatus ? 'ON' : 'OFF';
@@ -435,10 +441,14 @@ export default function DashboardScreen({ navigation }) {
           showFeedbackToast("☁️ Switched via AWS Cloud", "cloud");
         } catch (cloudErr) {
           console.warn("[Dashboard] Both Local LAN and Cloud master control failed:", cloudErr);
-          if (target.is_online === false) {
-            setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: !nextStatus } : d));
-            Alert.alert("Device Unreachable", "Could not reach switchboard via Local Wi-Fi or Cloud.");
-          }
+          setDevices((prev) => prev.map((d) => {
+            const isSibling = d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`);
+            if (isSibling || roomDevIds.includes(d.id)) {
+              return { ...d, is_online: false, status: false };
+            }
+            return d;
+          }));
+          showFeedbackToast("Switchboard Unreachable", "offline");
         }
       }
       return;
@@ -495,13 +505,15 @@ export default function DashboardScreen({ navigation }) {
         showFeedbackToast("☁️ Switched via AWS Cloud", "cloud");
       } catch (cloudErr) {
         console.warn(`[Dashboard] Both Local LAN and Cloud failed for ${target.name}:`, cloudErr);
-        if (target.is_online === false) {
-          setDevices((prev) => prev.map((d) => d.id === id ? { ...d, status: !nextStatus } : d));
-          Alert.alert(
-            "Device Unreachable",
-            `Could not reach "${target.name || 'Switch'}" via Local Wi-Fi or Cloud.`
-          );
-        }
+        delete toggleLockRef.current[id];
+        setDevices((prev) => prev.map((d) => {
+          const isSibling = d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`);
+          if (isSibling || d.id === id) {
+            return { ...d, is_online: false, status: false };
+          }
+          return d;
+        }));
+        showFeedbackToast("Switchboard Unreachable", "offline");
       }
     }
   };
@@ -509,6 +521,12 @@ export default function DashboardScreen({ navigation }) {
   const handleAdjustValue = async (id, step) => {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
+
+    // IF DEVICE IS OFFLINE, DO NOT ADJUST
+    if (target.is_online === false) {
+      showFeedbackToast("Fan is Offline", "offline");
+      return;
+    }
 
     const isFan = target.type === 'fan' || target.node_id?.endsWith('_5') || target.name?.toLowerCase().includes('fan');
     if (!isFan) return;
@@ -579,6 +597,14 @@ export default function DashboardScreen({ navigation }) {
         showFeedbackToast("☁️ Fan Speed Set via AWS Cloud", "cloud");
       } catch (cloudErr) {
         console.warn(`[Dashboard] Both Local LAN and Cloud failed for fan speed:`, cloudErr);
+        setDevices((prev) => prev.map((d) => {
+          const isSibling = d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`);
+          if (isSibling || d.id === id) {
+            return { ...d, is_online: false, status: false };
+          }
+          return d;
+        }));
+        showFeedbackToast("Fan Unreachable", "offline");
       }
     }
   };
@@ -783,8 +809,20 @@ export default function DashboardScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.gridContainer}>
-              {[...filteredDevices]
+            <View>
+              {/* Single Top Offline Warning Banner */}
+              {filteredDevices.some(d => d.is_online === false) && (
+                <View style={styles.topOfflineWarningBanner}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#F87171" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.topOfflineWarningTitle}>Switchboard Offline</Text>
+                    <Text style={styles.topOfflineWarningSubtitle}>Hardware is disconnected. Please check power or Wi-Fi.</Text>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.gridContainer}>
+                {[...filteredDevices]
                 .filter((d) => {
                   const suffix = d.node_id?.split('_').pop();
                   if (suffix === '6') {
@@ -807,6 +845,7 @@ export default function DashboardScreen({ navigation }) {
                     onDecrease={() => handleAdjustValue(device.id, device.type === 'fan' ? -1 : -10)}
                   />
                 ))}
+              </View>
             </View>
           )}
 
@@ -1923,6 +1962,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.5)'
   },
+  floatingToastOffline: {
+    backgroundColor: '#260b0b',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.5)'
+  },
   floatingToastText: {
     fontSize: 11,
     fontWeight: '800'
@@ -1932,5 +1976,32 @@ const styles = StyleSheet.create({
   },
   floatingToastTextCloud: {
     color: '#38BDF8'
+  },
+  floatingToastTextOffline: {
+    color: '#F87171'
+  },
+  topOfflineWarningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    marginHorizontal: 2
+  },
+  topOfflineWarningTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#F87171',
+    letterSpacing: 0.3
+  },
+  topOfflineWarningSubtitle: {
+    fontSize: 10,
+    color: 'rgba(248, 113, 113, 0.8)',
+    marginTop: 1
   }
 });

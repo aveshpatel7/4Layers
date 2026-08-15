@@ -68,13 +68,13 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
   // Clean Static Grid Cards (S-1 to S-6)
   return (
     <View style={[styles.gridGlassCard, !isOnline && styles.gridGlassCardOffline, isEnabled && styles.gridGlassCardActive]}>
-      {/* Node Tag & Status LED Header */}
+      {/* Node Tag & Settings Header */}
       <View style={styles.cardHeaderRow}>
         <Text style={[styles.nodeTagText, !isOnline && styles.nodeTagTextOffline, isEnabled && styles.nodeTagTextActive]}>
           {nodeLabel}
         </Text>
         
-        {isOnline ? (
+        {isOnline && (
           <View style={styles.cardHeaderRight}>
             {!!device?.local_ip && (
               <View style={styles.lanBadge}>
@@ -92,11 +92,6 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
               </TouchableOpacity>
             )}
           </View>
-        ) : (
-          <View style={styles.offlineBadge}>
-            <View style={styles.offlineRedDot} />
-            <Text style={styles.offlineBadgeText}>Offline</Text>
-          </View>
         )}
       </View>
 
@@ -111,11 +106,7 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
       </View>
 
       {/* Card Footer Area (Balanced height on all cards for 100% exact center alignment) */}
-      <View style={styles.cardFooterArea}>
-        {!isOnline && (
-          <Text style={styles.offlineSubtext}>Hardware Unreachable</Text>
-        )}
-      </View>
+      <View style={styles.cardFooterArea} />
 
       {/* Settings Modal (Popup) */}
       <Modal
@@ -219,8 +210,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#1C1B1B"
   },
   gridGlassCardOffline: {
-    borderColor: "rgba(239, 68, 68, 0.2)",
-    backgroundColor: "#131212"
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "#121212",
+    opacity: 0.65
   },
   cardBodyCenter: {
     flex: 1,
@@ -229,10 +221,10 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   cardBodyOffline: {
-    opacity: 0.7
+    opacity: 0.8
   },
   cardFooterArea: {
-    height: 24,
+    height: 12,
     width: "100%",
     justifyContent: "center",
     alignItems: "center"
@@ -253,36 +245,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: TOKENS.accentGreen,
     letterSpacing: 0.5
-  },
-  offlineBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.25)"
-  },
-  offlineRedDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: "#EF4444"
-  },
-  offlineBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#EF4444",
-    textTransform: "uppercase",
-    letterSpacing: 0.4
-  },
-  offlineSubtext: {
-    fontSize: 9,
-    fontWeight: "600",
-    color: "rgba(239, 68, 68, 0.8)",
-    letterSpacing: 0.2
   },
   cardHeaderRow: {
     width: "100%",

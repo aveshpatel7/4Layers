@@ -229,10 +229,10 @@ def check_schedules():
         db.close()
 
 
-DEVICE_OFFLINE_TIMEOUT_MINUTES = 3  # Mark offline if no message for 3 minutes
+DEVICE_OFFLINE_TIMEOUT_MINUTES = 1  # Mark offline if no message for 1 minute
 
 def check_device_heartbeats():
-    """Runs every 2 minutes. Marks devices offline if last_seen is older than 3 minutes."""
+    """Runs every 30 seconds. Marks devices offline if last_seen is older than 1 minute."""
     db = SessionLocal()
     try:
         cutoff_time = datetime.datetime.utcnow() - datetime.timedelta(minutes=DEVICE_OFFLINE_TIMEOUT_MINUTES)
@@ -298,25 +298,18 @@ def startup_event():
     
     try:
         with engine.begin() as conn:
-            conn.execute(text("CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR PRIMARY KEY, value VARCHAR);"))
-    except Exception as table_err:
-        logger.info("Table creation status for app_settings: %s", table_err)
-
-    columns = [
-        ("devices", "local_ip", "VARCHAR", None),
-        ("schedules", "actions_json", "JSON", None),
-        ("users", "expo_push_token", "VARCHAR", None),
-        ("users", "phone_number", "VARCHAR", None),
-        ("users", "terms_accepted", "BOOLEAN", "DEFAULT FALSE"),
-        ("users", "profile_pic_url", "TEXT", None),
-        ("users", "is_active", "BOOLEAN", "DEFAULT TRUE"),
-        ("users", "block_reason", "TEXT", None)
-    ]
-    
-    for table, col, dtype, default in columns:
-        try:
-            with engine.begin() as conn:
-                is_sqlite = conn.dialect.name == "sqlite"
+            # Check sqlite vs postgres
+            is_sqlite = "sqlite" in str(engine.url)
+            
+            # Migration check for new columns
+            for table, col, dtype, default in [
+                ("users", "email_verified", "BOOLEAN", "DEFAULT FALSE"),
+                ("users", "email_verification_token", "VARCHAR(255)", ""),
+                ("users", "email_verification_sent_at", "DATETIME", ""),
+                ("users", "reset_password_token", "VARCHAR(255)", ""),
+                ("users", "reset_password_sent_at", "DATETIME", ""),
+                ("devices", "local_ip", "VARCHAR(64)", ""),
+            ]:
                 if is_sqlite:
                     cmd = f"ALTER TABLE {table} ADD COLUMN {col} {dtype}"
                 else:
@@ -324,9 +317,9 @@ def startup_event():
                 if default:
                     cmd += f" {default}"
                 conn.execute(text(cmd))
-        except Exception as col_err:
-            logger.info("Migration status for %s.%s: %s", table, col, col_err)
-            
+    except Exception as col_err:
+        logger.info("Migration status for %s.%s: %s", table, col, col_err)
+        
     print("Database tables initialized and schema verified.")
 
     # Start MQTT connection and client background loop
@@ -335,10 +328,10 @@ def startup_event():
 
     # Start schedules background worker — runs every 1 sec for zero-delay instant firing (<1s)
     scheduler.add_job(check_schedules, 'interval', seconds=1)
-    # Start device heartbeat checker — runs every 2 min to detect offline devices
-    scheduler.add_job(check_device_heartbeats, 'interval', minutes=2)
+    # Start device heartbeat checker — runs every 30 sec to quickly detect offline devices
+    scheduler.add_job(check_device_heartbeats, 'interval', seconds=30)
     scheduler.start()
-    print("Scheduler daemon process started (schedule check: 1s, heartbeat: 2min).")
+    print("Scheduler daemon process started (schedule check: 1s, heartbeat: 30s).")
 
 @app.on_event("shutdown")
 def shutdown_event():
