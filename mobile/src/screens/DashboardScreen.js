@@ -807,33 +807,30 @@ export default function DashboardScreen({ navigation }) {
             <MaterialCommunityIcons name="chevron-down" size={14} color={TOKENS.accent} />
           </TouchableOpacity>
 
-          {/* Smart Connectivity Mode Badge (LAN ⚡ / Cloud ☁️ / Offline 🔴) */}
+          {/* Ultra-Clean Status Dot (🔵 Blue = Cloud, 🟡 Yellow = Local Wi-Fi, 🔴 Red = Offline) */}
           {hasError || (filteredDevices.length > 0 && filteredDevices.every(d => d.is_online === false)) ? (
             <TouchableOpacity
-              style={styles.offlineHeaderPill}
+              style={styles.statusDotButton}
               onPress={() => Alert.alert("🔴 Offline Mode", "Hardware switchboard is currently unreachable. Check power and Wi-Fi connection.")}
               activeOpacity={0.7}
             >
-              <View style={styles.offlineRedDotSmall} />
-              <Text style={styles.offlineHeaderText}>Offline</Text>
+              <View style={[styles.statusDot, styles.statusDotOffline]} />
             </TouchableOpacity>
           ) : (isPhoneOnWifi && filteredDevices.some(d => !!d.local_ip)) ? (
             <TouchableOpacity
-              style={styles.lanHeaderPill}
-              onPress={() => Alert.alert("⚡ Local Wi-Fi Mode (LAN)", "Direct high-speed 0.1s connection to switchboard over your local Wi-Fi network.")}
+              style={styles.statusDotButton}
+              onPress={() => Alert.alert("🟡 Local Wi-Fi Mode", "Direct high-speed 0.1s connection to switchboard over your local Wi-Fi network.")}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="lightning-bolt" size={12} color="#1fa971" />
-              <Text style={styles.lanHeaderText}>LAN ⚡</Text>
+              <View style={[styles.statusDot, styles.statusDotLocal]} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.cloudHeaderPill}
-              onPress={() => Alert.alert("☁️ AWS Cloud Mode", "Connected via AWS Serverless MQTT Cloud Server.")}
+              style={styles.statusDotButton}
+              onPress={() => Alert.alert("🔵 AWS Cloud Mode", "Connected via AWS Serverless MQTT Cloud Server.")}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="cloud-check" size={12} color="#38BDF8" />
-              <Text style={styles.cloudHeaderText}>Cloud</Text>
+              <View style={[styles.statusDot, styles.statusDotCloud]} />
             </TouchableOpacity>
           )}
         </View>
@@ -1933,62 +1930,44 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-  lanHeaderPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(31, 169, 113, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+  statusDotButton: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(31, 169, 113, 0.4)'
-  },
-  lanHeaderText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#1fa971',
-    letterSpacing: 0.4
-  },
-  cloudHeaderPill: {
-    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 14,
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)'
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  cloudHeaderText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#38BDF8',
-    letterSpacing: 0.3
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
   },
-  offlineHeaderPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)'
+  statusDotCloud: {
+    backgroundColor: '#38BDF8', // 🔵 Blue light dot = Cloud
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  offlineRedDotSmall: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EF4444'
+  statusDotLocal: {
+    backgroundColor: '#FACC15', // 🟡 Yellow light dot = Local Wi-Fi (LAN)
+    shadowColor: '#FACC15',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  offlineHeaderText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#EF4444',
-    letterSpacing: 0.3
+  statusDotOffline: {
+    backgroundColor: '#EF4444', // 🔴 Red light dot = Offline
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
+    elevation: 3,
   },
   floatingToast: {
     position: 'absolute',
