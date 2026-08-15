@@ -65,11 +65,11 @@ def get_all_user_rooms(
     shared_node_ids = [s.node_id for s in shared_shares if s.node_id]
 
     if shared_node_ids:
-        from sqlalchemy import or_
+        from sqlalchemy import or_, func
         conditions = []
         for nid in shared_node_ids:
-            conditions.append(models.Device.node_id == nid)
-            conditions.append(models.Device.node_id.like(f"{nid}_%"))
+            conditions.append(func.lower(models.Device.node_id) == func.lower(nid))
+            conditions.append(func.lower(models.Device.node_id).like(f"{nid.lower()}_%"))
         shared_devices = db.query(models.Device).filter(or_(*conditions)).all()
         shared_room_ids = list(set([d.room_id for d in shared_devices if d.room_id]))
         if shared_room_ids:
