@@ -21,6 +21,7 @@ import EnergyChart from "../components/EnergyChart";
 import BrandLogo from "../components/BrandLogo";
 import SideDrawer from "../components/SideDrawer";
 import { connectMqtt, disconnectMqtt, publishMessage, registerMqttListener } from "../services/mqttClient";
+import NetInfo from "@react-native-community/netinfo";
 import { 
   initLocalIpCache, 
   saveDeviceLocalIp, 
@@ -69,6 +70,17 @@ export default function DashboardScreen({ navigation }) {
   const [dbRooms, setDbRooms] = useState([]);
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [username, setUsername] = useState("User");
+  const [isPhoneOnWifi, setIsPhoneOnWifi] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsPhoneOnWifi(state.type === 'wifi');
+    });
+    NetInfo.fetch().then((state) => {
+      setIsPhoneOnWifi(state.type === 'wifi');
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Visual LAN vs Cloud Connectivity Feedback State
   const [feedbackToast, setFeedbackToast] = useState(null);
@@ -738,7 +750,7 @@ export default function DashboardScreen({ navigation }) {
               <View style={styles.offlineRedDotSmall} />
               <Text style={styles.offlineHeaderText}>Offline</Text>
             </TouchableOpacity>
-          ) : filteredDevices.some(d => !!d.local_ip) ? (
+          ) : (isPhoneOnWifi && filteredDevices.some(d => !!d.local_ip)) ? (
             <TouchableOpacity
               style={styles.lanHeaderPill}
               onPress={() => Alert.alert("⚡ Local Wi-Fi Mode (LAN)", "Direct high-speed 0.1s connection to switchboard over your local Wi-Fi network.")}
