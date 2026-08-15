@@ -67,30 +67,22 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
 
   // Clean Static Grid Cards (S-1 to S-6)
   return (
-    <View style={[styles.gridGlassCard, !isOnline && styles.gridGlassCardOffline, isEnabled && styles.gridGlassCardActive]}>
+    <View style={[styles.gridGlassCard, !isOnline && styles.gridGlassCardOffline]}>
       {/* Node Tag & Settings Header */}
       <View style={styles.cardHeaderRow}>
-        <Text style={[styles.nodeTagText, !isOnline && styles.nodeTagTextOffline, isEnabled && styles.nodeTagTextActive]}>
+        <Text style={[styles.nodeTagText, !isOnline && styles.nodeTagTextOffline]}>
           {nodeLabel}
         </Text>
         
-        {isOnline && (
+        {isOnline && hasSettings && (
           <View style={styles.cardHeaderRight}>
-            {!!device?.local_ip && (
-              <View style={styles.lanBadge}>
-                <MaterialCommunityIcons name="lightning-bolt" size={10} color={TOKENS.accentGreen} />
-                <Text style={styles.lanBadgeText}>LAN</Text>
-              </View>
-            )}
-            {hasSettings && (
-              <TouchableOpacity
-                style={styles.gearButtonInline}
-                onPress={() => setModalVisible(true)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="cog" size={15} color={TOKENS.accentGreen} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.gearButtonInline}
+              onPress={() => setModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="cog" size={15} color={TOKENS.accentGreen} />
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -205,10 +197,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.08)",
     position: "relative"
   },
-  gridGlassCardActive: {
-    borderColor: "rgba(34, 197, 94, 0.45)",
-    backgroundColor: "#1C1B1B"
-  },
   gridGlassCardOffline: {
     borderColor: "rgba(255, 255, 255, 0.05)",
     backgroundColor: "#121212",
@@ -228,23 +216,6 @@ const styles = StyleSheet.create({
     width: "100%",
     justifyContent: "center",
     alignItems: "center"
-  },
-  lanBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    backgroundColor: "rgba(31, 169, 113, 0.15)",
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "rgba(31, 169, 113, 0.3)"
-  },
-  lanBadgeText: {
-    fontSize: 8,
-    fontWeight: "900",
-    color: TOKENS.accentGreen,
-    letterSpacing: 0.5
   },
   cardHeaderRow: {
     width: "100%",
