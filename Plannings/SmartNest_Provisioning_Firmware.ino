@@ -31,6 +31,7 @@
 #include <Preferences.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <ESPmDNS.h>
 
 // ==========================================
 // 🔧 CONFIGURATION (GLOBAL SETTINGS)
@@ -108,7 +109,7 @@ void blinkLED(int times, int delayMs) {
 
 // --- Publish Channel State telemetry back to MQTT ---
 void sendChannelState(int channel, bool status, int val = -1) {
-  StaticJsonDocument<200> doc;
+  StaticJsonDocument<256> doc;
   doc["channel"] = channel;
   doc["status"] = status ? "ON" : "OFF";
   if (val != -1) {
@@ -118,6 +119,9 @@ void sendChannelState(int channel, bool status, int val = -1) {
       doc["value"] = val;
     }
   }
+  if (WiFi.status() == WL_CONNECTED) {
+    doc["local_ip"] = WiFi.localIP().toString();
+  }
 
   char buffer[256];
   serializeJson(doc, buffer);
@@ -125,6 +129,113 @@ void sendChannelState(int channel, bool status, int val = -1) {
   Serial.print("Publishing state update: ");
   Serial.println(buffer);
   client.publish(status_topic, buffer, true);
+}
+
+// --- Setup Local LAN Web Server & Endpoints (Port 80) ---
+void setupLocalWebServer() {
+  server.enableCORS(true);
+
+  // 1. Local Device State Endpoint: GET /state
+  server.on("/state", HTTP_GET, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "*");
+
+    StaticJsonDocument<512> doc;
+    doc["node_id"] = NODE_ID;
+    doc["local_ip"] = WiFi.localIP().toString();
+    doc["rssi"] = WiFi.RSSI();
+    
+    JsonArray relays = doc.createNestedArray("relays");
+    for (int i = 0; i < 4; i++) relays.add(relayStates[i]);
+
+    JsonObject fanObj = doc.createNestedObject("fan");
+    fanObj["enabled"] = fanEnabled;
+    fanObj["speed"] = fanSpeed;
+
+    doc["channel_1"] = relayStates[0] ? "ON" : "OFF";
+    doc["channel_2"] = relayStates[1] ? "ON" : "OFF";
+    doc["channel_3"] = relayStates[2] ? "ON" : "OFF";
+    doc["channel_4"] = relayStates[3] ? "ON" : "OFF";
+
+    JsonObject ch5 = doc.createNestedObject("channel_5");
+    ch5["status"] = fanEnabled ? "ON" : "OFF";
+    ch5["speed"] = fanSpeed;
+
+    doc["channel_6"] = (relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled) ? "ON" : "OFF";
+
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+  });
+
+  // 2. Local Control Endpoint: GET /control?channel=1&state=on
+  server.on("/control", HTTP_GET, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "*");
+
+    if (!server.hasArg("channel")) {
+      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing channel parameter\"}");
+      return;
+    }
+
+    int channel = server.arg("channel").toInt();
+    String stateStr = "";
+    if (server.hasArg("state")) stateStr = server.arg("state");
+    else if (server.hasArg("status")) stateStr = server.arg("status");
+    
+    stateStr.toUpperCase();
+    bool turnOn = (stateStr == "ON" || stateStr == "TRUE" || stateStr == "1");
+
+    Serial.printf("[Local HTTP Control] Channel %d -> %s\n", channel, turnOn ? "ON" : "OFF");
+
+    if (channel >= 1 && channel <= 4) {
+      relayStates[channel - 1] = turnOn;
+      if (client.connected()) sendChannelState(channel, turnOn);
+    } else if (channel == 5) {
+      fanEnabled = turnOn;
+      if (server.hasArg("speed")) {
+        fanSpeed = server.arg("speed").toInt();
+      }
+      if (client.connected()) sendChannelState(5, fanEnabled, fanSpeed);
+    } else if (channel == 6 || channel == 7) {
+      for (int i = 0; i < 4; i++) {
+        relayStates[i] = turnOn;
+        if (client.connected()) sendChannelState(i + 1, turnOn);
+      }
+      fanEnabled = turnOn;
+      if (client.connected()) sendChannelState(5, fanEnabled, fanSpeed);
+      if (client.connected()) sendChannelState(6, turnOn);
+    }
+
+    applyHardware();
+
+    StaticJsonDocument<256> doc;
+    doc["status"] = "success";
+    doc["node_id"] = NODE_ID;
+    doc["channel"] = channel;
+    doc["state"] = turnOn ? "ON" : "OFF";
+    if (channel == 5) doc["speed"] = fanSpeed;
+
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+  });
+
+  server.onNotFound([]() {
+    if (server.method() == HTTP_OPTIONS) {
+      server.sendHeader("Access-Control-Allow-Origin", "*");
+      server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      server.sendHeader("Access-Control-Allow-Headers", "*");
+      server.send(204);
+    } else {
+      server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Not found\"}");
+    }
+  });
+
+  server.begin();
+  Serial.println("[LocalServer] Local HTTP Control Web Server started on port 80.");
 }
 
 // --- Apply hardware outputs ---
@@ -408,6 +519,20 @@ void setup() {
       // Initialize MQTT Broker Connection
       client.setServer(mqtt_server, mqtt_port);
       client.setCallback(callback);
+
+      // Start Local HTTP Web Server on Port 80
+      setupLocalWebServer();
+
+      // Initialize mDNS Responder (4layers-{node_id}.local)
+      String mdnsHost = "4layers-" + String(NODE_ID);
+      mdnsHost.toLowerCase();
+      mdnsHost.replace("_", "-");
+      if (MDNS.begin(mdnsHost.c_str())) {
+        Serial.printf("[mDNS] Responder started: http://%s.local\n", mdnsHost.c_str());
+        MDNS.addService("http", "tcp", 80);
+      } else {
+        Serial.println("[mDNS] Error setting up MDNS responder");
+      }
     } else {
       Serial.println("\nAll 3 WiFi Connection Attempts Failed. Reverting to Setup Mode AP.");
       startSetupPortal();
@@ -423,6 +548,9 @@ void loop() {
     server.handleClient();
     return; // Stay in configuration loop until rebooted
   }
+
+  // Handle local HTTP requests on port 80 in normal Station Mode (Zero-Latency Local LAN Control)
+  server.handleClient();
 
   if (!client.connected()) {
     reconnectMqtt();

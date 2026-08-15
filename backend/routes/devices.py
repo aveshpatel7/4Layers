@@ -145,6 +145,9 @@ def get_devices(
             valid_devices_map[d.node_id] = d
     
     valid_devices = list(valid_devices_map.values())
+    for d in valid_devices:
+        if not getattr(d, 'local_ip', None) and d.current_state and isinstance(d.current_state, dict):
+            d.local_ip = d.current_state.get('local_ip') or d.current_state.get('ip')
     valid_devices.sort(key=lambda x: x.node_id or "")
     return valid_devices
 

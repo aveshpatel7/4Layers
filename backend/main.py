@@ -303,6 +303,7 @@ def startup_event():
         logger.info("Table creation status for app_settings: %s", table_err)
 
     columns = [
+        ("devices", "local_ip", "VARCHAR", None),
         ("schedules", "actions_json", "JSON", None),
         ("users", "expo_push_token", "VARCHAR", None),
         ("users", "phone_number", "VARCHAR", None),

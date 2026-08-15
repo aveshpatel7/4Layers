@@ -21,6 +21,12 @@ import EnergyChart from "../components/EnergyChart";
 import BrandLogo from "../components/BrandLogo";
 import SideDrawer from "../components/SideDrawer";
 import { connectMqtt, disconnectMqtt, publishMessage, registerMqttListener } from "../services/mqttClient";
+import { 
+  initLocalIpCache, 
+  saveDeviceLocalIp, 
+  getDeviceLocalIp, 
+  sendLocalControlCommand 
+} from "../services/localControl";
 const TOKENS = {
   bg: "#0E0E0E",
   cardBg: "#1C1B1B",
@@ -178,6 +184,10 @@ export default function DashboardScreen({ navigation }) {
             : (d.current_state?.speed !== undefined ? d.current_state.speed : 1);
 
           const isOnline = d.is_online === true;
+          const localIp = d.local_ip || d.current_state?.local_ip || getDeviceLocalIp(d.node_id) || null;
+          if (localIp) {
+            saveDeviceLocalIp(d.node_id, localIp);
+          }
 
           return {
             id: d.id,
@@ -185,6 +195,7 @@ export default function DashboardScreen({ navigation }) {
             room_id: d.room_id,
             node_id: d.node_id,
             type: mobileType,
+            local_ip: localIp,
             is_online: isOnline,
             status: isOnline && (d.current_state?.status === 'ON'),
             value: val
@@ -222,7 +233,7 @@ export default function DashboardScreen({ navigation }) {
             if (lockTime && (now - lockTime < 2000)) {
               const existingDev = prev.find(p => p.id === newDev.id);
               if (existingDev) {
-                return { ...newDev, is_online: newDev.is_online, status: existingDev.status, value: existingDev.value };
+                return { ...newDev, local_ip: newDev.local_ip || existingDev.local_ip, is_online: newDev.is_online, status: existingDev.status, value: existingDev.value };
               }
             }
             return newDev;
@@ -258,6 +269,7 @@ export default function DashboardScreen({ navigation }) {
   };
 
   useEffect(() => {
+    initLocalIpCache();
     fetchRoomsMapping();
     fetchUnreadAlertsCount();
     fetchProfile();
@@ -271,6 +283,10 @@ export default function DashboardScreen({ navigation }) {
         if (parts.length >= 3) {
           const baseNodeId = parts[2];
           const channel = payload.channel;
+          const incomingIp = payload.local_ip || payload.ip;
+          if (incomingIp) {
+            saveDeviceLocalIp(baseNodeId, incomingIp);
+          }
           const isOfflinePayload = payload.status === 'OFFLINE' || payload.is_online === false;
           const nextStatus = !isOfflinePayload && (payload.status === 'ON' || payload.status === true || payload.status === 1);
           const nextValue = payload.value ?? payload.speed ?? 1;
@@ -354,67 +370,65 @@ export default function DashboardScreen({ navigation }) {
 
     return unsubscribe;
   }, [navigation, roomMapping]);
-
   const handleToggleDevice = async (id) => {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
-
-    if (target.is_online === false) {
-      Alert.alert(
-        "Device Offline",
-        `"${target.name || 'Switch'}" is currently offline. Please check hardware power and Wi-Fi connection.`,
-        [{ text: "OK" }]
-      );
-      return;
-    }
 
     const isMaster = target.type === 'master' || target.node_id?.endsWith('_6') || target.node_id?.endsWith('_7') || target.name?.toLowerCase().includes('master');
     const nextStatus = !target.status;
     const nextStatusStr = nextStatus ? 'ON' : 'OFF';
 
+    let baseNodeId = target.node_id;
+    let channel = 1;
+    if (target.node_id.includes('_')) {
+      const parts = target.node_id.split('_');
+      baseNodeId = parts[0];
+      const lastPart = parts[parts.length - 1];
+      if (lastPart.match(/^\d+$/)) {
+        channel = parseInt(lastPart, 10);
+      }
+    }
+
     if (isMaster) {
       // MASTER SWITCH TOGGLE: Controls ALL devices in this room!
       const roomDevs = filteredDevices;
-      const onlineRoomDevs = roomDevs.filter(d => d.is_online !== false);
+      const roomDevIds = roomDevs.map(d => d.id);
+      let masterChannel = (channel === 7) ? 7 : 6;
 
-      if (onlineRoomDevs.length === 0) {
-        Alert.alert(
-          "Switchboard Offline",
-          "All devices in this room are currently offline. Please check hardware power and Wi-Fi connection.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+      // 1. Optimistic UI update: Turn ALL room devices ON or OFF
+      setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: nextStatus } : d));
 
-      const roomDevIds = onlineRoomDevs.map(d => d.id);
-
-      // 1. Optimistic UI update: Turn ALL online room devices ON or OFF
-      setDevices((prev) => prev.map((d) => (roomDevIds.includes(d.id) && d.is_online !== false) ? { ...d, status: nextStatus } : d));
-
-      // 2. Direct MQTT publish for Master Switch channel (6 or 7)
-      let baseNodeId = target.node_id;
-      let masterChannel = 6;
-      if (target.node_id.includes('_')) {
-        const parts = target.node_id.split('_');
-        baseNodeId = parts[0];
-        const lastPart = parts[parts.length - 1];
-        if (lastPart === '7' || lastPart === '6') {
-          masterChannel = parseInt(lastPart, 10);
-        }
-      }
+      // 2. Direct MQTT publish for Master Switch channel (Fast Cloud Path)
       publishMessage(`home/device/${baseNodeId}/control`, {
         channel: masterChannel,
         status: nextStatusStr
       });
 
-      // 3. HTTP sync backup via bulk-control
+      // 3. Cloud HTTP sync with 1.5s timeout & Local LAN Fallback
+      let cloudSucceeded = false;
       try {
-        await apiClient.post('/api/devices/bulk-control', {
+        const cloudPromise = apiClient.post('/api/devices/bulk-control', {
           device_ids: roomDevIds,
           state: { status: nextStatusStr }
         });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud API Timeout')), 1500));
+        await Promise.race([cloudPromise, timeoutPromise]);
+        cloudSucceeded = true;
       } catch (err) {
-        console.warn("Failed to sync master toggle with server MQTT:", err);
+        console.log("[Dashboard] Cloud master control failed or timed out. Triggering Local LAN Fallback...");
+      }
+
+      if (!cloudSucceeded) {
+        try {
+          await sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, target.local_ip);
+          console.log("[Dashboard] Master switch executed via Local LAN fallback.");
+        } catch (localErr) {
+          console.warn("[Dashboard] Both Cloud and Local LAN master control failed:", localErr);
+          if (target.is_online === false) {
+            setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: !nextStatus } : d));
+            Alert.alert("Device Unreachable", "Could not reach switchboard via Cloud or Local Wi-Fi.");
+          }
+        }
       }
       return;
     }
@@ -426,7 +440,7 @@ export default function DashboardScreen({ navigation }) {
     setDevices((prev) => {
       const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d);
       const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
-      const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master' && d.is_online !== false);
+      const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master');
       const isAnyOn = nonMasterDevs.some(d => d.status === true || d.status === 'ON');
 
       return updated.map(d => {
@@ -438,47 +452,51 @@ export default function DashboardScreen({ navigation }) {
       });
     });
 
-    // 2. Direct MQTT publish over WebSockets
-    let baseNodeId = target.node_id;
-    let channel = 1;
-    if (target.node_id.includes('_')) {
-      const parts = target.node_id.split('_');
-      baseNodeId = parts[0];
-      channel = parseInt(parts[parts.length - 1], 10);
-    }
+    // 2. Direct MQTT publish over WebSockets (Fast Cloud Path)
     const topic = `home/device/${baseNodeId}/control`;
     const togglePayload = {
       channel,
       status: nextStatusStr
     };
-    if (channel === 5 || target.type === 'fan') {
-      togglePayload.speed = (typeof target.value === 'number' && !isNaN(target.value)) ? target.value : 1;
+    const speedVal = (channel === 5 || target.type === 'fan') ? ((typeof target.value === 'number' && !isNaN(target.value)) ? target.value : 1) : null;
+    if (speedVal !== null) {
+      togglePayload.speed = speedVal;
     }
     publishMessage(topic, togglePayload);
 
-    // 3. HTTP sync backup
+    // 3. HTTP sync with 1.5s timeout + Smart Local LAN Fallback (mDNS & Local IP)
+    let cloudSucceeded = false;
     try {
-      await apiClient.post(`/api/devices/${id}/control`, {
+      const cloudHttpPromise = apiClient.post(`/api/devices/${id}/control`, {
         state: togglePayload
       });
-    } catch (err) {
-      console.warn("Failed to sync toggle with server MQTT:", err);
-      setDevices((prev) => prev.map((d) => d.id === id ? { ...d, status: !nextStatus } : d));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud API Timeout')), 1500));
+      await Promise.race([cloudHttpPromise, timeoutPromise]);
+      cloudSucceeded = true;
+    } catch (cloudErr) {
+      console.log(`[Dashboard] Cloud control failed/timed out for ${target.name}. Initiating Local LAN fallback...`);
+    }
+
+    if (!cloudSucceeded) {
+      try {
+        await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, speedVal);
+        console.log(`[Dashboard] Device ${target.name} successfully toggled via Local LAN.`);
+      } catch (localErr) {
+        console.warn(`[Dashboard] Both Cloud and Local LAN failed for ${target.name}:`, localErr);
+        if (target.is_online === false) {
+          setDevices((prev) => prev.map((d) => d.id === id ? { ...d, status: !nextStatus } : d));
+          Alert.alert(
+            "Device Unreachable",
+            `Could not reach "${target.name || 'Switch'}" via Cloud or Local Wi-Fi network.`
+          );
+        }
+      }
     }
   };
 
   const handleAdjustValue = async (id, step) => {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
-
-    if (target.is_online === false) {
-      Alert.alert(
-        "Device Offline",
-        `"${target.name || 'Fan'}" is currently offline. Please check hardware power and Wi-Fi connection.`,
-        [{ text: "OK" }]
-      );
-      return;
-    }
 
     const isFan = target.type === 'fan' || target.node_id?.endsWith('_5') || target.name?.toLowerCase().includes('fan');
     if (!isFan) return;
@@ -494,6 +512,17 @@ export default function DashboardScreen({ navigation }) {
 
     const nextStatus = nextVal > 0;
     const nextStatusStr = nextStatus ? 'ON' : 'OFF';
+
+    let baseNodeId = target.node_id;
+    let channel = 5;
+    if (target.node_id && target.node_id.includes('_')) {
+      const parts = target.node_id.split('_');
+      baseNodeId = parts[0];
+      const lastPart = parts[parts.length - 1];
+      if (lastPart.match(/^\d+$/)) {
+        channel = parseInt(lastPart, 10);
+      }
+    }
 
     // 1. Optimistic UI update + Master Switch state update
     setDevices((prev) => {
@@ -511,29 +540,34 @@ export default function DashboardScreen({ navigation }) {
     });
 
     // 2. Direct MQTT publish
-    let baseNodeId = target.node_id;
-    let channel = 1;
-    if (target.node_id && target.node_id.includes('_')) {
-      const parts = target.node_id.split('_');
-      baseNodeId = parts[0];
-      channel = parseInt(parts[parts.length - 1], 10);
-    }
     const topic = `home/device/${baseNodeId}/control`;
-    const payload = {
+    const adjustPayload = {
       channel,
       status: nextStatusStr,
-      value: nextVal,
       speed: nextVal
     };
-    publishMessage(topic, payload);
+    publishMessage(topic, adjustPayload);
 
-    // 3. HTTP sync backup
+    // 3. HTTP sync with 1.5s timeout + Local LAN Fallback
+    let cloudSucceeded = false;
     try {
-      await apiClient.post(`/api/devices/${id}/control`, {
-        state: payload
+      const cloudHttpPromise = apiClient.post(`/api/devices/${id}/control`, {
+        state: adjustPayload
       });
-    } catch (err) {
-      console.warn("Failed to sync fan speed adjustment with server:", err);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud API Timeout')), 1500));
+      await Promise.race([cloudHttpPromise, timeoutPromise]);
+      cloudSucceeded = true;
+    } catch (cloudErr) {
+      console.log(`[Dashboard] Cloud adjust failed/timed out for ${target.name}. Initiating Local LAN fallback...`);
+    }
+
+    if (!cloudSucceeded) {
+      try {
+        await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, nextVal);
+        console.log(`[Dashboard] Fan speed adjusted via Local LAN.`);
+      } catch (localErr) {
+        console.warn(`[Dashboard] Both Cloud and Local LAN failed for fan speed:`, localErr);
+      }
     }
   };
 

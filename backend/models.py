@@ -61,6 +61,7 @@ class Device(Base):
     mac_address = Column(String, index=True, nullable=True)  # Hardware MAC address (not unique due to multi-channels)
     name = Column(String, nullable=False)
     device_type = Column(String, nullable=False)  # e.g., "light", "fan", "AC"
+    local_ip = Column(String, nullable=True)  # LAN local IP address (e.g. 192.168.1.50)
     is_online = Column(Boolean, default=False, server_default=text("false"), nullable=False)
     current_state = Column(JSON, default={}, server_default=text("'{}'"), nullable=False)
     last_seen = Column(DateTime, default=datetime.datetime.utcnow, nullable=True)

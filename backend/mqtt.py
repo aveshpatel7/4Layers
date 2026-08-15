@@ -38,13 +38,14 @@ def on_connect(client, userdata, flags, rc):
     """Callback when client connects to broker."""
     if rc == 0:
         logger.info("Connected successfully to MQTT Broker: %s:%d", MQTT_BROKER, MQTT_PORT)
-        # Subscribe to status confirmation updates for all device nodes
-        # Topic pattern: home/device/{node_id}/status
-        subscribe_topic = "home/device/+/status"
+        # Subscribe to status and telemetry confirmation updates for all device nodes
+        # Topic pattern: home/device/{node_id}/status and home/device/{node_id}/telemetry
+        subscribe_status = "home/device/+/status"
+        subscribe_telemetry = "home/device/+/telemetry"
         ota_topic = "smartnest/devices/+/ota/status"
         logs_topic = "smartnest/devices/+/logs"
-        client.subscribe([(subscribe_topic, 1), (ota_topic, 1), (logs_topic, 1)])
-        logger.info("Subscribed to MQTT topics: %s, %s, and %s", subscribe_topic, ota_topic, logs_topic)
+        client.subscribe([(subscribe_status, 1), (subscribe_telemetry, 1), (ota_topic, 1), (logs_topic, 1)])
+        logger.info("Subscribed to MQTT topics: %s, %s, %s, and %s", subscribe_status, subscribe_telemetry, ota_topic, logs_topic)
     else:
         logger.error("Failed to connect to MQTT Broker, return code %d", rc)
 
@@ -94,13 +95,13 @@ def on_message(client, userdata, msg):
                 ota_ws_broadcaster(ota_data)
             return
 
-        # Parse topic: home/device/{node_id}/status
+        # Parse topic: home/device/{node_id}/status OR home/device/{node_id}/telemetry
         parts = msg.topic.split('/')
-        if len(parts) == 4 and parts[0] == "home" and parts[1] == "device" and parts[3] == "status":
+        if len(parts) == 4 and parts[0] == "home" and parts[1] == "device" and (parts[3] == "status" or parts[3] == "telemetry"):
             raw_node_id = parts[2]
+            is_telemetry = (parts[3] == "telemetry")
             
             # 1. Strict JSON payload validation
-            payload_str = msg.payload.decode("utf-8").strip()
             try:
                 state_data = json.loads(payload_str)
             except json.JSONDecodeError as err:
@@ -118,9 +119,30 @@ def on_message(client, userdata, msg):
             else:
                 base_node_id = raw_node_id
 
+            # Extract local_ip if present in payload
+            incoming_local_ip = state_data.get("local_ip") or state_data.get("ip")
+
             # Update database in callback thread
             db: Session = SessionLocal()
             try:
+                # If local_ip is provided in telemetry/status, update all sibling channel devices
+                if incoming_local_ip:
+                    sibling_devices = db.query(models.Device).filter(
+                        (models.Device.node_id == base_node_id) | 
+                        (models.Device.node_id.like(f"{base_node_id}_%"))
+                    ).all()
+                    for sib in sibling_devices:
+                        sib.local_ip = incoming_local_ip
+                        cur = sib.current_state or {}
+                        sib.current_state = {**cur, "local_ip": incoming_local_ip}
+                        sib.last_seen = datetime.utcnow()
+                        sib.is_online = True
+                        db.add(sib)
+                    db.commit()
+                    logger.info("Updated local_ip=%s for %d channels on node %s", incoming_local_ip, len(sibling_devices), base_node_id)
+                    if is_telemetry and "status" not in state_data:
+                        return
+
                 # 2. LWT Handling: check if abrupt disconnect or offline LWT arrived
                 if state_data.get("status") == "OFFLINE":
                     all_chan_devices = db.query(models.Device).filter(
@@ -151,15 +173,13 @@ def on_message(client, userdata, msg):
                                         user_id=device.home.owner_id,
                                         device_id=device.id,
                                         type="device_offline",
-                                        message=f"Smart Nest Device '{device.name}' is now OFFLINE.",
+                                        message=f"Device '{device.name}' is now OFFLINE.",
                                         is_read=False
                                     )
                                     db.add(alert_entry)
 
                         db.commit()
-                        logger.info("LWT Offline handled: Marked %d channel devices OFFLINE for node %s (DB records & user mappings preserved).", len(all_chan_devices), base_node_id)
-                    else:
-                        logger.warning("LWT Offline received for node %s, but no matching devices found in DB.", base_node_id)
+                        logger.info("LWT Offline handled: Marked %d channel devices OFFLINE for node %s.", len(all_chan_devices), base_node_id)
                     return
 
                 # Target node determination for normal status updates
@@ -181,12 +201,16 @@ def on_message(client, userdata, msg):
                         clean_state["value"] = state_data["value"]
                     elif "speed" in state_data:
                         clean_state["value"] = state_data["speed"]
+                    if incoming_local_ip:
+                        clean_state["local_ip"] = incoming_local_ip
 
                     new_state = {**previous_state, **clean_state}
                     
-                    if previous_state != new_state or was_offline:
+                    if previous_state != new_state or was_offline or incoming_local_ip:
                         device.current_state = new_state
                         device.is_online = True
+                        if incoming_local_ip:
+                            device.local_ip = incoming_local_ip
                         device.updated_at = datetime.utcnow()
                         db.add(device)
                         
@@ -203,7 +227,7 @@ def on_message(client, userdata, msg):
                                 user_id=device.home.owner_id,
                                 device_id=device.id,
                                 type="device_online",
-                                message=f"Smart Nest Device '{device.name}' is now ONLINE and connected to Gateway.",
+                                message=f"Device '{device.name}' is now ONLINE.",
                                 is_read=False
                             )
                             db.add(alert_entry)

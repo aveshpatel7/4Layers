@@ -107,6 +107,7 @@ class DeviceResponse(DeviceBase):
     mac_address: Optional[str] = None
     name: str
     device_type: str
+    local_ip: Optional[str] = None
     is_online: bool
     current_state: Dict[str, Any] = {}
     last_seen: Optional[datetime.datetime] = None
