@@ -73,6 +73,11 @@ export default function HomeScreen({ navigation }) {
 
   // Toggle device state
   const handleToggleDevice = async (id, currentVal) => {
+    const targetDev = devices.find((d) => d.id === id);
+    if (targetDev && targetDev.is_online === false) {
+      alert(`"${targetDev.name || 'Switch'}" is offline. Please check hardware power and Wi-Fi.`);
+      return;
+    }
     const targetState = currentVal ? 'ON' : 'OFF';
 
     // Optimistic UI state update (handling both old status field and new current_state schema)

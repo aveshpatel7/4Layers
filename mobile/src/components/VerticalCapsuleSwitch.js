@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function VerticalCapsuleSwitch({
   isEnabled = false,
+  isOnline = true,
   onToggle,
   onTurnOn,
   onTurnOff,
@@ -12,6 +13,7 @@ export default function VerticalCapsuleSwitch({
   orientation = "vertical"
 }) {
   const isHorizontal = orientation === "horizontal";
+  const effectiveEnabled = isOnline && isEnabled;
 
   // Dimensions for specified variants:
   // sm: 72x160, radius 36
@@ -49,15 +51,15 @@ export default function VerticalCapsuleSwitch({
   }
 
   // Animation values for smooth 350ms transition
-  const animVal = useRef(new Animated.Value(isEnabled ? 1 : 0)).current;
+  const animVal = useRef(new Animated.Value(effectiveEnabled ? 1 : 0)).current;
 
   useEffect(() => {
     Animated.timing(animVal, {
-      toValue: isEnabled ? 1 : 0,
+      toValue: effectiveEnabled ? 1 : 0,
       duration: 350,
       useNativeDriver: false
     }).start();
-  }, [isEnabled]);
+  }, [effectiveEnabled]);
 
   // Interpolated opacity values for smooth 350ms color transitions
   const activeOpacity = animVal.interpolate({
@@ -71,20 +73,20 @@ export default function VerticalCapsuleSwitch({
 
   const handlePressOn = () => {
     if (onToggle) {
-      onToggle(!isEnabled);
-    } else if (!isEnabled && onTurnOn) {
+      onToggle(!effectiveEnabled);
+    } else if (!effectiveEnabled && onTurnOn) {
       onTurnOn();
-    } else if (isEnabled && onTurnOff) {
+    } else if (effectiveEnabled && onTurnOff) {
       onTurnOff();
     }
   };
 
   const handlePressOff = () => {
     if (onToggle) {
-      onToggle(!isEnabled);
-    } else if (isEnabled && onTurnOff) {
+      onToggle(!effectiveEnabled);
+    } else if (effectiveEnabled && onTurnOff) {
       onTurnOff();
-    } else if (!isEnabled && onTurnOn) {
+    } else if (!effectiveEnabled && onTurnOn) {
       onTurnOn();
     }
   };
@@ -108,11 +110,12 @@ export default function VerticalCapsuleSwitch({
             width,
             height,
             borderRadius: radius,
-            borderColor: isEnabled ? "#16a34a" : "rgba(255,255,255,0.08)",
+            borderColor: effectiveEnabled ? "#16a34a" : (isOnline ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)"),
             borderWidth: 1,
-            flexDirection: isHorizontal ? "row" : "column"
+            flexDirection: isHorizontal ? "row" : "column",
+            opacity: isOnline ? 1 : 0.45
           },
-          isEnabled && styles.outerGlowOn
+          effectiveEnabled && styles.outerGlowOn
         ]}
       >
         {/* TOP / LEFT ZONE (ON) */}
@@ -145,13 +148,14 @@ export default function VerticalCapsuleSwitch({
             <MaterialCommunityIcons
               name="power"
               size={iconSize}
-              color={isEnabled ? "#FFFFFF" : "rgba(255, 255, 255, 0.2)"}
+              color={effectiveEnabled ? "#FFFFFF" : (isOnline ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.08)")}
             />
             <Text
               style={[
                 styles.labelText,
                 { fontSize },
-                isEnabled ? styles.textOnActive : styles.textInactive
+                effectiveEnabled ? styles.textOnActive : styles.textInactive,
+                !isOnline && { color: "rgba(255,255,255,0.15)" }
               ]}
             >
               ON
@@ -220,13 +224,14 @@ export default function VerticalCapsuleSwitch({
             <MaterialCommunityIcons
               name="power"
               size={iconSize}
-              color={!isEnabled ? "#FFFFFF" : "rgba(255, 255, 255, 0.18)"}
+              color={!effectiveEnabled && isOnline ? "#FFFFFF" : "rgba(255, 255, 255, 0.15)"}
             />
             <Text
               style={[
                 styles.labelText,
                 { fontSize },
-                !isEnabled ? styles.textOffActive : styles.textInactive
+                (!effectiveEnabled && isOnline) ? styles.textOffActive : styles.textInactive,
+                !isOnline && { color: "rgba(255,255,255,0.18)" }
               ]}
             >
               OFF

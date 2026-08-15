@@ -11,7 +11,8 @@ import {
   Modal,
   PanResponder,
   TextInput,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import apiClient from "../api/client";
@@ -176,13 +177,16 @@ export default function DashboardScreen({ navigation }) {
             ? d.current_state.value 
             : (d.current_state?.speed !== undefined ? d.current_state.speed : 1);
 
+          const isOnline = d.is_online === true;
+
           return {
             id: d.id,
             name: d.name,
             room_id: d.room_id,
             node_id: d.node_id,
             type: mobileType,
-            status: d.current_state?.status === 'ON',
+            is_online: isOnline,
+            status: isOnline && (d.current_state?.status === 'ON'),
             value: val
           };
         });
@@ -191,7 +195,7 @@ export default function DashboardScreen({ navigation }) {
         const roomStatusMap = {};
         formattedList.forEach(d => {
           if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
-            if (d.status) roomStatusMap[d.room_id] = true;
+            if (d.status && d.is_online !== false) roomStatusMap[d.room_id] = true;
           }
         });
 
@@ -218,7 +222,7 @@ export default function DashboardScreen({ navigation }) {
             if (lockTime && (now - lockTime < 2000)) {
               const existingDev = prev.find(p => p.id === newDev.id);
               if (existingDev) {
-                return { ...newDev, status: existingDev.status, value: existingDev.value };
+                return { ...newDev, is_online: newDev.is_online, status: existingDev.status, value: existingDev.value };
               }
             }
             return newDev;
@@ -267,7 +271,8 @@ export default function DashboardScreen({ navigation }) {
         if (parts.length >= 3) {
           const baseNodeId = parts[2];
           const channel = payload.channel;
-          const nextStatus = payload.status === 'ON' || payload.status === true || payload.status === 1;
+          const isOfflinePayload = payload.status === 'OFFLINE' || payload.is_online === false;
+          const nextStatus = !isOfflinePayload && (payload.status === 'ON' || payload.status === true || payload.status === 1);
           const nextValue = payload.value ?? payload.speed ?? 1;
 
           const now = Date.now();
@@ -278,16 +283,19 @@ export default function DashboardScreen({ navigation }) {
                 const expectedSuffix = `_${channel}`;
                 isMatch = d.node_id === `${baseNodeId}${expectedSuffix}` || (d.node_id?.startsWith(baseNodeId) && d.node_id?.endsWith(expectedSuffix));
               } else {
-                isMatch = d.node_id === baseNodeId;
+                isMatch = d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`);
               }
 
               if (isMatch) {
+                if (isOfflinePayload) {
+                  return { ...d, is_online: false, status: false };
+                }
                 const lockTime = toggleLockRef.current[d.id];
                 // Ignore stale incoming MQTT echo if device was toggled within 2 seconds
                 if (lockTime && (now - lockTime < 2000)) {
-                  return d;
+                  return { ...d, is_online: true };
                 }
-                return { ...d, status: nextStatus, value: nextValue };
+                return { ...d, is_online: true, status: nextStatus, value: nextValue };
               }
               return d;
             });
@@ -296,7 +304,7 @@ export default function DashboardScreen({ navigation }) {
             const roomStatusMap = {};
             updated.forEach(d => {
               if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
-                if (d.status) roomStatusMap[d.room_id] = true;
+                if (d.status && d.is_online !== false) roomStatusMap[d.room_id] = true;
               }
             });
 
@@ -351,6 +359,15 @@ export default function DashboardScreen({ navigation }) {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
 
+    if (target.is_online === false) {
+      Alert.alert(
+        "Device Offline",
+        `"${target.name || 'Switch'}" is currently offline. Please check hardware power and Wi-Fi connection.`,
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     const isMaster = target.type === 'master' || target.node_id?.endsWith('_6') || target.node_id?.endsWith('_7') || target.name?.toLowerCase().includes('master');
     const nextStatus = !target.status;
     const nextStatusStr = nextStatus ? 'ON' : 'OFF';
@@ -358,10 +375,21 @@ export default function DashboardScreen({ navigation }) {
     if (isMaster) {
       // MASTER SWITCH TOGGLE: Controls ALL devices in this room!
       const roomDevs = filteredDevices;
-      const roomDevIds = roomDevs.map(d => d.id);
+      const onlineRoomDevs = roomDevs.filter(d => d.is_online !== false);
 
-      // 1. Optimistic UI update: Turn ALL room devices ON or OFF
-      setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: nextStatus } : d));
+      if (onlineRoomDevs.length === 0) {
+        Alert.alert(
+          "Switchboard Offline",
+          "All devices in this room are currently offline. Please check hardware power and Wi-Fi connection.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      const roomDevIds = onlineRoomDevs.map(d => d.id);
+
+      // 1. Optimistic UI update: Turn ALL online room devices ON or OFF
+      setDevices((prev) => prev.map((d) => (roomDevIds.includes(d.id) && d.is_online !== false) ? { ...d, status: nextStatus } : d));
 
       // 2. Direct MQTT publish for Master Switch channel (6 or 7)
       let baseNodeId = target.node_id;
@@ -398,7 +426,7 @@ export default function DashboardScreen({ navigation }) {
     setDevices((prev) => {
       const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d);
       const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
-      const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master');
+      const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master' && d.is_online !== false);
       const isAnyOn = nonMasterDevs.some(d => d.status === true || d.status === 'ON');
 
       return updated.map(d => {
@@ -442,6 +470,15 @@ export default function DashboardScreen({ navigation }) {
   const handleAdjustValue = async (id, step) => {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
+
+    if (target.is_online === false) {
+      Alert.alert(
+        "Device Offline",
+        `"${target.name || 'Fan'}" is currently offline. Please check hardware power and Wi-Fi connection.`,
+        [{ text: "OK" }]
+      );
+      return;
+    }
 
     const isFan = target.type === 'fan' || target.node_id?.endsWith('_5') || target.name?.toLowerCase().includes('fan');
     if (!isFan) return;
