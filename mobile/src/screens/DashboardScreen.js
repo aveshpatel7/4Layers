@@ -968,7 +968,7 @@ export default function DashboardScreen({ navigation }) {
               {/* Single Top Offline Warning Banner */}
               {filteredDevices.some(d => d.is_online === false) && (
                 <View style={styles.topOfflineWarningBanner}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#F87171" />
+                  <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#EF4444" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.topOfflineWarningTitle}>Switchboard Offline</Text>
                     <Text style={styles.topOfflineWarningSubtitle}>Hardware is disconnected. Please check power or Wi-Fi.</Text>
@@ -2146,25 +2146,31 @@ const styles = StyleSheet.create({
   topOfflineWarningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    gap: 12,
+    backgroundColor: '#1C1B1B',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: '#EF4444',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     marginBottom: 16,
-    marginHorizontal: 2
+    marginHorizontal: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   topOfflineWarningTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
-    color: '#F87171',
-    letterSpacing: 0.3
+    color: '#EF4444',
+    letterSpacing: 0.3,
   },
   topOfflineWarningSubtitle: {
-    fontSize: 10,
-    color: 'rgba(248, 113, 113, 0.8)',
-    marginTop: 1
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+    lineHeight: 15,
   }
 });
