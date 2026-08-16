@@ -1440,14 +1440,12 @@ void setup() {
     pinMode(gpio_reset, INPUT_PULLUP); 
     pinMode(RF_PIN, INPUT);
     
-    init_hardware(); 
-    init_rf(); 
-    init_switches();
+    attachInterrupt(digitalPinToInterrupt(RF_PIN), rf_isr, CHANGE);
     
-    rf_code_l1 = load_code("r1", 0); 
-    rf_code_l2 = load_code("r2", 0); 
-    rf_code_l3 = load_code("r3", 0); 
-    rf_code_l4 = load_code("r4", 0);
+    rf_code_l1 = load_code("rf1", 0); 
+    rf_code_l2 = load_code("rf2", 0); 
+    rf_code_l3 = load_code("rf3", 0); 
+    rf_code_l4 = load_code("rf4", 0);
     rf_code_up = load_code("rfu", 0); 
     rf_code_dw = load_code("rfd", 0); 
     rf_code_fan_toggle = load_code("rft", 0); 
