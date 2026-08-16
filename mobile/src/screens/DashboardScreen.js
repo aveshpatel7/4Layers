@@ -28,7 +28,8 @@ import {
   saveDeviceLocalIp, 
   getDeviceLocalIp, 
   sendLocalControlCommand,
-  fetchLocalDeviceState
+  fetchLocalDeviceState,
+  pingLocalDevice
 } from "../services/localControl";
 const TOKENS = {
   bg: "#0E0E0E",
@@ -256,6 +257,48 @@ export default function DashboardScreen({ navigation }) {
           };
         });
 
+        // If phone is on Wi-Fi, verify local hardware presence via 500ms ultra-fast ping
+        if (isPhoneOnWifi) {
+          const uniqueNodes = Array.from(new Set(formattedList.map(d => d.node_id?.split('_')[0]).filter(Boolean)));
+          const pingPromises = uniqueNodes.map(async (baseNodeId) => {
+            const localIp = getDeviceLocalIp(baseNodeId);
+            const localState = await pingLocalDevice(baseNodeId, localIp, 500);
+            return { baseNodeId, localIp, localState };
+          });
+          const pingResults = await Promise.all(pingPromises);
+          const pingMap = new Map(pingResults.map(r => [r.baseNodeId, r]));
+
+          formattedList = formattedList.map(d => {
+            const baseNodeId = d.node_id?.split('_')[0];
+            const pingInfo = pingMap.get(baseNodeId);
+            if (pingInfo) {
+              if (pingInfo.localState) {
+                // Hardware responded locally in <500ms
+                const suffix = parseInt(d.node_id?.split('_').pop(), 10);
+                let st = d.status;
+                let val = d.value;
+                if (suffix >= 1 && suffix <= 4 && pingInfo.localState.relays) {
+                  st = !!pingInfo.localState.relays[suffix - 1];
+                } else if (suffix === 5 && pingInfo.localState.fan) {
+                  st = !!pingInfo.localState.fan.enabled;
+                  val = pingInfo.localState.fan.speed || 1;
+                }
+                return {
+                  ...d,
+                  is_online: true,
+                  status: st,
+                  value: val,
+                  local_ip: pingInfo.localState.local_ip || pingInfo.localIp || d.local_ip
+                };
+              } else if (!d.is_online) {
+                // Both Cloud is not receiving LWT and Local ping timed out: mark offline cleanly
+                return { ...d, is_online: false, status: false };
+              }
+            }
+            return d;
+          });
+        }
+
         // Compute Master Switch status dynamically for each room
         const roomStatusMap = {};
         formattedList.forEach(d => {
@@ -289,7 +332,7 @@ export default function DashboardScreen({ navigation }) {
           // Merge with prev to respect active optimistic toggle locks (within 3.5 seconds)
           return uniqueDevicesList.map(newDev => {
             const lock = toggleLockRef.current[newDev.id];
-            if (lock && (now - lock.time < 3500)) {
+            if (lock && (now - lock.time < 3500) && newDev.is_online) {
               const existingDev = prev.find(p => p.id === newDev.id);
               return {
                 ...newDev,
@@ -307,7 +350,7 @@ export default function DashboardScreen({ navigation }) {
         throw new Error("Returned telemetry data is not a valid list of devices");
       }
     } catch (error) {
-      console.warn("Cloud API fetch failed, checking offline local LAN cache...", error);
+      console.warn("Cloud API fetch failed, checking local hardware via 500ms ping...", error);
       try {
         const cachedDevStr = await AsyncStorage.getItem('@4layers_cached_devices');
         if (cachedDevStr) {
@@ -318,11 +361,8 @@ export default function DashboardScreen({ navigation }) {
               const baseNodeId = cachedDevs[0]?.node_id?.split('_')[0] || cachedDevs[0]?.node_id;
               const localIp = cachedDevs[0]?.local_ip || getDeviceLocalIp(baseNodeId);
               
-              // Always maintain Local Wi-Fi presence when phone is on Wi-Fi with known node
-              updatedDevs = updatedDevs.map(d => ({ ...d, is_online: true, local_ip: localIp || d.local_ip }));
-
-              // Query local ESP32 /state directly over local Wi-Fi
-              const localState = await fetchLocalDeviceState(baseNodeId, localIp);
+              // 500ms Rapid Ping to check local ESP32
+              const localState = await pingLocalDevice(baseNodeId, localIp, 500);
               if (localState) {
                 console.log("[Dashboard] Direct local ESP32 state retrieved via Wi-Fi:", localState);
                 updatedDevs = updatedDevs.map(d => {
@@ -343,7 +383,13 @@ export default function DashboardScreen({ navigation }) {
                     value: val
                   };
                 });
+              } else {
+                // BOTH Cloud and Local ping failed: mark offline INSTANTLY!
+                updatedDevs = updatedDevs.map(d => ({ ...d, is_online: false, status: false }));
               }
+            } else {
+              // Not on Wi-Fi and Cloud failed: mark offline INSTANTLY!
+              updatedDevs = updatedDevs.map(d => ({ ...d, is_online: false, status: false }));
             }
             setDevices(updatedDevs);
             setHasError(false);

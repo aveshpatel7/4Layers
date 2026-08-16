@@ -125,27 +125,49 @@ export async function sendLocalControlCommand(nodeId, channel, state, providedLo
 }
 
 /**
- * Query local ESP32 /state endpoint to verify LAN presence (1.5s robust timeout)
+ * Ultra-Fast 500ms Ping to verify local hardware presence
  */
-export async function fetchLocalDeviceState(nodeId, providedLocalIp = null) {
+export async function pingLocalDevice(nodeId, providedLocalIp = null, timeoutMs = 500) {
   const baseNodeId = nodeId.includes("_") ? nodeId.split("_")[0] : nodeId;
   const targetIp = providedLocalIp || getDeviceLocalIp(nodeId);
 
-  const urlsToTry = [];
-  if (targetIp && targetIp !== "127.0.0.1" && targetIp !== "0.0.0.0") {
-    urlsToTry.push(`http://${targetIp}/state`);
+  if (!targetIp || targetIp === "127.0.0.1" || targetIp === "0.0.0.0") {
+    return null;
   }
-  urlsToTry.push(`http://${baseNodeId}.local/state`);
 
-  for (const url of urlsToTry) {
+  try {
+    const response = await fetchWithTimeout(`http://${targetIp}/state`, { method: "GET" }, timeoutMs);
+    if (response.ok) {
+      const jsonRes = await response.json();
+      return jsonRes;
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+/**
+ * Query local ESP32 /state endpoint (500ms fast ping with single fallback)
+ */
+export async function fetchLocalDeviceState(nodeId, providedLocalIp = null, timeoutMs = 500) {
+  const baseNodeId = nodeId.includes("_") ? nodeId.split("_")[0] : nodeId;
+  const targetIp = providedLocalIp || getDeviceLocalIp(nodeId);
+
+  if (targetIp && targetIp !== "127.0.0.1" && targetIp !== "0.0.0.0") {
     try {
-      const response = await fetchWithTimeout(url, { method: "GET" }, 1500);
+      const response = await fetchWithTimeout(`http://${targetIp}/state`, { method: "GET" }, timeoutMs);
       if (response.ok) {
-        const jsonRes = await response.json();
-        return jsonRes;
+        return await response.json();
       }
-    } catch (e) {}
+    } catch (_) {}
   }
+
+  try {
+    const response = await fetchWithTimeout(`http://${baseNodeId}.local/state`, { method: "GET" }, timeoutMs);
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (_) {}
 
   return null;
 }
