@@ -111,8 +111,8 @@ static TaskHandle_t bulk_off_handle = NULL;
 
 bool inSetupMode = false; 
 bool shouldReboot = false; 
-String saved_ssid = ""; 
-String saved_password = "";
+char saved_ssid[64] = {0};       
+char saved_password[64] = {0};   
 
 // ==========================================
 // SMART FLASH SAVER (NVS CACHE)
@@ -266,9 +266,8 @@ void sendChannelState(int channel, bool status, int val = -1)
     
     if (client.connected()) 
     {
-        if(client.publish(status_topic, buffer, true)) {
-            // Serial.printf("☁️ [MQTT] Status Published: Channel %d\n", channel); // Uncomment if you want to see every publish
-        } else {
+        if(!client.publish(status_topic, buffer, true)) 
+        {
             Serial.printf("❌ [ERROR] MQTT Publish Failed for Channel %d\n", channel);
         }
     }
@@ -574,6 +573,103 @@ void All_Off()
     } 
 }
 
+// ==========================================
+// MASTER CHANNEL CONTROLLER (Optimized)
+// ==========================================
+void process_channel_command(int channel, bool turnOn, int speedVal, const char* sourceIcon)
+{
+    if (channel >= 1 && channel <= 4)
+    {
+        if (turnOn)
+        {
+            Serial.printf("%s Command: Channel %d -> ON\n", sourceIcon, channel);
+        }
+        else
+        {
+            Serial.printf("%s Command: Channel %d -> OFF\n", sourceIcon, channel);
+        }
+
+        portENTER_CRITICAL(&state_mux); 
+        if (channel == 1) switch_state_ch1 = turnOn;
+        else if (channel == 2) switch_state_ch2 = turnOn;
+        else if (channel == 3) switch_state_ch3 = turnOn;
+        else if (channel == 4) switch_state_ch4 = turnOn;
+        portEXIT_CRITICAL(&state_mux);
+        
+        if (channel == 1)
+        {
+            digitalWrite(relay1, turnOn ? HIGH : LOW);
+            sendChannelState(1, turnOn); 
+            save_state_to_nvs("R1", turnOn ? 1 : 0);
+        }
+        else if (channel == 2)
+        {
+            digitalWrite(relay2, turnOn ? HIGH : LOW);
+            sendChannelState(2, turnOn); 
+            save_state_to_nvs("R2", turnOn ? 1 : 0);
+        }
+        else if (channel == 3)
+        {
+            digitalWrite(relay3, turnOn ? HIGH : LOW);
+            sendChannelState(3, turnOn); 
+            save_state_to_nvs("R3", turnOn ? 1 : 0);
+        }
+        else if (channel == 4)
+        {
+            digitalWrite(relay4, turnOn ? HIGH : LOW);
+            sendChannelState(4, turnOn); 
+            save_state_to_nvs("R4", turnOn ? 1 : 0);
+        }
+    }
+    else if (channel == 5)
+    {
+        if (speedVal != -1)
+        {
+            Serial.printf("%s Command: Fan Speed -> %d\n", sourceIcon, speedVal);
+            
+            portENTER_CRITICAL(&state_mux); 
+            pending_fan_speed = speedVal; 
+            portEXIT_CRITICAL(&state_mux);
+        }
+        else
+        {
+            if (turnOn)
+            {
+                Serial.printf("%s Command: Fan Power -> ON\n", sourceIcon);
+            }
+            else
+            {
+                Serial.printf("%s Command: Fan Power -> OFF\n", sourceIcon);
+            }
+            
+            portENTER_CRITICAL(&state_mux); 
+            if (turnOn) 
+            {
+                pending_fan_speed = fan_speed_memory;
+            }
+            else 
+            {
+                pending_fan_speed = 0;
+            }
+            portEXIT_CRITICAL(&state_mux);
+        }
+    }
+    else if (channel == 6 || channel == 7)
+    {
+        if (turnOn)
+        {
+            Serial.printf("%s Command: Master -> ON\n", sourceIcon);
+            All_On();
+        }
+        else
+        {
+            Serial.printf("%s Command: Master -> OFF\n", sourceIcon);
+            All_Off();
+        }
+    }
+}
+// ==========================================
+
 void IRAM_ATTR rf_isr() 
 {
     if (rf_available == true) 
@@ -727,7 +823,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
             logRemote("[MQTT] OTA Update Command Received!");
             performOTAUpdate(String(url));
         }
-        else {
+        else 
+        {
             Serial.println("❌ [ERROR] OTA Command missing firmware URL!");
         }
         return;
@@ -758,133 +855,9 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
         state = true;
     }
     
-    if (channel != 5) { // Fan logs are handled separately
-        if (state) 
-        {
-            Serial.printf("📱 [APP/CLOUD] Command: Channel %d -> ON\n", channel);
-        }
-        else 
-        {
-            Serial.printf("📱 [APP/CLOUD] Command: Channel %d -> OFF\n", channel);
-        }
-    }
-
-    if (channel == 1) 
-    { 
-        portENTER_CRITICAL(&state_mux); 
-        switch_state_ch1 = state; 
-        portEXIT_CRITICAL(&state_mux);
-        
-        if (state)
-        {
-            digitalWrite(relay1, HIGH);
-        }
-        else
-        {
-            digitalWrite(relay1, LOW);
-        }
-        
-        sendChannelState(1, state); 
-        save_state_to_nvs("R1", state ? 1 : 0); 
-    }
-    else if (channel == 2) 
-    { 
-        portENTER_CRITICAL(&state_mux); 
-        switch_state_ch2 = state; 
-        portEXIT_CRITICAL(&state_mux);
-        
-        if (state)
-        {
-            digitalWrite(relay2, HIGH);
-        }
-        else
-        {
-            digitalWrite(relay2, LOW);
-        }
-        
-        sendChannelState(2, state); 
-        save_state_to_nvs("R2", state ? 1 : 0); 
-    }
-    else if (channel == 3) 
-    { 
-        portENTER_CRITICAL(&state_mux); 
-        switch_state_ch3 = state; 
-        portEXIT_CRITICAL(&state_mux);
-        
-        if (state)
-        {
-            digitalWrite(relay3, HIGH);
-        }
-        else
-        {
-            digitalWrite(relay3, LOW);
-        }
-        
-        sendChannelState(3, state); 
-        save_state_to_nvs("R3", state ? 1 : 0); 
-    }
-    else if (channel == 4) 
-    { 
-        portENTER_CRITICAL(&state_mux); 
-        switch_state_ch4 = state; 
-        portEXIT_CRITICAL(&state_mux);
-        
-        if (state)
-        {
-            digitalWrite(relay4, HIGH);
-        }
-        else
-        {
-            digitalWrite(relay4, LOW);
-        }
-        
-        sendChannelState(4, state); 
-        save_state_to_nvs("R4", state ? 1 : 0); 
-    }
-    else if (channel == 5) 
-    { 
-        if (doc.containsKey("speed")) 
-        {
-            int spd = doc["speed"];
-            Serial.printf("📱 [APP/CLOUD] Command: Fan Speed -> %d\n", spd);
-            
-            portENTER_CRITICAL(&state_mux); 
-            pending_fan_speed = spd; 
-            portEXIT_CRITICAL(&state_mux);
-        } 
-        else 
-        {
-            if (state) {
-                Serial.println("📱 [APP/CLOUD] Command: Fan Power -> ON");
-            } else {
-                Serial.println("📱 [APP/CLOUD] Command: Fan Power -> OFF");
-            }
-            
-            portENTER_CRITICAL(&state_mux); 
-            if (state) 
-            {
-                pending_fan_speed = fan_speed_memory;
-            }
-            else 
-            {
-                pending_fan_speed = 0;
-            }
-            portEXIT_CRITICAL(&state_mux);
-        }
-    }
-    else if (channel == 6 || channel == 7) 
-    {
-        if (state) 
-        {
-            Serial.println("📱 [APP/CLOUD] Command: Master -> ON");
-            All_On();
-        }
-        else 
-        {
-            Serial.println("📱 [APP/CLOUD] Command: Master -> OFF");
-            All_Off();
-        }
-    }
+    int spd = doc.containsKey("speed") ? (int)doc["speed"] : -1;
+    
+    process_channel_command(channel, state, spd, "📱 [APP/CLOUD]");
 }
 
 void setupLocalWebServer() 
@@ -940,129 +913,9 @@ void setupLocalWebServer()
             turnOn = true;
         }
 
-        if (channel == 5 && server.hasArg("speed")) 
-        {
-            Serial.printf("🌐 [APP/LOCAL] Command: Fan Speed -> %d\n", (int)server.arg("speed").toInt());
-        } 
-        else 
-        {
-            if (turnOn) 
-            {
-                Serial.printf("🌐 [APP/LOCAL] Command: Channel %d -> ON\n", channel);
-            }
-            else 
-            {
-                Serial.printf("🌐 [APP/LOCAL] Command: Channel %d -> OFF\n", channel);
-            }
-        }
+        int spd = server.hasArg("speed") ? server.arg("speed").toInt() : -1;
 
-        if (channel == 1) 
-        { 
-            portENTER_CRITICAL(&state_mux); 
-            switch_state_ch1 = turnOn; 
-            portEXIT_CRITICAL(&state_mux);
-            
-            if (turnOn)
-            {
-                digitalWrite(relay1, HIGH);
-            }
-            else
-            {
-                digitalWrite(relay1, LOW);
-            }
-            
-            sendChannelState(1, turnOn); 
-            if (turnOn) save_state_to_nvs("R1", 1); else save_state_to_nvs("R1", 0);
-        }
-        else if (channel == 2) 
-        { 
-            portENTER_CRITICAL(&state_mux); 
-            switch_state_ch2 = turnOn; 
-            portEXIT_CRITICAL(&state_mux);
-            
-            if (turnOn)
-            {
-                digitalWrite(relay2, HIGH);
-            }
-            else
-            {
-                digitalWrite(relay2, LOW);
-            }
-            
-            sendChannelState(2, turnOn); 
-            if (turnOn) save_state_to_nvs("R2", 1); else save_state_to_nvs("R2", 0);
-        }
-        else if (channel == 3) 
-        { 
-            portENTER_CRITICAL(&state_mux); 
-            switch_state_ch3 = turnOn; 
-            portEXIT_CRITICAL(&state_mux);
-            
-            if (turnOn)
-            {
-                digitalWrite(relay3, HIGH);
-            }
-            else
-            {
-                digitalWrite(relay3, LOW);
-            }
-            
-            sendChannelState(3, turnOn); 
-            if (turnOn) save_state_to_nvs("R3", 1); else save_state_to_nvs("R3", 0);
-        }
-        else if (channel == 4) 
-        { 
-            portENTER_CRITICAL(&state_mux); 
-            switch_state_ch4 = turnOn; 
-            portEXIT_CRITICAL(&state_mux);
-            
-            if (turnOn)
-            {
-                digitalWrite(relay4, HIGH);
-            }
-            else
-            {
-                digitalWrite(relay4, LOW);
-            }
-            
-            sendChannelState(4, turnOn); 
-            if (turnOn) save_state_to_nvs("R4", 1); else save_state_to_nvs("R4", 0);
-        }
-        else if (channel == 5) 
-        { 
-            if (server.hasArg("speed")) 
-            {
-                int spd = server.arg("speed").toInt();
-                
-                portENTER_CRITICAL(&state_mux); 
-                pending_fan_speed = spd; 
-                portEXIT_CRITICAL(&state_mux);
-            } 
-            else 
-            {
-                portENTER_CRITICAL(&state_mux); 
-                if (turnOn) 
-                {
-                    pending_fan_speed = fan_speed_memory;
-                }
-                else 
-                {
-                    pending_fan_speed = 0;
-                }
-                portEXIT_CRITICAL(&state_mux);
-            }
-        }
-        else if (channel == 6 || channel == 7) 
-        {
-            if (turnOn) 
-            {
-                All_On();
-            }
-            else 
-            {
-                All_Off();
-            }
-        }
+        process_channel_command(channel, turnOn, spd, "🌐 [APP/LOCAL]");
         
         server.send(200, "application/json", "{\"status\":\"success\"}");
     });
@@ -1144,26 +997,11 @@ void system_task(void *arg)
         
         if (local_pending_fan != -1) 
         {
-            if (local_pending_fan == 1) 
-            {
-                speed_1();
-            }
-            else if (local_pending_fan == 2) 
-            {
-                speed_2();
-            }
-            else if (local_pending_fan == 3) 
-            {
-                speed_3();
-            }
-            else if (local_pending_fan == 4) 
-            {
-                speed_4();
-            }
-            else 
-            {
-                speed_0();
-            }
+            if (local_pending_fan == 1) speed_1();
+            else if (local_pending_fan == 2) speed_2();
+            else if (local_pending_fan == 3) speed_3();
+            else if (local_pending_fan == 4) speed_4();
+            else speed_0();
         }
 
         if (rf_available) 
@@ -1185,22 +1023,14 @@ void system_task(void *arg)
                     
                     switch (pairing_target) 
                     {
-                        case 1: 
-                            rf_code_l1 = code; save_code("rf1", code); break;
-                        case 2: 
-                            rf_code_l2 = code; save_code("rf2", code); break;
-                        case 3: 
-                            rf_code_l3 = code; save_code("rf3", code); break;
-                        case 4: 
-                            rf_code_l4 = code; save_code("rf4", code); break;
-                        case 5: 
-                            rf_code_up = code; save_code("rfu", code); break;
-                        case 6: 
-                            rf_code_dw = code; save_code("rfd", code); break;
-                        case 7: 
-                            rf_code_fan_toggle = code; save_code("rft", code); break;
-                        case 8: 
-                            rf_code_master = code; save_code("rfm", code); break;
+                        case 1: rf_code_l1 = code; save_code("rf1", code); break;
+                        case 2: rf_code_l2 = code; save_code("rf2", code); break;
+                        case 3: rf_code_l3 = code; save_code("rf3", code); break;
+                        case 4: rf_code_l4 = code; save_code("rf4", code); break;
+                        case 5: rf_code_up = code; save_code("rfu", code); break;
+                        case 6: rf_code_dw = code; save_code("rfd", code); break;
+                        case 7: rf_code_fan_toggle = code; save_code("rft", code); break;
+                        case 8: rf_code_master = code; save_code("rfm", code); break;
                     }
                     
                     pairing_target++; 
@@ -1238,75 +1068,19 @@ void system_task(void *arg)
 
                         if (code == rf_code_l1) 
                         { 
-                            portENTER_CRITICAL(&state_mux); 
-                            switch_state_ch1 = !switch_state_ch1; 
-                            bool st = switch_state_ch1; 
-                            portEXIT_CRITICAL(&state_mux);
-                            
-                            if (st) {
-                                Serial.println("📻 [RF REMOTE] Relay 1 -> ON");
-                                digitalWrite(relay1, HIGH);
-                            } else {
-                                Serial.println("📻 [RF REMOTE] Relay 1 -> OFF");
-                                digitalWrite(relay1, LOW);
-                            }
-                            
-                            sendChannelState(1, st); 
-                            if (st) save_state_to_nvs("R1", 1); else save_state_to_nvs("R1", 0); 
+                            process_channel_command(1, !switch_state_ch1, -1, "📻 [RF REMOTE]");
                         }
                         else if (code == rf_code_l2) 
                         { 
-                            portENTER_CRITICAL(&state_mux); 
-                            switch_state_ch2 = !switch_state_ch2; 
-                            bool st = switch_state_ch2; 
-                            portEXIT_CRITICAL(&state_mux);
-                            
-                            if (st) {
-                                Serial.println("📻 [RF REMOTE] Relay 2 -> ON");
-                                digitalWrite(relay2, HIGH);
-                            } else {
-                                Serial.println("📻 [RF REMOTE] Relay 2 -> OFF");
-                                digitalWrite(relay2, LOW);
-                            }
-                            
-                            sendChannelState(2, st); 
-                            if (st) save_state_to_nvs("R2", 1); else save_state_to_nvs("R2", 0); 
+                            process_channel_command(2, !switch_state_ch2, -1, "📻 [RF REMOTE]");
                         }
                         else if (code == rf_code_l3) 
                         { 
-                            portENTER_CRITICAL(&state_mux); 
-                            switch_state_ch3 = !switch_state_ch3; 
-                            bool st = switch_state_ch3; 
-                            portEXIT_CRITICAL(&state_mux);
-                            
-                            if (st) {
-                                Serial.println("📻 [RF REMOTE] Relay 3 -> ON");
-                                digitalWrite(relay3, HIGH);
-                            } else {
-                                Serial.println("📻 [RF REMOTE] Relay 3 -> OFF");
-                                digitalWrite(relay3, LOW);
-                            }
-                            
-                            sendChannelState(3, st); 
-                            if (st) save_state_to_nvs("R3", 1); else save_state_to_nvs("R3", 0); 
+                            process_channel_command(3, !switch_state_ch3, -1, "📻 [RF REMOTE]");
                         }
                         else if (code == rf_code_l4) 
                         { 
-                            portENTER_CRITICAL(&state_mux); 
-                            switch_state_ch4 = !switch_state_ch4; 
-                            bool st = switch_state_ch4; 
-                            portEXIT_CRITICAL(&state_mux);
-                            
-                            if (st) {
-                                Serial.println("📻 [RF REMOTE] Relay 4 -> ON");
-                                digitalWrite(relay4, HIGH);
-                            } else {
-                                Serial.println("📻 [RF REMOTE] Relay 4 -> OFF");
-                                digitalWrite(relay4, LOW);
-                            }
-                            
-                            sendChannelState(4, st); 
-                            if (st) save_state_to_nvs("R4", 1); else save_state_to_nvs("R4", 0); 
+                            process_channel_command(4, !switch_state_ch4, -1, "📻 [RF REMOTE]");
                         }
                         else if (code == rf_code_up) 
                         { 
@@ -1326,7 +1100,8 @@ void system_task(void *arg)
                                 else if (l_speed == 3) speed_3();
                                 else speed_4();
                             } 
-                            else {
+                            else 
+                            {
                                 Serial.println("📻 [RF REMOTE] Fan Speed already MAX");
                             }
                         }
@@ -1348,7 +1123,8 @@ void system_task(void *arg)
                                 else if (l_speed == 2) speed_2();
                                 else speed_3();
                             } 
-                            else {
+                            else 
+                            {
                                 Serial.println("📻 [RF REMOTE] Fan Speed already MIN");
                             }
                         }
@@ -1398,11 +1174,6 @@ void system_task(void *arg)
                         pairing_confirm_until_ms = now_ms + 200U; 
                     }
                 }
-                else 
-                {
-                    // Serial.printf("⚠️ [SYSTEM] Unknown RF Code Received: %lu\n", (unsigned long)code);
-                    // (Uncomment this line if you want to see EVERY unknown remote button pressed in your house)
-                }
                 
                 rf_available = false;
             }
@@ -1415,22 +1186,8 @@ void system_task(void *arg)
         {
             lsw1 = csw1; 
             
-            portENTER_CRITICAL(&state_mux); 
-            if (csw1 == 0) switch_state_ch1 = true;
-            else switch_state_ch1 = false;
-            bool st = switch_state_ch1; 
-            portEXIT_CRITICAL(&state_mux);
-            
-            if (st) {
-                Serial.println("🔘 [PHYSICAL SWITCH] Switch 1 -> ON");
-                digitalWrite(relay1, HIGH);
-            } else {
-                Serial.println("🔘 [PHYSICAL SWITCH] Switch 1 -> OFF");
-                digitalWrite(relay1, LOW);
-            }
-            
-            sendChannelState(1, st); 
-            if (st) save_state_to_nvs("R1", 1); else save_state_to_nvs("R1", 0); 
+            bool is_pressed = (csw1 == 0);
+            process_channel_command(1, is_pressed, -1, "🔘 [PHYSICAL SWITCH]");
             
             if (pairing_target == 0) 
             {
@@ -1459,22 +1216,8 @@ void system_task(void *arg)
         {
             lsw2 = csw2; 
             
-            portENTER_CRITICAL(&state_mux); 
-            if (csw2 == 0) switch_state_ch2 = true;
-            else switch_state_ch2 = false;
-            bool st = switch_state_ch2; 
-            portEXIT_CRITICAL(&state_mux);
-            
-            if (st) {
-                Serial.println("🔘 [PHYSICAL SWITCH] Switch 2 -> ON");
-                digitalWrite(relay2, HIGH);
-            } else {
-                Serial.println("🔘 [PHYSICAL SWITCH] Switch 2 -> OFF");
-                digitalWrite(relay2, LOW);
-            }
-            
-            sendChannelState(2, st); 
-            if (st) save_state_to_nvs("R2", 1); else save_state_to_nvs("R2", 0); 
+            bool is_pressed = (csw2 == 0);
+            process_channel_command(2, is_pressed, -1, "🔘 [PHYSICAL SWITCH]");
             
             if (pairing_target == 0) 
             {
@@ -1504,22 +1247,8 @@ void system_task(void *arg)
         { 
             lsw3 = csw3; 
             
-            portENTER_CRITICAL(&state_mux); 
-            if (csw3 == 0) switch_state_ch3 = true;
-            else switch_state_ch3 = false;
-            bool st = switch_state_ch3; 
-            portEXIT_CRITICAL(&state_mux); 
-            
-            if (st) {
-                Serial.println("🔘 [PHYSICAL SWITCH] Switch 3 -> ON");
-                digitalWrite(relay3, HIGH);
-            } else {
-                Serial.println("🔘 [PHYSICAL SWITCH] Switch 3 -> OFF");
-                digitalWrite(relay3, LOW);
-            }
-            
-            sendChannelState(3, st); 
-            if (st) save_state_to_nvs("R3", 1); else save_state_to_nvs("R3", 0); 
+            bool is_pressed = (csw3 == 0);
+            process_channel_command(3, is_pressed, -1, "🔘 [PHYSICAL SWITCH]");
         }
 
         vTaskDelay(pdMS_TO_TICKS(DEBOUNCE_MS)); 
@@ -1529,22 +1258,8 @@ void system_task(void *arg)
         { 
             lsw4 = csw4; 
             
-            portENTER_CRITICAL(&state_mux); 
-            if (csw4 == 0) switch_state_ch4 = true;
-            else switch_state_ch4 = false;
-            bool st = switch_state_ch4; 
-            portEXIT_CRITICAL(&state_mux); 
-            
-            if (st) {
-                Serial.println("🔘 [PHYSICAL SWITCH] Switch 4 -> ON");
-                digitalWrite(relay4, HIGH);
-            } else {
-                Serial.println("🔘 [PHYSICAL SWITCH] Switch 4 -> OFF");
-                digitalWrite(relay4, LOW);
-            }
-            
-            sendChannelState(4, st); 
-            if (st) save_state_to_nvs("R4", 1); else save_state_to_nvs("R4", 0); 
+            bool is_pressed = (csw4 == 0);
+            process_channel_command(4, is_pressed, -1, "🔘 [PHYSICAL SWITCH]");
         }
 
         vTaskDelay(pdMS_TO_TICKS(DEBOUNCE_MS)); 
@@ -1752,6 +1467,7 @@ void startSetupPortal()
     pDevIdChar->setCallbacks(new DeviceIdWriteCallback());
   
     pService->start();
+    
     BLEAdvertising *pAdv = BLEDevice::getAdvertising(); 
     pAdv->addServiceUUID(SERVICE_UUID); 
     pAdv->setScanResponse(true); 
@@ -1759,6 +1475,7 @@ void startSetupPortal()
     pAdv->setMinPreferred(0x12);
     
     BLEDevice::startAdvertising();
+    Serial.println("🔵 [BLE] Advertising Started!");
 }
 
 void webserver_task(void *pvParameters) 
@@ -1793,7 +1510,7 @@ void setup()
     esp_task_wdt_add(NULL); 
 
     Serial.println("\n\n===========================================");
-    Serial.println("🚀 Go Smart Firmware V12.5 (ULTIMATE EXPANDED)");
+    Serial.println("🚀 Go Smart Firmware V12.5 (PRO-OPTIMIZED)");
     Serial.println("🔍 LOGGING: ALL SENSORS & EVENTS ACTIVATED!");
     Serial.println("===========================================\n");
 
@@ -1860,18 +1577,19 @@ void setup()
     Serial.printf("📡 Node ID Generated: %s\n", NODE_ID);
     Serial.println("====================================\n");
     
-    xTaskCreatePinnedToCore(system_task, "system_task", 8192, NULL, 5, NULL, 1);
+    // RAM Reduced to 4KB (4096) for faster execution!
+    xTaskCreatePinnedToCore(system_task, "system_task", 4096, NULL, 5, NULL, 1);
     
     xTaskCreatePinnedToCore(nvs_commit_task, "nvs_commit", 3072, NULL, 3, NULL, 1);
 
     preferences.begin("wifi", true);
-    saved_ssid = preferences.getString("ssid", ""); 
-    saved_password = preferences.getString("pass", "");
+    preferences.getString("ssid", saved_ssid, sizeof(saved_ssid)); 
+    preferences.getString("pass", saved_password, sizeof(saved_password));
     preferences.end();
 
-    if (saved_ssid.length() > 0) 
+    if (strlen(saved_ssid) > 0) 
     {
-        Serial.printf("🌐 Saved Wi-Fi found: %s\n", saved_ssid.c_str());
+        Serial.printf("🌐 Saved Wi-Fi found: %s\n", saved_ssid);
         WiFi.mode(WIFI_STA); 
         WiFi.disconnect(true); 
         delay(100);
@@ -1889,11 +1607,11 @@ void setup()
         {
             esp_task_wdt_reset(); 
             
-            Serial.printf("[WiFi] Attempt %d/4: Connecting to '%s'...\n", attempt, saved_ssid.c_str());
+            Serial.printf("[WiFi] Attempt %d/4: Connecting to '%s'...\n", attempt, saved_ssid);
             WiFi.disconnect(); 
             delay(300);
             
-            WiFi.begin(saved_ssid.c_str(), saved_password.c_str());
+            WiFi.begin(saved_ssid, saved_password);
 
             int retries = 0;
             
@@ -1981,9 +1699,11 @@ void loop()
                 last_mqtt_reconnect = now_ms;
                 
                 Serial.println("☁️ Connecting to EMQX Cloud...");
-                String clientId = "4L-Client-" + String(NODE_ID);
                 
-                if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) 
+                char clientId[50];
+                snprintf(clientId, sizeof(clientId), "4L-Client-%s", NODE_ID);
+                
+                if (client.connect(clientId, mqtt_user, mqtt_pass)) 
                 {
                     Serial.println("✅ EMQX Cloud Connected!");
                     client.subscribe(command_topic);
@@ -2001,9 +1721,12 @@ void loop()
                     char infoTopic[120];
                     snprintf(infoTopic, sizeof(infoTopic), "home/device/%s/info", NODE_ID);
                     
-                    if (client.publish(infoTopic, ipBuffer, true)) {
+                    if (client.publish(infoTopic, ipBuffer, true)) 
+                    {
                         Serial.printf("📡 [INFO] Local IP Published to App: %s\n", WiFi.localIP().toString().c_str());
-                    } else {
+                    } 
+                    else 
+                    {
                         Serial.println("❌ [ERROR] Failed to publish Local IP to Cloud!");
                     }
                     
@@ -2028,10 +1751,12 @@ void loop()
             client.loop();
         }
     }
-    else {
-        // If Wi-Fi gets disconnected during operation, log it occasionally
+    else 
+    {
         static unsigned long last_wifi_error_log = 0;
-        if (now_ms - last_wifi_error_log > 10000) {
+        
+        if (now_ms - last_wifi_error_log > 10000) 
+        {
              Serial.println("❌ [ERROR] Wi-Fi Connection Lost! Attempting to reconnect in background...");
              last_wifi_error_log = now_ms;
         }
