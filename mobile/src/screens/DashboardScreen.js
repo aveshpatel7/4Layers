@@ -73,28 +73,40 @@ export default function DashboardScreen({ navigation }) {
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [username, setUsername] = useState("User");
   const [isPhoneOnWifi, setIsPhoneOnWifi] = useState(false);
+  const prevNetModeRef = useRef(null);
 
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setIsPhoneOnWifi(state.type === 'wifi');
-    });
-    NetInfo.fetch().then((state) => {
-      setIsPhoneOnWifi(state.type === 'wifi');
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Visual LAN vs Cloud Connectivity Feedback State
+  // Visual Connectivity Feedback Toast State (3 Standard Subtle Modes: local, cloud, offline)
   const [feedbackToast, setFeedbackToast] = useState(null);
   const toastTimeoutRef = useRef(null);
 
-  const showFeedbackToast = (text, type = "lan") => {
+  const showFeedbackToast = (text, type = "local") => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setFeedbackToast({ text, type });
     toastTimeoutRef.current = setTimeout(() => {
       setFeedbackToast(null);
-    }, 2200);
+    }, 2500);
   };
+
+  useEffect(() => {
+    const handleNetChange = (state) => {
+      const onWifi = state.type === 'wifi';
+      setIsPhoneOnWifi(onWifi);
+
+      const newMode = onWifi ? 'local' : 'cloud';
+      if (prevNetModeRef.current && prevNetModeRef.current !== newMode) {
+        if (newMode === 'local') {
+          showFeedbackToast("Local Mode Active: Instant control via Wi-Fi.", "local");
+        } else {
+          showFeedbackToast("Cloud Mode Active: Controlling via AWS Cloud.", "cloud");
+        }
+      }
+      prevNetModeRef.current = newMode;
+    };
+
+    const unsubscribe = NetInfo.addEventListener(handleNetChange);
+    NetInfo.fetch().then(handleNetChange);
+    return () => unsubscribe();
+  }, []);
 
   // Voice Control Modal State
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -477,7 +489,7 @@ export default function DashboardScreen({ navigation }) {
 
     // IF DEVICE IS OFFLINE, DO NOT TOGGLE OR SEND NETWORK CALLS
     if (target.is_online === false) {
-      showFeedbackToast("Switchboard is Offline", "offline");
+      showFeedbackToast("Device Unreachable. Check hardware power.", "offline");
       return;
     }
 
@@ -619,7 +631,7 @@ export default function DashboardScreen({ navigation }) {
 
     // IF DEVICE IS OFFLINE, DO NOT ADJUST
     if (target.is_online === false) {
-      showFeedbackToast("Fan is Offline", "offline");
+      showFeedbackToast("Device Unreachable. Check hardware power.", "offline");
       return;
     }
 
@@ -856,7 +868,7 @@ export default function DashboardScreen({ navigation }) {
           {(isPhoneOnWifi && (filteredDevices.some(d => !!d.local_ip || !!getDeviceLocalIp(d.node_id)) && filteredDevices.some(d => d.is_online !== false))) ? (
             <TouchableOpacity
               style={styles.statusDotButton}
-              onPress={() => Alert.alert("🟡 Local Wi-Fi Bypass", "Direct 0.05s connection over your local Wi-Fi. AWS Cloud is completely bypassed to save costs and eliminate latency.")}
+              onPress={() => showFeedbackToast("Local Mode Active: Instant control via Wi-Fi.", "local")}
               activeOpacity={0.7}
             >
               <View style={[styles.statusDot, styles.statusDotLocal]} />
@@ -864,7 +876,7 @@ export default function DashboardScreen({ navigation }) {
           ) : (filteredDevices.length > 0 && filteredDevices.some(d => d.is_online === true)) ? (
             <TouchableOpacity
               style={styles.statusDotButton}
-              onPress={() => Alert.alert("🔵 AWS Cloud Mode", "Connected via AWS Serverless MQTT Cloud Server (Out-of-Home / Cellular Data).")}
+              onPress={() => showFeedbackToast("Cloud Mode Active: Controlling via AWS Cloud.", "cloud")}
               activeOpacity={0.7}
             >
               <View style={[styles.statusDot, styles.statusDotCloud]} />
@@ -872,7 +884,7 @@ export default function DashboardScreen({ navigation }) {
           ) : (
             <TouchableOpacity
               style={styles.statusDotButton}
-              onPress={() => Alert.alert("🔴 Offline Mode", "Hardware switchboard is currently unreachable. Check power and Wi-Fi connection.")}
+              onPress={() => showFeedbackToast("Device Unreachable. Check hardware power.", "offline")}
               activeOpacity={0.7}
             >
               <View style={[styles.statusDot, styles.statusDotOffline]} />
@@ -948,6 +960,22 @@ export default function DashboardScreen({ navigation }) {
 
       </ScrollView>
 
+      {/* Standardized Subtle Network Mode Toast Notification */}
+      {feedbackToast && (
+        <View style={styles.floatingToast}>
+          <View
+            style={[
+              styles.toastDot,
+              feedbackToast.type === 'local'
+                ? styles.toastDotLocal
+                : feedbackToast.type === 'cloud'
+                ? styles.toastDotCloud
+                : styles.toastDotOffline,
+            ]}
+          />
+          <Text style={styles.toastText}>{feedbackToast.text}</Text>
+        </View>
+      )}
 
     </SafeAreaView>;
 }
@@ -2016,48 +2044,58 @@ const styles = StyleSheet.create({
   },
   floatingToast: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 95 : 65,
+    bottom: Platform.OS === 'ios' ? 36 : 24,
     alignSelf: 'center',
-    zIndex: 999,
+    zIndex: 9999,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    backgroundColor: 'rgba(18, 18, 18, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 20,
-    elevation: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  floatingToastLan: {
-    backgroundColor: '#0a2318',
-    borderWidth: 1,
-    borderColor: 'rgba(31, 169, 113, 0.5)'
+  toastDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
   },
-  floatingToastCloud: {
-    backgroundColor: '#0c2233',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.5)'
+  toastDotLocal: {
+    backgroundColor: '#FACC15',
+    shadowColor: '#FACC15',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  floatingToastOffline: {
-    backgroundColor: '#260b0b',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.5)'
+  toastDotCloud: {
+    backgroundColor: '#38BDF8',
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  floatingToastText: {
-    fontSize: 11,
-    fontWeight: '800'
+  toastDotOffline: {
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  floatingToastTextLan: {
-    color: '#34D399'
-  },
-  floatingToastTextCloud: {
-    color: '#38BDF8'
-  },
-  floatingToastTextOffline: {
-    color: '#F87171'
+  toastText: {
+    color: '#E5E2E1',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   topOfflineWarningBanner: {
     flexDirection: 'row',
