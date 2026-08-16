@@ -274,14 +274,18 @@ export default function DashboardScreen({ navigation }) {
 
         const now = Date.now();
         setDevices((prev) => {
-          // Merge with prev to respect active optimistic toggle locks (within 2 seconds)
+          // Merge with prev to respect active optimistic toggle locks (within 3.5 seconds)
           return uniqueDevicesList.map(newDev => {
-            const lockTime = toggleLockRef.current[newDev.id];
-            if (lockTime && (now - lockTime < 2000)) {
+            const lock = toggleLockRef.current[newDev.id];
+            if (lock && (now - lock.time < 3500)) {
               const existingDev = prev.find(p => p.id === newDev.id);
-              if (existingDev) {
-                return { ...newDev, local_ip: newDev.local_ip || existingDev.local_ip, is_online: newDev.is_online, status: existingDev.status, value: existingDev.value };
-              }
+              return {
+                ...newDev,
+                local_ip: newDev.local_ip || existingDev?.local_ip,
+                is_online: true,
+                status: lock.status,
+                value: lock.value !== undefined ? lock.value : newDev.value
+              };
             }
             return newDev;
           });
@@ -397,10 +401,15 @@ export default function DashboardScreen({ navigation }) {
                 if (isOfflinePayload) {
                   return { ...d, is_online: false, status: false };
                 }
-                const lockTime = toggleLockRef.current[d.id];
-                // Ignore stale incoming MQTT echo if device was toggled within 2 seconds
-                if (lockTime && (now - lockTime < 2000)) {
-                  return { ...d, is_online: true };
+                const lock = toggleLockRef.current[d.id];
+                // Enforce optimistic state lock within 3.5 seconds
+                if (lock && (now - lock.time < 3500)) {
+                  return {
+                    ...d,
+                    is_online: true,
+                    status: lock.status,
+                    value: lock.value !== undefined ? lock.value : d.value
+                  };
                 }
                 return { ...d, is_online: true, status: nextStatus, value: nextValue };
               }
@@ -418,8 +427,8 @@ export default function DashboardScreen({ navigation }) {
             return updated.map(d => {
               if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
                 const masterLock = toggleLockRef.current[d.id];
-                if (masterLock && (now - masterLock < 2000)) {
-                  return d;
+                if (masterLock && (now - masterLock.time < 3500)) {
+                  return { ...d, status: masterLock.status };
                 }
                 return { ...d, status: !!roomStatusMap[d.room_id] };
               }
@@ -492,48 +501,43 @@ export default function DashboardScreen({ navigation }) {
       const roomDevIds = roomDevs.map(d => d.id);
       let masterChannel = (channel === 7) ? 7 : 6;
 
-      // 1. Optimistic UI update: Turn ALL room devices ON or OFF
+      // 1. Hard 3.5-second Optimistic State Lock on ALL room devices
+      const lockNow = Date.now();
+      roomDevIds.forEach(devId => {
+        toggleLockRef.current[devId] = { time: lockNow, status: nextStatus, value: 1 };
+      });
+      toggleLockRef.current[id] = { time: lockNow, status: nextStatus, value: 1 };
+
+      // 2. Instant Optimistic UI update: Turn ALL room devices ON or OFF
       setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: nextStatus } : d));
 
-      // STEP 1: LOCAL HIT FIRST (Direct Local IP / mDNS with 1.0s fast timeout)
-      let localSucceeded = false;
-      try {
-        await sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, target.local_ip);
-        localSucceeded = true;
-        console.log("[Dashboard] Master switch executed via Local LAN ⚡ (0.1s)");
-      } catch (localErr) {
-        console.log("[Dashboard] Local LAN unreachable/timed out. Falling back to Cloud...");
+      // 3. Fast Parallel Network Execution (MQTT + Local + Cloud)
+      publishMessage(`home/device/${baseNodeId}/control`, {
+        channel: masterChannel,
+        status: nextStatusStr
+      });
+
+      if (isPhoneOnWifi && target.local_ip) {
+        sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, target.local_ip).catch(() => {});
       }
 
-      // STEP 2: FALLBACK TO CLOUD (if Local Hit fails / user away on cellular data)
-      if (!localSucceeded) {
-        try {
-          publishMessage(`home/device/${baseNodeId}/control`, {
-            channel: masterChannel,
-            status: nextStatusStr
-          });
-          await apiClient.post('/api/devices/bulk-control', {
-            device_ids: roomDevIds,
-            state: { status: nextStatusStr }
-          });
-        } catch (cloudErr) {
-          console.warn("[Dashboard] Both Local LAN and Cloud master control failed:", cloudErr);
-          setDevices((prev) => prev.map((d) => {
-            const isSibling = d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`);
-            if (isSibling || roomDevIds.includes(d.id)) {
-              return { ...d, is_online: false, status: false };
-            }
-            return d;
-          }));
-        }
+      try {
+        await apiClient.post('/api/devices/bulk-control', {
+          device_ids: roomDevIds,
+          state: { status: nextStatusStr }
+        });
+      } catch (cloudErr) {
+        console.warn("[Dashboard] Cloud master control failed:", cloudErr);
       }
       return;
     }
 
-    // Set optimistic state lock timestamp (2-second window)
-    toggleLockRef.current[id] = Date.now();
+    const speedVal = (channel === 5 || target.type === 'fan') ? ((typeof target.value === 'number' && !isNaN(target.value)) ? target.value : 1) : null;
 
-    // 1. Optimistic UI update for individual device + Master Switch state update
+    // 1. Hard 3.5-second Optimistic State Lock
+    toggleLockRef.current[id] = { time: Date.now(), status: nextStatus, value: speedVal || target.value };
+
+    // 2. Instant Optimistic UI update for individual device + Master Switch
     setDevices((prev) => {
       const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d);
       const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
@@ -542,52 +546,38 @@ export default function DashboardScreen({ navigation }) {
 
       return updated.map(d => {
         if (d.room_id === target.room_id && (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.type === 'master')) {
-          toggleLockRef.current[d.id] = Date.now();
+          toggleLockRef.current[d.id] = { time: Date.now(), status: isAnyOn, value: d.value };
           return { ...d, status: isAnyOn };
         }
         return d;
       });
     });
 
-    const speedVal = (channel === 5 || target.type === 'fan') ? ((typeof target.value === 'number' && !isNaN(target.value)) ? target.value : 1) : null;
-
-    // STEP 1: LOCAL HIT FIRST (Direct Local IP / mDNS with 1.0s fast timeout)
-    let localSucceeded = false;
-    try {
-      await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, speedVal);
-      localSucceeded = true;
-      console.log(`[Dashboard] Device ${target.name} toggled instantly via Local LAN ⚡ (0.1s)`);
-    } catch (localErr) {
-      console.log(`[Dashboard] Local LAN unreachable/timed out for ${target.name}. Falling back to AWS Cloud...`);
+    // 3. Fast Parallel Network Execution (MQTT + Local + Cloud)
+    const topic = `home/device/${baseNodeId}/control`;
+    const togglePayload = {
+      channel,
+      status: nextStatusStr
+    };
+    if (speedVal !== null) {
+      togglePayload.speed = speedVal;
     }
 
-    // STEP 2: FALLBACK TO CLOUD (MQTT & Cloud API if Local Hit fails / phone is on 4G/5G)
-    if (!localSucceeded) {
-      const topic = `home/device/${baseNodeId}/control`;
-      const togglePayload = {
-        channel,
-        status: nextStatusStr
-      };
-      if (speedVal !== null) {
-        togglePayload.speed = speedVal;
-      }
+    // Instant Fire-and-forget MQTT Publish
+    publishMessage(topic, togglePayload);
 
-      try {
-        publishMessage(topic, togglePayload);
-        await apiClient.post(`/api/devices/${id}/control`, {
-          state: togglePayload
-        });
-      } catch (cloudErr) {
-        console.warn(`[Dashboard] Both Local LAN and Cloud failed for ${target.name}:`, cloudErr);
-        delete toggleLockRef.current[id];
-        setDevices((prev) => prev.map((d) => {
-          const isSibling = d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`);
-          if (isSibling || d.id === id) {
-            return { ...d, is_online: false, status: false };
-          }
-          return d;
-        }));
-      }
+    // If on Wi-Fi with local IP, fire direct local control in parallel
+    if (isPhoneOnWifi && target.local_ip) {
+      sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, speedVal).catch(() => {});
+    }
+
+    // Persist state to Cloud API
+    try {
+      await apiClient.post(`/api/devices/${id}/control`, {
+        state: togglePayload
+      });
+    } catch (cloudErr) {
+      console.warn(`[Dashboard] Cloud API call failed for ${target.name}:`, cloudErr);
     }
   };
 
@@ -627,7 +617,10 @@ export default function DashboardScreen({ navigation }) {
       }
     }
 
-    // 1. Optimistic UI update + Master Switch state update
+    // 1. Hard 3.5-second Optimistic State Lock for Fan
+    toggleLockRef.current[id] = { time: Date.now(), status: nextStatus, value: nextVal };
+
+    // 2. Instant Optimistic UI update + Master Switch state update
     setDevices((prev) => {
       const updated = prev.map((d) => d.id === id ? { ...d, value: nextVal, status: nextStatus } : d);
       const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
@@ -636,46 +629,33 @@ export default function DashboardScreen({ navigation }) {
 
       return updated.map(d => {
         if (d.room_id === target.room_id && (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.type === 'master')) {
+          toggleLockRef.current[d.id] = { time: Date.now(), status: isAnyOn, value: d.value };
           return { ...d, status: isAnyOn };
         }
         return d;
       });
     });
 
-    // STEP 1: LOCAL HIT FIRST (Direct Local IP / mDNS with 1.0s fast timeout)
-    let localSucceeded = false;
-    try {
-      await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, nextVal);
-      localSucceeded = true;
-      console.log(`[Dashboard] Fan speed adjusted instantly via Local LAN ⚡ (0.1s)`);
-    } catch (localErr) {
-      console.log(`[Dashboard] Local LAN unreachable for fan speed. Falling back to Cloud...`);
+    // 3. Fast Parallel Network Execution
+    const topic = `home/device/${baseNodeId}/control`;
+    const adjustPayload = {
+      channel,
+      status: nextStatusStr,
+      speed: nextVal
+    };
+
+    publishMessage(topic, adjustPayload);
+
+    if (isPhoneOnWifi && target.local_ip) {
+      sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, nextVal).catch(() => {});
     }
 
-    // STEP 2: FALLBACK TO CLOUD (MQTT & Cloud API if Local Hit fails)
-    if (!localSucceeded) {
-      const topic = `home/device/${baseNodeId}/control`;
-      const adjustPayload = {
-        channel,
-        status: nextStatusStr,
-        speed: nextVal
-      };
-
-      try {
-        publishMessage(topic, adjustPayload);
-        await apiClient.post(`/api/devices/${id}/control`, {
-          state: adjustPayload
-        });
-      } catch (cloudErr) {
-        console.warn(`[Dashboard] Both Local LAN and Cloud failed for fan speed:`, cloudErr);
-        setDevices((prev) => prev.map((d) => {
-          const isSibling = d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`);
-          if (isSibling || d.id === id) {
-            return { ...d, is_online: false, status: false };
-          }
-          return d;
-        }));
-      }
+    try {
+      await apiClient.post(`/api/devices/${id}/control`, {
+        state: adjustPayload
+      });
+    } catch (cloudErr) {
+      console.warn(`[Dashboard] Cloud API fan speed failed:`, cloudErr);
     }
   };
 

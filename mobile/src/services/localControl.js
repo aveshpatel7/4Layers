@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const LOCAL_IP_STORAGE_KEY = "@4layers_device_local_ips";
-const REQUEST_TIMEOUT_MS = 1000; // 1.0 second ultra-fast timeout for Local-First fallback
+const REQUEST_TIMEOUT_MS = 600; // 600ms ultra-fast timeout to prevent UI thread / fallback blocking
 
 // In-memory cache for instant zero-latency lookups
 const localIpCache = {};
@@ -92,48 +92,36 @@ export async function sendLocalControlCommand(nodeId, channel, state, providedLo
     query += `&speed=${encodeURIComponent(speed)}`;
   }
 
-  const urlsToTry = [];
-
-  // 1. Direct Local IP (Fastest path when connected to same Wi-Fi)
+  // 1. Direct Local IP (Fastest path when on local Wi-Fi, 600ms max)
   if (targetIp && targetIp !== "127.0.0.1" && targetIp !== "0.0.0.0") {
-    urlsToTry.push(`http://${targetIp}/control?${query}`);
-  }
-
-  // 2. mDNS hostnames (NODE_ID.local & 4layers-{node_id}.local)
-  urlsToTry.push(`http://${baseNodeId}.local/control?${query}`);
-  const sanitized = sanitizeMdnsHost(baseNodeId);
-  urlsToTry.push(`http://4layers-${sanitized}.local/control?${query}`);
-  if (sanitized !== baseNodeId.toLowerCase()) {
-    urlsToTry.push(`http://4layers-${baseNodeId.toLowerCase()}.local/control?${query}`);
-  }
-
-  let lastError = null;
-
-  for (const url of urlsToTry) {
+    const url = `http://${targetIp}/control?${query}`;
     try {
-      console.log(`[LocalControl] Attempting local LAN command via: ${url}`);
       const response = await fetchWithTimeout(url, { method: "GET" }, REQUEST_TIMEOUT_MS);
-
       if (response.ok) {
         let jsonRes = null;
-        try {
-          jsonRes = await response.json();
-        } catch (_) {}
-
-        console.log(`[LocalControl] Success via ${url}`);
-        return {
-          success: true,
-          url,
-          data: jsonRes
-        };
+        try { jsonRes = await response.json(); } catch (_) {}
+        return { success: true, url, data: jsonRes };
       }
     } catch (err) {
-      lastError = err;
-      console.log(`[LocalControl] URL ${url} failed or timed out (${err.message}). Trying next fallback...`);
+      // Local IP failed or timed out, fail fast to let Cloud fallback handle instantly
+      throw new Error(`Direct Local IP (${targetIp}) unreachable: ${err.message}`);
     }
   }
 
-  throw lastError || new Error("All local LAN endpoints were unreachable.");
+  // 2. Single fallback attempt via baseNodeId.local
+  const mdnsUrl = `http://${baseNodeId}.local/control?${query}`;
+  try {
+    const response = await fetchWithTimeout(mdnsUrl, { method: "GET" }, REQUEST_TIMEOUT_MS);
+    if (response.ok) {
+      let jsonRes = null;
+      try { jsonRes = await response.json(); } catch (_) {}
+      return { success: true, url: mdnsUrl, data: jsonRes };
+    }
+  } catch (err) {
+    throw new Error(`mDNS local command failed: ${err.message}`);
+  }
+
+  throw new Error("Local control unreachable.");
 }
 
 /**
