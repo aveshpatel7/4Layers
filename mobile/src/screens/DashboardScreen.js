@@ -306,6 +306,9 @@ export default function DashboardScreen({ navigation }) {
               const baseNodeId = cachedDevs[0]?.node_id?.split('_')[0] || cachedDevs[0]?.node_id;
               const localIp = cachedDevs[0]?.local_ip || getDeviceLocalIp(baseNodeId);
               
+              // Always maintain Local Wi-Fi presence when phone is on Wi-Fi with known node
+              updatedDevs = updatedDevs.map(d => ({ ...d, is_online: true, local_ip: localIp || d.local_ip }));
+
               // Query local ESP32 /state directly over local Wi-Fi
               const localState = await fetchLocalDeviceState(baseNodeId, localIp);
               if (localState) {
@@ -328,8 +331,6 @@ export default function DashboardScreen({ navigation }) {
                     value: val
                   };
                 });
-              } else if (localIp) {
-                updatedDevs = updatedDevs.map(d => ({ ...d, is_online: true, local_ip: localIp }));
               }
             }
             setDevices(updatedDevs);
@@ -788,29 +789,29 @@ export default function DashboardScreen({ navigation }) {
           </TouchableOpacity>
 
           {/* Ultra-Clean Status Dot (🔵 Blue = Cloud, 🟡 Yellow = Local Wi-Fi, 🔴 Red = Offline) */}
-          {hasError || (filteredDevices.length > 0 && filteredDevices.every(d => d.is_online === false)) ? (
+          {(isPhoneOnWifi && (filteredDevices.some(d => !!d.local_ip) || filteredDevices.some(d => d.is_online !== false))) ? (
             <TouchableOpacity
               style={styles.statusDotButton}
-              onPress={() => Alert.alert("🔴 Offline Mode", "Hardware switchboard is currently unreachable. Check power and Wi-Fi connection.")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.statusDot, styles.statusDotOffline]} />
-            </TouchableOpacity>
-          ) : (isPhoneOnWifi && filteredDevices.some(d => !!d.local_ip)) ? (
-            <TouchableOpacity
-              style={styles.statusDotButton}
-              onPress={() => Alert.alert("🟡 Local Wi-Fi Mode", "Direct high-speed 0.1s connection to switchboard over your local Wi-Fi network.")}
+              onPress={() => Alert.alert("🟡 Local Wi-Fi Mode", "Direct high-speed connection to switchboard over your local Wi-Fi network.")}
               activeOpacity={0.7}
             >
               <View style={[styles.statusDot, styles.statusDotLocal]} />
             </TouchableOpacity>
-          ) : (
+          ) : (filteredDevices.length > 0 && filteredDevices.some(d => d.is_online === true)) ? (
             <TouchableOpacity
               style={styles.statusDotButton}
               onPress={() => Alert.alert("🔵 AWS Cloud Mode", "Connected via AWS Serverless MQTT Cloud Server.")}
               activeOpacity={0.7}
             >
               <View style={[styles.statusDot, styles.statusDotCloud]} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.statusDotButton}
+              onPress={() => Alert.alert("🔴 Offline Mode", "Hardware switchboard is currently unreachable. Check power and Wi-Fi connection.")}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.statusDot, styles.statusDotOffline]} />
             </TouchableOpacity>
           )}
         </View>

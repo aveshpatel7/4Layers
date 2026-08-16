@@ -125,22 +125,21 @@ export async function sendLocalControlCommand(nodeId, channel, state, providedLo
 }
 
 /**
- * Query local ESP32 /state endpoint to verify LAN presence
+ * Query local ESP32 /state endpoint to verify LAN presence (1.5s robust timeout)
  */
 export async function fetchLocalDeviceState(nodeId, providedLocalIp = null) {
   const baseNodeId = nodeId.includes("_") ? nodeId.split("_")[0] : nodeId;
   const targetIp = providedLocalIp || getDeviceLocalIp(nodeId);
 
   const urlsToTry = [];
-  if (targetIp) {
+  if (targetIp && targetIp !== "127.0.0.1" && targetIp !== "0.0.0.0") {
     urlsToTry.push(`http://${targetIp}/state`);
   }
-  const sanitized = sanitizeMdnsHost(baseNodeId);
-  urlsToTry.push(`http://4layers-${sanitized}.local/state`);
+  urlsToTry.push(`http://${baseNodeId}.local/state`);
 
   for (const url of urlsToTry) {
     try {
-      const response = await fetchWithTimeout(url, { method: "GET" }, 1200);
+      const response = await fetchWithTimeout(url, { method: "GET" }, 1500);
       if (response.ok) {
         const jsonRes = await response.json();
         return jsonRes;

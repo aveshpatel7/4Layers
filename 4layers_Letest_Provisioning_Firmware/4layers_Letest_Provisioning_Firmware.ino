@@ -717,42 +717,43 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   // Write changes to physical pins & save to memory
   applyHardware();
-}
+// --- Non-Blocking Reconnect to MQTT Broker ---
+unsigned long lastMqttReconnectAttempt = 0;
 
-// --- Reconnect to MQTT Broker Loop ---
 void reconnectMqtt() {
-  while (!client.connected()) {
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("WiFi disconnected. Reconnecting WiFi first...");
-      return;
-    }
+  unsigned long now = millis();
+  if (now - lastMqttReconnectAttempt < 15000 && lastMqttReconnectAttempt != 0) {
+    return; // Don't spam connect attempts while local web server is active
+  }
+  lastMqttReconnectAttempt = now;
 
-    Serial.print("Connecting to EMQX MQTT Broker with LWT...");
-    String clientId = "SmartNestClient-" + String(NODE_ID);
+  if (WiFi.status() != WL_CONNECTED) {
+    return;
+  }
+
+  Serial.print("Connecting to EMQX MQTT Broker with LWT...");
+  String clientId = "SmartNestClient-" + String(NODE_ID);
+  
+  // Configure MQTT Last Will and Testament (LWT) on status_topic
+  const char* willPayload = "{\"status\":\"OFFLINE\"}";
+  if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass, status_topic, 1, true, willPayload)) {
+    // Connected successfully to broker & subscribed to control & OTA topics
+    client.subscribe(command_topic);
     
-    // Configure MQTT Last Will and Testament (LWT) on status_topic to cleanly publish OFFLINE on ungraceful disconnect
-    const char* willPayload = "{\"status\":\"OFFLINE\"}";
-    if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass, status_topic, 1, true, willPayload)) {
-      // Connected successfully to broker & subscribed to control & OTA topics
-      client.subscribe(command_topic);
-      
-      char ota_topic_node[120];
-      snprintf(ota_topic_node, sizeof(ota_topic_node), "smartnest/devices/%s/ota", NODE_ID);
-      client.subscribe(ota_topic_node);
-      client.subscribe("smartnest/devices/all/ota");
-      
-      Serial.printf("[MQTT] Connected and subscribed to: %s, %s, smartnest/devices/all/ota\n", command_topic, ota_topic_node);
+    char ota_topic_node[120];
+    snprintf(ota_topic_node, sizeof(ota_topic_node), "smartnest/devices/%s/ota", NODE_ID);
+    client.subscribe(ota_topic_node);
+    client.subscribe("smartnest/devices/all/ota");
+    
+    Serial.printf("[MQTT] Connected and subscribed to: %s, %s\n", command_topic, ota_topic_node);
 
-      // Sync current states back to cloud on reconnect (preserves last saved ON/OFF state)
-      for (int i = 1; i <= 4; i++) sendChannelState(i, relayStates[i-1]);
-      sendChannelState(5, fanEnabled, fanSpeed);
-      sendChannelState(6, relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled);
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" retrying in 5 seconds...");
-      delay(5000);
-    }
+    // Sync current states back to cloud on reconnect
+    for (int i = 1; i <= 4; i++) sendChannelState(i, relayStates[i-1]);
+    sendChannelState(5, fanEnabled, fanSpeed);
+    sendChannelState(6, relayStates[0] || relayStates[1] || relayStates[2] || relayStates[3] || fanEnabled);
+  } else {
+    Serial.print("failed, rc=");
+    Serial.println(client.state());
   }
 }
 
@@ -805,21 +806,21 @@ void setup() {
     Serial.printf("Saved WiFi credentials found for SSID: %s\n", ssid.c_str());
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
-    WiFi.persistent(true);
+    WiFi.setSleep(false);
 
     bool connected = false;
-    const int MAX_ATTEMPTS = 3;
-    const int TIMEOUT_PER_ATTEMPT_SECONDS = 20;
+    const int MAX_ATTEMPTS = 4;
+    const int TIMEOUT_PER_ATTEMPT_SECONDS = 15;
 
     for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       Serial.printf("[WiFi] Attempt %d/%d: Connecting to '%s'...\n", attempt, MAX_ATTEMPTS, ssid.c_str());
       
-      WiFi.disconnect(true);
-      delay(200);
+      WiFi.disconnect();
+      delay(300);
       WiFi.begin(ssid.c_str(), password.c_str());
 
       int retries = 0;
-      int max_retries = TIMEOUT_PER_ATTEMPT_SECONDS * 2; // 500ms steps -> 20 seconds
+      int max_retries = TIMEOUT_PER_ATTEMPT_SECONDS * 2; // 500ms steps -> 15 seconds
       while (WiFi.status() != WL_CONNECTED && retries < max_retries) {
         delay(500);
         Serial.print(".");
@@ -847,8 +848,15 @@ void setup() {
       // Disable WiFi Sleep Mode to ensure instant MQTT message delivery (<10ms latency)
       WiFi.setSleep(false);
       
+      // Public DNS Fallback for reliable EMQX domain resolution
+      IPAddress dns1(8, 8, 8, 8);
+      IPAddress dns2(1, 1, 1, 1);
+      WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, dns1, dns2);
+
       // Bypasses certificate chain validation securely for EMQX Serverless TLS
       espClient.setInsecure();
+      espClient.setTimeout(2); // 2-second max socket timeout to prevent blocking
+      espClient.setHandshakeTimeout(3);
       
       // Initialize MQTT Broker Connection with 60s KeepAlive & 1024 Buffer Size
       client.setServer(mqtt_server, mqtt_port);

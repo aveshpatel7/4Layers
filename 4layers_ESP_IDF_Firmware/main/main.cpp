@@ -1399,6 +1399,15 @@ void startSetupPortal() {
     BLEDevice::startAdvertising();
 }
 
+void webserver_task(void *pvParameters) {
+    while (true) {
+        if (WiFi.status() == WL_CONNECTED || inSetupMode) {
+            server.handleClient();
+        }
+        vTaskDelay(pdMS_TO_TICKS(2));
+    }
+}
+
 void setup() {
     Serial.begin(115200);
     delay(1000);
@@ -1431,7 +1440,18 @@ void setup() {
     pinMode(gpio_reset, INPUT_PULLUP); 
     pinMode(RF_PIN, INPUT);
     
-    attachInterrupt(digitalPinToInterrupt(RF_PIN), rf_isr, CHANGE);
+    init_hardware(); 
+    init_rf(); 
+    init_switches();
+    
+    rf_code_l1 = load_code("r1", 0); 
+    rf_code_l2 = load_code("r2", 0); 
+    rf_code_l3 = load_code("r3", 0); 
+    rf_code_l4 = load_code("r4", 0);
+    rf_code_up = load_code("rfu", 0); 
+    rf_code_dw = load_code("rfd", 0); 
+    rf_code_fan_toggle = load_code("rft", 0); 
+    rf_code_master = load_code("rfm", 0);
 
     switch_state_ch1 = load_state_from_nvs("R1", 0); 
     switch_state_ch2 = load_state_from_nvs("R2", 0);
@@ -1441,16 +1461,6 @@ void setup() {
     curr_speed = load_state_from_nvs("F_S", 0); 
     fan_power = load_state_from_nvs("F_P", 0); 
     fan_speed_memory = load_state_from_nvs("L_S", 1);
-
-    rf_code_l1 = load_code("rf1", 0); 
-    rf_code_l2 = load_code("rf2", 0); 
-    rf_code_l3 = load_code("rf3", 0); 
-    rf_code_l4 = load_code("rf4", 0);
-    
-    rf_code_up = load_code("rfu", 0); 
-    rf_code_dw = load_code("rfd", 0); 
-    rf_code_fan_toggle = load_code("rft", 0); 
-    rf_code_master = load_code("rfm", 0);
 
     if (switch_state_ch1) {
         digitalWrite(relay1, HIGH);
@@ -1518,6 +1528,11 @@ void setup() {
         WiFi.setSleep(false);  
         WiFi.setAutoReconnect(true); 
         
+        // Public DNS Fallback for reliable EMQX domain resolution
+        IPAddress dns1(8, 8, 8, 8);
+        IPAddress dns2(1, 1, 1, 1);
+        WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, dns1, dns2);
+
         WiFi.begin(saved_ssid.c_str(), saved_password.c_str());
         
         int retries = 0;
@@ -1529,12 +1544,19 @@ void setup() {
         }
         
         espClient.setInsecure();
+        espClient.setTimeout(2); // 2-second max socket timeout to prevent blocking
+        espClient.setHandshakeTimeout(3);
         client.setServer(mqtt_server, mqtt_port); 
         client.setCallback(mqtt_callback);
+        client.setKeepAlive(60);
+        client.setBufferSize(1024);
+
+        setupLocalWebServer(); 
+        // Launch independent WebServer task on Core 0 so local HTTP never freezes
+        xTaskCreatePinnedToCore(webserver_task, "webserver_task", 4096, NULL, 4, NULL, 0);
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.println("\n✅ Wi-Fi Connected Instantly!");
-            setupLocalWebServer(); 
             if (MDNS.begin(NODE_ID)) {
                 Serial.printf("🌐 mDNS Started! Access via: http://%s.local\n", NODE_ID);
             }
@@ -1564,10 +1586,8 @@ void loop() {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        server.handleClient(); 
-        
         if (!client.connected()) {
-            if (now_ms - last_mqtt_reconnect > 3000 || last_mqtt_reconnect == 0) {
+            if (now_ms - last_mqtt_reconnect > 15000 || last_mqtt_reconnect == 0) {
                 last_mqtt_reconnect = now_ms;
                 
                 Serial.println("☁️ Connecting to EMQX Cloud...");
