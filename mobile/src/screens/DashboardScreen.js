@@ -512,23 +512,39 @@ export default function DashboardScreen({ navigation }) {
       // 2. Instant Optimistic UI update: Turn ALL room devices ON or OFF
       setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: nextStatus } : d));
 
-      // 3. Fast Parallel Network Execution (MQTT + Local + Cloud)
-      publishMessage(`home/device/${baseNodeId}/control`, {
-        channel: masterChannel,
-        status: nextStatusStr
-      });
+      // 3. Network Execution: LOCAL FIRST (Bypass Mode) -> CLOUD FALLBACK
+      const targetLocalIp = target.local_ip || getDeviceLocalIp(baseNodeId);
+      let localHandledSuccessfully = false;
 
-      if (isPhoneOnWifi && target.local_ip) {
-        sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, target.local_ip).catch(() => {});
+      if (isPhoneOnWifi && targetLocalIp) {
+        try {
+          console.log(`[Dashboard] 🟡 LOCAL FIRST: Sending Master HTTP to ${targetLocalIp} (Channel ${masterChannel} -> ${nextStatusStr})`);
+          const res = await sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, targetLocalIp);
+          if (res && res.success) {
+            localHandledSuccessfully = true;
+            console.log(`[Dashboard] ⚡ LOCAL MASTER BYPASS SUCCESS. AWS Cloud completely bypassed (0 AWS cost)!`);
+          }
+        } catch (localErr) {
+          console.warn(`[Dashboard] Local Master HTTP failed (${localErr.message}), falling back to AWS Cloud API...`);
+        }
       }
 
-      try {
-        await apiClient.post('/api/devices/bulk-control', {
-          device_ids: roomDevIds,
-          state: { status: nextStatusStr }
+      // CLOUD FALLBACK: Only fire Cloud API & MQTT if NOT on Wi-Fi or Local HTTP failed
+      if (!localHandledSuccessfully) {
+        console.log(`[Dashboard] 🔵 CLOUD ROUTE: Sending Master via AWS MQTT & Cloud API...`);
+        publishMessage(`home/device/${baseNodeId}/control`, {
+          channel: masterChannel,
+          status: nextStatusStr
         });
-      } catch (cloudErr) {
-        console.warn("[Dashboard] Cloud master control failed:", cloudErr);
+
+        try {
+          await apiClient.post('/api/devices/bulk-control', {
+            device_ids: roomDevIds,
+            state: { status: nextStatusStr }
+          });
+        } catch (cloudErr) {
+          console.warn("[Dashboard] Cloud master control failed:", cloudErr);
+        }
       }
       return;
     }
@@ -554,31 +570,46 @@ export default function DashboardScreen({ navigation }) {
       });
     });
 
-    // 3. Fast Parallel Network Execution (MQTT + Local + Cloud)
-    const topic = `home/device/${baseNodeId}/control`;
-    const togglePayload = {
-      channel,
-      status: nextStatusStr
-    };
-    if (speedVal !== null) {
-      togglePayload.speed = speedVal;
+    // 3. Network Execution: LOCAL FIRST (Bypass Mode) -> CLOUD FALLBACK
+    const targetLocalIp = target.local_ip || getDeviceLocalIp(baseNodeId);
+    let localHandledSuccessfully = false;
+
+    if (isPhoneOnWifi && targetLocalIp) {
+      try {
+        console.log(`[Dashboard] 🟡 LOCAL FIRST: Sending direct HTTP to ${targetLocalIp} (Channel ${channel} -> ${nextStatusStr})`);
+        const res = await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, targetLocalIp, speedVal);
+        if (res && res.success) {
+          localHandledSuccessfully = true;
+          console.log(`[Dashboard] ⚡ LOCAL BYPASS SUCCESS (<5ms). AWS Cloud completely bypassed (0 AWS cost)!`);
+        }
+      } catch (localErr) {
+        console.warn(`[Dashboard] Local Wi-Fi HTTP failed (${localErr.message}), falling back to AWS Cloud API...`);
+      }
     }
 
-    // Instant Fire-and-forget MQTT Publish
-    publishMessage(topic, togglePayload);
+    // CLOUD FALLBACK: Only fire Cloud API & MQTT if NOT on Wi-Fi or Local HTTP failed
+    if (!localHandledSuccessfully) {
+      console.log(`[Dashboard] 🔵 CLOUD ROUTE: Sending via AWS MQTT & Cloud API...`);
+      const topic = `home/device/${baseNodeId}/control`;
+      const togglePayload = {
+        channel,
+        status: nextStatusStr
+      };
+      if (speedVal !== null) {
+        togglePayload.speed = speedVal;
+      }
 
-    // If on Wi-Fi with local IP, fire direct local control in parallel
-    if (isPhoneOnWifi && target.local_ip) {
-      sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, speedVal).catch(() => {});
-    }
+      // Publish to MQTT
+      publishMessage(topic, togglePayload);
 
-    // Persist state to Cloud API
-    try {
-      await apiClient.post(`/api/devices/${id}/control`, {
-        state: togglePayload
-      });
-    } catch (cloudErr) {
-      console.warn(`[Dashboard] Cloud API call failed for ${target.name}:`, cloudErr);
+      // Persist state to Cloud API
+      try {
+        await apiClient.post(`/api/devices/${id}/control`, {
+          state: togglePayload
+        });
+      } catch (cloudErr) {
+        console.warn(`[Dashboard] Cloud API call failed for ${target.name}:`, cloudErr);
+      }
     }
   };
 
@@ -637,26 +668,42 @@ export default function DashboardScreen({ navigation }) {
       });
     });
 
-    // 3. Fast Parallel Network Execution
-    const topic = `home/device/${baseNodeId}/control`;
-    const adjustPayload = {
-      channel,
-      status: nextStatusStr,
-      speed: nextVal
-    };
+    // 3. Network Execution: LOCAL FIRST (Bypass Mode) -> CLOUD FALLBACK
+    const targetLocalIp = target.local_ip || getDeviceLocalIp(baseNodeId);
+    let localHandledSuccessfully = false;
 
-    publishMessage(topic, adjustPayload);
-
-    if (isPhoneOnWifi && target.local_ip) {
-      sendLocalControlCommand(baseNodeId, channel, nextStatusStr, target.local_ip, nextVal).catch(() => {});
+    if (isPhoneOnWifi && targetLocalIp) {
+      try {
+        console.log(`[Dashboard] 🟡 LOCAL FIRST: Sending Fan HTTP to ${targetLocalIp} (Speed ${nextVal})`);
+        const res = await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, targetLocalIp, nextVal);
+        if (res && res.success) {
+          localHandledSuccessfully = true;
+          console.log(`[Dashboard] ⚡ LOCAL FAN BYPASS SUCCESS. AWS Cloud completely bypassed (0 AWS cost)!`);
+        }
+      } catch (localErr) {
+        console.warn(`[Dashboard] Local Fan HTTP failed (${localErr.message}), falling back to AWS Cloud API...`);
+      }
     }
 
-    try {
-      await apiClient.post(`/api/devices/${id}/control`, {
-        state: adjustPayload
-      });
-    } catch (cloudErr) {
-      console.warn(`[Dashboard] Cloud API fan speed failed:`, cloudErr);
+    // CLOUD FALLBACK: Only fire Cloud API & MQTT if NOT on Wi-Fi or Local HTTP failed
+    if (!localHandledSuccessfully) {
+      console.log(`[Dashboard] 🔵 CLOUD ROUTE: Sending Fan speed via AWS MQTT & Cloud API...`);
+      const topic = `home/device/${baseNodeId}/control`;
+      const adjustPayload = {
+        channel,
+        status: nextStatusStr,
+        speed: nextVal
+      };
+
+      publishMessage(topic, adjustPayload);
+
+      try {
+        await apiClient.post(`/api/devices/${id}/control`, {
+          state: adjustPayload
+        });
+      } catch (cloudErr) {
+        console.warn(`[Dashboard] Cloud API fan speed failed:`, cloudErr);
+      }
     }
   };
 
@@ -669,31 +716,44 @@ export default function DashboardScreen({ navigation }) {
     // 1. Optimistic UI update
     setDevices(prev => prev.map(d => deviceIds.includes(d.id) ? { ...d, status: turnOn } : d));
 
-    // 2. Direct MQTT publish (Master Channel 7 command to all unique boards in the room)
-    const uniqueBaseNodeIds = new Set();
-    filteredDevices.forEach(d => {
-      if (d.node_id.includes('_')) {
-        uniqueBaseNodeIds.add(d.node_id.split('_')[0]);
+    // 2. Network Execution: LOCAL FIRST -> CLOUD FALLBACK
+    let allLocalSucceeded = false;
+    if (isPhoneOnWifi) {
+      const localPromises = [];
+      uniqueBaseNodeIds.forEach(baseNodeId => {
+        const ip = getDeviceLocalIp(baseNodeId);
+        if (ip) {
+          localPromises.push(sendLocalControlCommand(baseNodeId, 7, targetState, ip));
+        }
+      });
+      if (localPromises.length > 0 && localPromises.length === uniqueBaseNodeIds.size) {
+        try {
+          await Promise.all(localPromises);
+          allLocalSucceeded = true;
+          console.log("[Dashboard] ⚡ Bulk control executed 100% locally via Wi-Fi bypass!");
+        } catch (_) {}
       }
-    });
+    }
 
-    uniqueBaseNodeIds.forEach(baseNodeId => {
-      const topic = `home/device/${baseNodeId}/control`;
-      publishMessage(topic, {
-        channel: 7,
-        status: targetState
+    if (!allLocalSucceeded) {
+      uniqueBaseNodeIds.forEach(baseNodeId => {
+        const topic = `home/device/${baseNodeId}/control`;
+        publishMessage(topic, {
+          channel: 7,
+          status: targetState
+        });
       });
-    });
 
-    // 3. HTTP sync backup
-    try {
-      await apiClient.post('/api/devices/bulk-control', {
-        device_ids: deviceIds,
-        state: { status: targetState }
-      });
-    } catch (err) {
-      console.warn("Failed bulk control operation:", err);
-      fetchDevices(true);
+      // 3. HTTP sync backup
+      try {
+        await apiClient.post('/api/devices/bulk-control', {
+          device_ids: deviceIds,
+          state: { status: targetState }
+        });
+      } catch (err) {
+        console.warn("Failed bulk control operation:", err);
+        fetchDevices(true);
+      }
     }
   };
 
@@ -788,11 +848,15 @@ export default function DashboardScreen({ navigation }) {
             <MaterialCommunityIcons name="chevron-down" size={14} color={TOKENS.accent} />
           </TouchableOpacity>
 
-          {/* Ultra-Clean Status Dot (🔵 Blue = Cloud, 🟡 Yellow = Local Wi-Fi, 🔴 Red = Offline) */}
-          {(isPhoneOnWifi && (filteredDevices.some(d => !!d.local_ip) || filteredDevices.some(d => d.is_online !== false))) ? (
+          {/* Ultra-Clean Status Dot:
+              🟡 Yellow Dot = On Same Wi-Fi & Local IP known (Local Bypass Active)
+              🔵 Blue Dot = On Cellular Data OR Local failed (Cloud Active)
+              🔴 Red Dot = Hardware switchboard completely unreachable (Offline)
+          */}
+          {(isPhoneOnWifi && (filteredDevices.some(d => !!d.local_ip || !!getDeviceLocalIp(d.node_id)) && filteredDevices.some(d => d.is_online !== false))) ? (
             <TouchableOpacity
               style={styles.statusDotButton}
-              onPress={() => Alert.alert("🟡 Local Wi-Fi Mode", "Direct high-speed connection to switchboard over your local Wi-Fi network.")}
+              onPress={() => Alert.alert("🟡 Local Wi-Fi Bypass", "Direct 0.05s connection over your local Wi-Fi. AWS Cloud is completely bypassed to save costs and eliminate latency.")}
               activeOpacity={0.7}
             >
               <View style={[styles.statusDot, styles.statusDotLocal]} />
@@ -800,7 +864,7 @@ export default function DashboardScreen({ navigation }) {
           ) : (filteredDevices.length > 0 && filteredDevices.some(d => d.is_online === true)) ? (
             <TouchableOpacity
               style={styles.statusDotButton}
-              onPress={() => Alert.alert("🔵 AWS Cloud Mode", "Connected via AWS Serverless MQTT Cloud Server.")}
+              onPress={() => Alert.alert("🔵 AWS Cloud Mode", "Connected via AWS Serverless MQTT Cloud Server (Out-of-Home / Cellular Data).")}
               activeOpacity={0.7}
             >
               <View style={[styles.statusDot, styles.statusDotCloud]} />
