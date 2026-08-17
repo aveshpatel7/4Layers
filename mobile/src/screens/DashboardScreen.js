@@ -20,7 +20,7 @@ import DeviceCard, { LuminaRockerSwitch } from "../components/DeviceCard";
 import EnergyChart from "../components/EnergyChart";
 import BrandLogo from "../components/BrandLogo";
 import SideDrawer from "../components/SideDrawer";
-import { connectMqtt, disconnectMqtt, publishMessage, registerMqttListener } from "../services/mqttClient";
+import { connectMqtt, disconnectMqtt, registerMqttListener } from "../services/mqttClient";
 import NetInfo from "@react-native-community/netinfo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { 
@@ -29,7 +29,9 @@ import {
   getDeviceLocalIp, 
   sendLocalControlCommand,
   fetchLocalDeviceState,
-  pingLocalDevice
+  pingLocalDevice,
+  parseLocalChannelState,
+  getBaseNodeId
 } from "../services/localControl";
 const TOKENS = {
   bg: "#0E0E0E",
@@ -74,6 +76,7 @@ export default function DashboardScreen({ navigation }) {
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [username, setUsername] = useState("User");
   const [isPhoneOnWifi, setIsPhoneOnWifi] = useState(false);
+  const isPhoneOnWifiRef = useRef(false);
   const prevNetModeRef = useRef(null);
 
   // Visual Connectivity Feedback Toast State (3 Standard Subtle Modes: local, cloud, offline)
@@ -91,7 +94,9 @@ export default function DashboardScreen({ navigation }) {
   useEffect(() => {
     const handleNetChange = (state) => {
       const onWifi = state.type === 'wifi';
+      isPhoneOnWifiRef.current = onWifi;
       setIsPhoneOnWifi(onWifi);
+      console.log(`[LOCAL DEBUG] Wi-Fi Interface Status: ${onWifi ? 'CONNECTED (Wi-Fi)' : 'DISCONNECTED (' + (state.type || 'unknown') + ')'}`);
 
       const newMode = onWifi ? 'local' : 'cloud';
       if (prevNetModeRef.current && prevNetModeRef.current !== newMode) {
@@ -217,6 +222,28 @@ export default function DashboardScreen({ navigation }) {
   // Track recently toggled devices with a lock timestamp to prevent stale state updates / polling flicker
   const toggleLockRef = useRef({});
 
+  // Helper to recalculate Master Switch state dynamically for all rooms
+  const recalculateMasterStatus = (devList) => {
+    const roomStatusMap = {};
+    devList.forEach(d => {
+      if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
+        if (d.status && d.is_online !== false) roomStatusMap[d.room_id] = true;
+      }
+    });
+
+    const now = Date.now();
+    return devList.map(d => {
+      if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
+        const masterLock = toggleLockRef.current[d.id];
+        if (masterLock && (now - masterLock.time < 3500)) {
+          return { ...d, status: masterLock.status };
+        }
+        return { ...d, status: !!roomStatusMap[d.room_id] };
+      }
+      return d;
+    });
+  };
+
   const fetchDevices = async (showLoading = false) => {
     if (showLoading) {
       setIsLoading(true);
@@ -225,7 +252,7 @@ export default function DashboardScreen({ navigation }) {
       const response = await apiClient.get("/api/devices");
       const data = response.data;
       if (Array.isArray(data)) {
-        const formattedList = data.map(d => {
+        let formattedList = data.map(d => {
           let mobileType = 'outlet';
           const nodeSuffix = d.node_id?.split('_').pop();
           if (nodeSuffix === '5' || d.device_type === 'fan') mobileType = 'fan';
@@ -258,10 +285,11 @@ export default function DashboardScreen({ navigation }) {
         });
 
         // If phone is on Wi-Fi, verify local hardware presence via 500ms ultra-fast ping
-        if (isPhoneOnWifi) {
-          const uniqueNodes = Array.from(new Set(formattedList.map(d => d.node_id?.split('_')[0]).filter(Boolean)));
+        if (isPhoneOnWifiRef.current) {
+          const uniqueNodes = Array.from(new Set(formattedList.map(d => getBaseNodeId(d.node_id)).filter(Boolean)));
           const pingPromises = uniqueNodes.map(async (baseNodeId) => {
             const localIp = getDeviceLocalIp(baseNodeId);
+            console.log(`[LOCAL DEBUG] Ping attempt: http://${localIp || baseNodeId + '.local'}/state (timeout: 500ms)`);
             const localState = await pingLocalDevice(baseNodeId, localIp, 500);
             return { baseNodeId, localIp, localState };
           });
@@ -269,20 +297,15 @@ export default function DashboardScreen({ navigation }) {
           const pingMap = new Map(pingResults.map(r => [r.baseNodeId, r]));
 
           formattedList = formattedList.map(d => {
-            const baseNodeId = d.node_id?.split('_')[0];
+            const baseNodeId = getBaseNodeId(d.node_id);
             const pingInfo = pingMap.get(baseNodeId);
             if (pingInfo) {
               if (pingInfo.localState) {
                 // Hardware responded locally in <500ms
                 const suffix = parseInt(d.node_id?.split('_').pop(), 10);
-                let st = d.status;
-                let val = d.value;
-                if (suffix >= 1 && suffix <= 4 && pingInfo.localState.relays) {
-                  st = !!pingInfo.localState.relays[suffix - 1];
-                } else if (suffix === 5 && pingInfo.localState.fan) {
-                  st = !!pingInfo.localState.fan.enabled;
-                  val = pingInfo.localState.fan.speed || 1;
-                }
+                const parsed = parseLocalChannelState(pingInfo.localState, suffix);
+                let st = parsed.status !== null ? parsed.status : d.status;
+                let val = parsed.value !== null ? parsed.value : d.value;
                 return {
                   ...d,
                   is_online: true,
@@ -300,18 +323,7 @@ export default function DashboardScreen({ navigation }) {
         }
 
         // Compute Master Switch status dynamically for each room
-        const roomStatusMap = {};
-        formattedList.forEach(d => {
-          if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
-            if (d.status && d.is_online !== false) roomStatusMap[d.room_id] = true;
-          }
-        });
-
-        formattedList.forEach(d => {
-          if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
-            d.status = !!roomStatusMap[d.room_id];
-          }
-        });
+        formattedList = recalculateMasterStatus(formattedList);
         
         // Deduplicate array by device id as a bulletproof frontend safety net
         const uniqueDevicesList = Array.from(new Map(formattedList.map(d => [d.id, d])).values());
@@ -350,47 +362,54 @@ export default function DashboardScreen({ navigation }) {
         throw new Error("Returned telemetry data is not a valid list of devices");
       }
     } catch (error) {
-      console.warn("Cloud API fetch failed, checking local hardware via 500ms ping...", error);
+      console.log("[LOCAL DEBUG] Cloud API fetch failed, checking local hardware via 500ms ping...", error?.message || error);
       try {
         const cachedDevStr = await AsyncStorage.getItem('@4layers_cached_devices');
         if (cachedDevStr) {
           const cachedDevs = JSON.parse(cachedDevStr);
           if (Array.isArray(cachedDevs) && cachedDevs.length > 0) {
             let updatedDevs = [...cachedDevs];
-            if (isPhoneOnWifi) {
-              const baseNodeId = cachedDevs[0]?.node_id?.split('_')[0] || cachedDevs[0]?.node_id;
-              const localIp = cachedDevs[0]?.local_ip || getDeviceLocalIp(baseNodeId);
-              
-              // 500ms Rapid Ping to check local ESP32
-              const localState = await pingLocalDevice(baseNodeId, localIp, 500);
-              if (localState) {
-                console.log("[Dashboard] Direct local ESP32 state retrieved via Wi-Fi:", localState);
-                updatedDevs = updatedDevs.map(d => {
+            if (isPhoneOnWifiRef.current) {
+              // Extract all unique base node IDs from cached devices
+              const uniqueNodes = Array.from(new Set(cachedDevs.map(d => getBaseNodeId(d.node_id)).filter(Boolean)));
+              const pingPromises = uniqueNodes.map(async (baseNodeId) => {
+                const localIp = cachedDevs.find(d => getBaseNodeId(d.node_id) === baseNodeId)?.local_ip || getDeviceLocalIp(baseNodeId);
+                console.log(`[LOCAL DEBUG] Catch block ping attempt: http://${localIp || baseNodeId + '.local'}/state (Node: ${baseNodeId})`);
+                const localState = await pingLocalDevice(baseNodeId, localIp, 500);
+                return { baseNodeId, localIp, localState };
+              });
+              const pingResults = await Promise.all(pingPromises);
+              const pingMap = new Map(pingResults.map(r => [r.baseNodeId, r]));
+
+              updatedDevs = updatedDevs.map(d => {
+                const baseNodeId = getBaseNodeId(d.node_id);
+                const pingInfo = pingMap.get(baseNodeId);
+                if (pingInfo && pingInfo.localState) {
+                  console.log(`[LOCAL DEBUG] Catch block local state retrieved for ${baseNodeId}:`, pingInfo.localState);
                   const suffix = parseInt(d.node_id?.split('_').pop(), 10);
-                  let st = d.status;
-                  let val = d.value;
-                  if (suffix >= 1 && suffix <= 4 && localState.relays) {
-                    st = !!localState.relays[suffix - 1];
-                  } else if (suffix === 5 && localState.fan) {
-                    st = !!localState.fan.enabled;
-                    val = localState.fan.speed || 1;
-                  }
+                  const parsed = parseLocalChannelState(pingInfo.localState, suffix);
+                  let st = parsed.status !== null ? parsed.status : d.status;
+                  let val = parsed.value !== null ? parsed.value : d.value;
                   return {
                     ...d,
                     is_online: true,
-                    local_ip: localState.local_ip || localIp,
+                    local_ip: pingInfo.localState.local_ip || pingInfo.localIp || d.local_ip,
                     status: st,
                     value: val
                   };
-                });
-              } else {
-                // BOTH Cloud and Local ping failed: mark offline INSTANTLY!
-                updatedDevs = updatedDevs.map(d => ({ ...d, is_online: false, status: false }));
-              }
+                } else {
+                  // BOTH Cloud and Local ping failed: mark offline cleanly
+                  return { ...d, is_online: false, status: false };
+                }
+              });
             } else {
-              // Not on Wi-Fi and Cloud failed: mark offline INSTANTLY!
+              // Not on Wi-Fi and Cloud failed: mark offline cleanly
               updatedDevs = updatedDevs.map(d => ({ ...d, is_online: false, status: false }));
             }
+
+            // Re-evaluate Master Switch state dynamically for affected rooms
+            updatedDevs = recalculateMasterStatus(updatedDevs);
+
             setDevices(updatedDevs);
             setHasError(false);
             return;
@@ -442,7 +461,75 @@ export default function DashboardScreen({ navigation }) {
             saveDeviceLocalIp(baseNodeId, incomingIp);
           }
           const isOfflinePayload = payload.status === 'OFFLINE' || payload.is_online === false;
-          const nextStatus = !isOfflinePayload && (payload.status === 'ON' || payload.status === true || payload.status === 1);
+
+          if (isOfflinePayload) {
+            const localIp = incomingIp || getDeviceLocalIp(baseNodeId);
+            if (isPhoneOnWifiRef.current && localIp) {
+              console.log(`[LOCAL DEBUG] MQTT reported OFFLINE for ${baseNodeId}. Verifying Local LAN ping before marking offline...`);
+              pingLocalDevice(baseNodeId, localIp, 500).then((localState) => {
+                if (localState) {
+                  console.log(`[LOCAL DEBUG] Local ping SUCCESS for ${baseNodeId} after MQTT OFFLINE. Device is active locally on LAN!`);
+                  setDevices((prev) => {
+                    const updated = prev.map((d) => {
+                      if (d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`)) {
+                        const suffix = parseInt(d.node_id?.split('_').pop(), 10);
+                        const parsed = parseLocalChannelState(localState, suffix);
+                        let st = parsed.status !== null ? parsed.status : d.status;
+                        let val = parsed.value !== null ? parsed.value : d.value;
+                        return {
+                          ...d,
+                          is_online: true,
+                          status: st,
+                          value: val,
+                          local_ip: localState.local_ip || localIp
+                        };
+                      }
+                      return d;
+                    });
+                    return recalculateMasterStatus(updated);
+                  });
+                } else {
+                  console.log(`[LOCAL DEBUG] Local ping FAIL for ${baseNodeId}. Device is unreachable on both Cloud and LAN. Marking offline.`);
+                  setDevices((prev) => {
+                    const updated = prev.map((d) => {
+                      if (d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`)) {
+                        return { ...d, is_online: false, status: false };
+                      }
+                      return d;
+                    });
+                    return recalculateMasterStatus(updated);
+                  });
+                }
+              }).catch((err) => {
+                console.log(`[LOCAL DEBUG] Local ping error for ${baseNodeId}: ${err.message}. Marking offline.`);
+                setDevices((prev) => {
+                  const updated = prev.map((d) => {
+                    if (d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`)) {
+                      return { ...d, is_online: false, status: false };
+                    }
+                    return d;
+                  });
+                  return recalculateMasterStatus(updated);
+                });
+              });
+              return;
+            } else {
+              console.log(`[LOCAL DEBUG] MQTT reported OFFLINE for ${baseNodeId} (No Wi-Fi or no local IP). Marking offline.`);
+              setDevices((prev) => {
+                const updated = prev.map((d) => {
+                  if (d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`)) {
+                    return { ...d, is_online: false, status: false };
+                  }
+                  return d;
+                });
+                return recalculateMasterStatus(updated);
+              });
+              return;
+            }
+          }
+
+          // Online / telemetry / status message handling
+          const nextStatus = payload.status === 'ON' || payload.status === true || payload.status === 1;
           const nextValue = payload.value ?? payload.speed ?? 1;
 
           const now = Date.now();
@@ -457,9 +544,6 @@ export default function DashboardScreen({ navigation }) {
               }
 
               if (isMatch) {
-                if (isOfflinePayload) {
-                  return { ...d, is_online: false, status: false };
-                }
                 const lock = toggleLockRef.current[d.id];
                 // Enforce optimistic state lock within 3.5 seconds
                 if (lock && (now - lock.time < 3500)) {
@@ -470,29 +554,22 @@ export default function DashboardScreen({ navigation }) {
                     value: lock.value !== undefined ? lock.value : d.value
                   };
                 }
+
+                // If telemetry broadcast with channel_1..5
+                if (!channel && payload.channel_1 !== undefined) {
+                  const suffix = parseInt(d.node_id?.split('_').pop(), 10);
+                  const parsed = parseLocalChannelState(payload, suffix);
+                  let st = parsed.status !== null ? parsed.status : nextStatus;
+                  let val = parsed.value !== null ? parsed.value : nextValue;
+                  return { ...d, is_online: true, status: st, value: val };
+                }
+
                 return { ...d, is_online: true, status: nextStatus, value: nextValue };
               }
               return d;
             });
 
-            // Re-evaluate Master Switch state dynamically for affected rooms
-            const roomStatusMap = {};
-            updated.forEach(d => {
-              if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
-                if (d.status && d.is_online !== false) roomStatusMap[d.room_id] = true;
-              }
-            });
-
-            return updated.map(d => {
-              if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
-                const masterLock = toggleLockRef.current[d.id];
-                if (masterLock && (now - masterLock.time < 3500)) {
-                  return { ...d, status: masterLock.status };
-                }
-                return { ...d, status: !!roomStatusMap[d.room_id] };
-              }
-              return d;
-            });
+            return recalculateMasterStatus(updated);
           });
         }
       } catch (e) {
@@ -529,6 +606,7 @@ export default function DashboardScreen({ navigation }) {
 
     return unsubscribe;
   }, [navigation, roomMapping]);
+
   const handleToggleDevice = async (id) => {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
@@ -543,12 +621,10 @@ export default function DashboardScreen({ navigation }) {
     const nextStatus = !target.status;
     const nextStatusStr = nextStatus ? 'ON' : 'OFF';
 
-    let baseNodeId = target.node_id;
+    let baseNodeId = getBaseNodeId(target.node_id);
     let channel = 1;
-    if (target.node_id.includes('_')) {
-      const parts = target.node_id.split('_');
-      baseNodeId = parts[0];
-      const lastPart = parts[parts.length - 1];
+    if (target.node_id && target.node_id.includes('_')) {
+      const lastPart = target.node_id.split('_').pop();
       if (lastPart.match(/^\d+$/)) {
         channel = parseInt(lastPart, 10);
       }
@@ -574,27 +650,24 @@ export default function DashboardScreen({ navigation }) {
       const targetLocalIp = target.local_ip || getDeviceLocalIp(baseNodeId);
       let localHandledSuccessfully = false;
 
-      if (isPhoneOnWifi && targetLocalIp) {
+      if ((isPhoneOnWifi || isPhoneOnWifiRef.current) && targetLocalIp) {
         try {
-          console.log(`[Dashboard] 🟡 LOCAL FIRST: Sending Master HTTP to ${targetLocalIp} (Channel ${masterChannel} -> ${nextStatusStr})`);
+          console.log(`[LOCAL DEBUG] 🟡 LOCAL FIRST: Sending Master HTTP to ${targetLocalIp} (Node: ${baseNodeId}, Channel ${masterChannel} -> ${nextStatusStr})`);
           const res = await sendLocalControlCommand(baseNodeId, masterChannel, nextStatusStr, targetLocalIp);
           if (res && res.success) {
             localHandledSuccessfully = true;
-            console.log(`[Dashboard] ⚡ LOCAL MASTER BYPASS SUCCESS. AWS Cloud completely bypassed (0 AWS cost)!`);
+            console.log(`[LOCAL DEBUG] ⚡ LOCAL MASTER BYPASS SUCCESS. AWS Cloud completely bypassed (0 AWS cost)!`);
           }
         } catch (localErr) {
-          console.warn(`[Dashboard] Local Master HTTP failed (${localErr.message}), falling back to AWS Cloud API...`);
+          console.log(`[LOCAL DEBUG] Local Master HTTP failed (${localErr.message}), falling back to AWS Cloud route...`);
         }
       }
 
-      // CLOUD FALLBACK: Only fire Cloud API & MQTT if NOT on Wi-Fi or Local HTTP failed
+      // CLOUD FALLBACK: Only fire Cloud API if NOT on Wi-Fi or Local HTTP failed.
+      // Backend owns the single MQTT publish (see devices.py bulk-control) so the app
+      // must NOT publish MQTT directly here, else the firmware receives the command twice.
       if (!localHandledSuccessfully) {
-        console.log(`[Dashboard] 🔵 CLOUD ROUTE: Sending Master via AWS MQTT & Cloud API...`);
-        publishMessage(`home/device/${baseNodeId}/control`, {
-          channel: masterChannel,
-          status: nextStatusStr
-        });
-
+        console.log(`[LOCAL DEBUG] 🔵 CLOUD ROUTE: Sending Master via AWS Cloud API...`);
         try {
           await apiClient.post('/api/devices/bulk-control', {
             device_ids: roomDevIds,
@@ -615,40 +688,30 @@ export default function DashboardScreen({ navigation }) {
     // 2. Instant Optimistic UI update for individual device + Master Switch
     setDevices((prev) => {
       const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d);
-      const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
-      const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master');
-      const isAnyOn = nonMasterDevs.some(d => d.status === true || d.status === 'ON');
-
-      return updated.map(d => {
-        if (d.room_id === target.room_id && (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.type === 'master')) {
-          toggleLockRef.current[d.id] = { time: Date.now(), status: isAnyOn, value: d.value };
-          return { ...d, status: isAnyOn };
-        }
-        return d;
-      });
+      return recalculateMasterStatus(updated);
     });
 
     // 3. Network Execution: LOCAL FIRST (Bypass Mode) -> CLOUD FALLBACK
     const targetLocalIp = target.local_ip || getDeviceLocalIp(baseNodeId);
     let localHandledSuccessfully = false;
 
-    if (isPhoneOnWifi && targetLocalIp) {
+    if ((isPhoneOnWifi || isPhoneOnWifiRef.current) && targetLocalIp) {
       try {
-        console.log(`[Dashboard] 🟡 LOCAL FIRST: Sending direct HTTP to ${targetLocalIp} (Channel ${channel} -> ${nextStatusStr})`);
+        console.log(`[LOCAL DEBUG] 🟡 LOCAL FIRST: Sending direct HTTP to ${targetLocalIp} (Node: ${baseNodeId}, Channel ${channel} -> ${nextStatusStr})`);
         const res = await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, targetLocalIp, speedVal);
         if (res && res.success) {
           localHandledSuccessfully = true;
-          console.log(`[Dashboard] ⚡ LOCAL BYPASS SUCCESS (<5ms). AWS Cloud completely bypassed (0 AWS cost)!`);
+          console.log(`[LOCAL DEBUG] ⚡ LOCAL BYPASS SUCCESS (<5ms). AWS Cloud completely bypassed (0 AWS cost)!`);
         }
       } catch (localErr) {
-        console.warn(`[Dashboard] Local Wi-Fi HTTP failed (${localErr.message}), falling back to AWS Cloud API...`);
+        console.log(`[LOCAL DEBUG] Local Wi-Fi HTTP failed (${localErr.message}), falling back to AWS Cloud route...`);
       }
     }
 
-    // CLOUD FALLBACK: Only fire Cloud API & MQTT if NOT on Wi-Fi or Local HTTP failed
+    // CLOUD FALLBACK: Only fire Cloud API if NOT on Wi-Fi or Local HTTP failed.
+    // Backend owns the single MQTT publish; app must not double-publish here.
     if (!localHandledSuccessfully) {
-      console.log(`[Dashboard] 🔵 CLOUD ROUTE: Sending via AWS MQTT & Cloud API...`);
-      const topic = `home/device/${baseNodeId}/control`;
+      console.log(`[LOCAL DEBUG] 🔵 CLOUD ROUTE: Sending via AWS Cloud API...`);
       const togglePayload = {
         channel,
         status: nextStatusStr
@@ -657,10 +720,7 @@ export default function DashboardScreen({ navigation }) {
         togglePayload.speed = speedVal;
       }
 
-      // Publish to MQTT
-      publishMessage(topic, togglePayload);
-
-      // Persist state to Cloud API
+      // Persist state to Cloud API (backend publishes the MQTT command)
       try {
         await apiClient.post(`/api/devices/${id}/control`, {
           state: togglePayload
@@ -696,12 +756,10 @@ export default function DashboardScreen({ navigation }) {
     const nextStatus = nextVal > 0;
     const nextStatusStr = nextStatus ? 'ON' : 'OFF';
 
-    let baseNodeId = target.node_id;
+    let baseNodeId = getBaseNodeId(target.node_id);
     let channel = 5;
     if (target.node_id && target.node_id.includes('_')) {
-      const parts = target.node_id.split('_');
-      baseNodeId = parts[0];
-      const lastPart = parts[parts.length - 1];
+      const lastPart = target.node_id.split('_').pop();
       if (lastPart.match(/^\d+$/)) {
         channel = parseInt(lastPart, 10);
       }
@@ -713,47 +771,35 @@ export default function DashboardScreen({ navigation }) {
     // 2. Instant Optimistic UI update + Master Switch state update
     setDevices((prev) => {
       const updated = prev.map((d) => d.id === id ? { ...d, value: nextVal, status: nextStatus } : d);
-      const currentRoomDevs = updated.filter(d => d.room_id === target.room_id);
-      const nonMasterDevs = currentRoomDevs.filter(d => !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7') && d.type !== 'master');
-      const isAnyOn = nonMasterDevs.some(d => d.status === true || d.status === 'ON');
-
-      return updated.map(d => {
-        if (d.room_id === target.room_id && (d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7') || d.type === 'master')) {
-          toggleLockRef.current[d.id] = { time: Date.now(), status: isAnyOn, value: d.value };
-          return { ...d, status: isAnyOn };
-        }
-        return d;
-      });
+      return recalculateMasterStatus(updated);
     });
 
     // 3. Network Execution: LOCAL FIRST (Bypass Mode) -> CLOUD FALLBACK
     const targetLocalIp = target.local_ip || getDeviceLocalIp(baseNodeId);
     let localHandledSuccessfully = false;
 
-    if (isPhoneOnWifi && targetLocalIp) {
+    if ((isPhoneOnWifi || isPhoneOnWifiRef.current) && targetLocalIp) {
       try {
-        console.log(`[Dashboard] 🟡 LOCAL FIRST: Sending Fan HTTP to ${targetLocalIp} (Speed ${nextVal})`);
+        console.log(`[LOCAL DEBUG] 🟡 LOCAL FIRST: Sending Fan HTTP to ${targetLocalIp} (Node: ${baseNodeId}, Speed ${nextVal})`);
         const res = await sendLocalControlCommand(baseNodeId, channel, nextStatusStr, targetLocalIp, nextVal);
         if (res && res.success) {
           localHandledSuccessfully = true;
-          console.log(`[Dashboard] ⚡ LOCAL FAN BYPASS SUCCESS. AWS Cloud completely bypassed (0 AWS cost)!`);
+          console.log(`[LOCAL DEBUG] ⚡ LOCAL FAN BYPASS SUCCESS. AWS Cloud completely bypassed (0 AWS cost)!`);
         }
       } catch (localErr) {
-        console.warn(`[Dashboard] Local Fan HTTP failed (${localErr.message}), falling back to AWS Cloud API...`);
+        console.log(`[LOCAL DEBUG] Local Fan HTTP failed (${localErr.message}), falling back to AWS Cloud route...`);
       }
     }
 
-    // CLOUD FALLBACK: Only fire Cloud API & MQTT if NOT on Wi-Fi or Local HTTP failed
+    // CLOUD FALLBACK: Only fire Cloud API if NOT on Wi-Fi or Local HTTP failed.
+    // Backend owns the single MQTT publish; app must not double-publish here.
     if (!localHandledSuccessfully) {
-      console.log(`[Dashboard] 🔵 CLOUD ROUTE: Sending Fan speed via AWS MQTT & Cloud API...`);
-      const topic = `home/device/${baseNodeId}/control`;
+      console.log(`[LOCAL DEBUG] 🔵 CLOUD ROUTE: Sending Fan speed via AWS Cloud API...`);
       const adjustPayload = {
         channel,
         status: nextStatusStr,
         speed: nextVal
       };
-
-      publishMessage(topic, adjustPayload);
 
       try {
         await apiClient.post(`/api/devices/${id}/control`, {
@@ -767,42 +813,43 @@ export default function DashboardScreen({ navigation }) {
 
   const handleBulkControl = async (turnOn) => {
     const targetState = turnOn ? 'ON' : 'OFF';
-    const deviceIds = filteredDevices.map(d => d.id);
+    const roomDevs = filteredDevices;
+    const deviceIds = roomDevs.map(d => d.id);
 
     if (deviceIds.length === 0) return;
 
-    // 1. Optimistic UI update
+    const uniqueBaseNodeIds = Array.from(new Set(roomDevs.map(d => getBaseNodeId(d.node_id)).filter(Boolean)));
+
+    // 1. Hard 3.5-second Optimistic State Lock
+    const lockNow = Date.now();
+    deviceIds.forEach(devId => {
+      toggleLockRef.current[devId] = { time: lockNow, status: turnOn, value: 1 };
+    });
+
+    // 2. Optimistic UI update
     setDevices(prev => prev.map(d => deviceIds.includes(d.id) ? { ...d, status: turnOn } : d));
 
-    // 2. Network Execution: LOCAL FIRST -> CLOUD FALLBACK
+    // 3. Network Execution: LOCAL FIRST -> CLOUD FALLBACK
     let allLocalSucceeded = false;
-    if (isPhoneOnWifi) {
-      const localPromises = [];
-      uniqueBaseNodeIds.forEach(baseNodeId => {
-        const ip = getDeviceLocalIp(baseNodeId);
-        if (ip) {
-          localPromises.push(sendLocalControlCommand(baseNodeId, 7, targetState, ip));
-        }
-      });
-      if (localPromises.length > 0 && localPromises.length === uniqueBaseNodeIds.size) {
-        try {
-          await Promise.all(localPromises);
-          allLocalSucceeded = true;
-          console.log("[Dashboard] ⚡ Bulk control executed 100% locally via Wi-Fi bypass!");
-        } catch (_) {}
+    if ((isPhoneOnWifi || isPhoneOnWifiRef.current) && uniqueBaseNodeIds.length > 0) {
+      try {
+        const localPromises = uniqueBaseNodeIds.map(async (baseNodeId) => {
+          const ip = getDeviceLocalIp(baseNodeId);
+          if (!ip) throw new Error(`No local IP for ${baseNodeId}`);
+          console.log(`[LOCAL DEBUG] 🟡 LOCAL FIRST: Sending Bulk HTTP to ${ip} (Node: ${baseNodeId}, Channel 7 -> ${targetState})`);
+          return sendLocalControlCommand(baseNodeId, 7, targetState, ip);
+        });
+        await Promise.all(localPromises);
+        allLocalSucceeded = true;
+        console.log("[LOCAL DEBUG] ⚡ Bulk control executed 100% locally via Wi-Fi bypass!");
+      } catch (localErr) {
+        console.log(`[LOCAL DEBUG] Local Bulk control failed (${localErr.message}), falling back to Cloud route...`);
       }
     }
 
     if (!allLocalSucceeded) {
-      uniqueBaseNodeIds.forEach(baseNodeId => {
-        const topic = `home/device/${baseNodeId}/control`;
-        publishMessage(topic, {
-          channel: 7,
-          status: targetState
-        });
-      });
-
-      // 3. HTTP sync backup
+      console.log(`[LOCAL DEBUG] 🔵 CLOUD ROUTE: Sending Bulk control via AWS Cloud API...`);
+      // Backend owns the single MQTT publish; app must not double-publish here.
       try {
         await apiClient.post('/api/devices/bulk-control', {
           device_ids: deviceIds,
