@@ -138,6 +138,12 @@ class DeviceProvisionSingle(BaseModel):
 class DeviceControl(BaseModel):
     state: Dict[str, Any] = Field(..., description="JSON representation of desired state updates (e.g. {'status': 'ON'})")
 
+class DeviceClaimRequest(BaseModel):
+    node_id: str = Field(..., description="ESP32 hardware node ID e.g. 4L-NODE-31C7C8")
+
+class DeviceUnclaimRequest(BaseModel):
+    node_id: str = Field(..., description="ESP32 hardware node ID e.g. 4L-NODE-31C7C8")
+
 
 # --- Device History Schemas ---
 class DeviceHistoryResponse(BaseModel):

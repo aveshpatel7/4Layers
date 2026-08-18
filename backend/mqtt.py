@@ -143,6 +143,22 @@ def on_message(client, userdata, msg):
                     if is_telemetry and "status" not in state_data:
                         return
 
+                # Handle periodic HEARTBEAT to keep entire switchboard online
+                if state_data.get("status") == "HEARTBEAT" or state_data.get("heartbeat") is True:
+                    sibling_devices = db.query(models.Device).filter(
+                        (models.Device.node_id == base_node_id) | 
+                        (models.Device.node_id.like(f"{base_node_id}_%"))
+                    ).all()
+                    for sib in sibling_devices:
+                        sib.last_seen = datetime.utcnow()
+                        sib.is_online = True
+                        if incoming_local_ip:
+                            sib.local_ip = incoming_local_ip
+                        db.add(sib)
+                    db.commit()
+                    logger.debug("Heartbeat refreshed %d channels for node %s", len(sibling_devices), base_node_id)
+                    return
+
                 # 2. LWT Handling: check if abrupt disconnect or offline LWT arrived
                 if state_data.get("status") == "OFFLINE":
                     all_chan_devices = db.query(models.Device).filter(
@@ -266,42 +282,100 @@ def stop_mqtt():
     client.disconnect()
     logger.info("MQTT loop stopped and disconnected.")
 
-def _blocking_publish(topic: str, payload: str):
+def _blocking_publish(topic: str, payload: str, retain: bool = False):
     """Executes the blocking publish inside the thread pool executor."""
     try:
-        info = client.publish(topic, payload, qos=1)
+        info = client.publish(topic, payload, qos=1, retain=retain)
         info.wait_for_publish(timeout=2.0)
-        logger.info("MQTT published to %s: %s", topic, payload)
+        logger.info("MQTT published (retain=%s) to %s: %s", retain, topic, payload)
     except Exception as e:
         logger.error("Failed to publish to %s: %s", topic, e)
+
+def normalize_status(raw_status) -> str:
+    """
+    Normalize any status representation to strictly string 'ON' or 'OFF'.
+    Handles booleans (True/False), integers (1/0), and casing ('on'/'off').
+    """
+    if raw_status is None:
+        return "OFF"
+    if isinstance(raw_status, bool):
+        return "ON" if raw_status else "OFF"
+    if isinstance(raw_status, (int, float)):
+        return "ON" if raw_status > 0 else "OFF"
+    if isinstance(raw_status, str):
+        cleaned = raw_status.strip().upper()
+        if cleaned in ("ON", "TRUE", "1", "YES", "ENABLE", "ENABLED"):
+            return "ON"
+        return "OFF"
+    return "OFF"
 
 def publish_control_message(node_id: str, state: dict):
     """
     Publish a control message to control a device.
+    Ensures strict JSON schema adherence:
+    - Normalizes status to 'ON' | 'OFF'
+    - Normalizes channel number to integer
+    - For fan (channel 5) or speed adjustments, ensures 'speed' key is always present alongside 'value'
     Runs asynchronously inside a thread pool to avoid blocking FastAPI's async loop.
     """
     node_id_to_publish = node_id
-    payload_to_publish = state
+    payload_to_publish = dict(state) if isinstance(state, dict) else {}
     
+    # 1. Action commands (e.g. factory_reset, OTA_UPDATE)
     if "action" in state:
-        payload_to_publish = state
+        payload_to_publish = dict(state)
         if "_" in node_id:
-            node_id_to_publish = node_id.rsplit('_', 1)[0]
-    elif "_" in node_id:
-        parts = node_id.rsplit('_', 1)
-        if len(parts) == 2 and parts[1].isdigit():
-            base_node_id = parts[0]
-            channel = int(parts[1])
-            status_val = state.get("status", "OFF")
-            
+            parts = node_id.rsplit('_', 1)
+            if len(parts) == 2 and parts[1].isdigit():
+                node_id_to_publish = parts[0]
+    else:
+        # 2. Extract channel from node_id (e.g. 4L-NODE-123_5) or state dict
+        channel = None
+        if "_" in node_id:
+            parts = node_id.rsplit('_', 1)
+            if len(parts) == 2 and parts[1].isdigit():
+                node_id_to_publish = parts[0]
+                channel = int(parts[1])
+        elif "channel" in state:
+            try:
+                channel = int(state["channel"])
+            except (ValueError, TypeError):
+                channel = None
+
+        # 3. Normalize status
+        raw_status = state.get("status") if "status" in state else state.get("state")
+        status_val = normalize_status(raw_status)
+
+        if channel is not None:
             payload_to_publish = {
                 "channel": channel,
                 "status": status_val
             }
-            if "value" in state:
-                payload_to_publish["value"] = state["value"]
-                
-            node_id_to_publish = base_node_id
+            # 4. Fan speed & value propagation for channel 5 or when speed/value is provided
+            if channel == 5 or "speed" in state or "value" in state:
+                speed_val = state.get("speed") if "speed" in state else state.get("value")
+                if speed_val is not None:
+                    try:
+                        speed_val = int(speed_val)
+                    except (ValueError, TypeError):
+                        pass
+                    payload_to_publish["speed"] = speed_val
+                    payload_to_publish["value"] = speed_val
+                elif "speed" in state:
+                    payload_to_publish["speed"] = state["speed"]
+                elif "value" in state:
+                    payload_to_publish["value"] = state["value"]
+        else:
+            payload_to_publish["status"] = status_val
+            if "speed" in state or "value" in state:
+                speed_val = state.get("speed") if "speed" in state else state.get("value")
+                if speed_val is not None:
+                    try:
+                        speed_val = int(speed_val)
+                    except (ValueError, TypeError):
+                        pass
+                    payload_to_publish["speed"] = speed_val
+                    payload_to_publish["value"] = speed_val
 
     topic = f"home/device/{node_id_to_publish}/control"
     payload = json.dumps(payload_to_publish)
@@ -310,7 +384,7 @@ def publish_control_message(node_id: str, state: dict):
     except Exception as e:
         logger.error("Failed to enqueue MQTT publish to %s: %s", topic, e)
 
-def publish_message(topic: str, payload: dict | str):
+def publish_message(topic: str, payload: dict | str, retain: bool = False):
     """
     Generic MQTT publish function to send a JSON payload or string to any specified topic.
     Submits blocking publish to thread pool to prevent blocking FastAPI's event loop.
@@ -321,8 +395,8 @@ def publish_message(topic: str, payload: dict | str):
         payload_str = str(payload)
         
     try:
-        publish_executor.submit(_blocking_publish, topic, payload_str)
-        logger.info("Enqueued MQTT publish to topic %s: %s", topic, payload_str)
+        publish_executor.submit(_blocking_publish, topic, payload_str, retain)
+        logger.info("Enqueued MQTT publish (retain=%s) to topic %s: %s", retain, topic, payload_str)
     except Exception as e:
         logger.error("Failed to enqueue MQTT publish to %s: %s", topic, e)
 

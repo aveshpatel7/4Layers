@@ -93,10 +93,10 @@ export default function DashboardScreen({ navigation }) {
 
   useEffect(() => {
     const handleNetChange = (state) => {
-      const onWifi = state.type === 'wifi';
+      const onWifi = state.type === 'wifi' || (Platform.OS === 'web' && state.isConnected);
       isPhoneOnWifiRef.current = onWifi;
       setIsPhoneOnWifi(onWifi);
-      console.log(`[LOCAL DEBUG] Wi-Fi Interface Status: ${onWifi ? 'CONNECTED (Wi-Fi)' : 'DISCONNECTED (' + (state.type || 'unknown') + ')'}`);
+      console.log(`[LOCAL DEBUG] Wi-Fi Interface Status: ${onWifi ? 'CONNECTED (Wi-Fi/LAN)' : 'DISCONNECTED (' + (state.type || 'unknown') + ')'}`);
 
       const newMode = onWifi ? 'local' : 'cloud';
       if (prevNetModeRef.current && prevNetModeRef.current !== newMode) {
@@ -107,6 +107,13 @@ export default function DashboardScreen({ navigation }) {
         }
       }
       prevNetModeRef.current = newMode;
+
+      // Auto-rehydrate and re-connect when network reconnects
+      if (state.isConnected || onWifi) {
+        console.log('[Dashboard] Network interface recovered. Re-syncing cloud and local devices...');
+        initMqttConnection();
+        fetchDevices(false);
+      }
     };
 
     const unsubscribe = NetInfo.addEventListener(handleNetChange);
@@ -224,17 +231,21 @@ export default function DashboardScreen({ navigation }) {
 
   // Helper to recalculate Master Switch state dynamically for all rooms
   const recalculateMasterStatus = (devList) => {
+    const now = Date.now();
     const roomStatusMap = {};
     devList.forEach(d => {
       if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
-        if (d.status && d.is_online !== false) roomStatusMap[d.room_id] = true;
+        const lock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || toggleLockRef.current[d.node_id];
+        const effectiveStatus = (lock && (now - lock.time < 3500)) ? lock.status : d.status;
+        if (effectiveStatus && d.is_online !== false) {
+          roomStatusMap[d.room_id] = true;
+        }
       }
     });
 
-    const now = Date.now();
     return devList.map(d => {
       if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
-        const masterLock = toggleLockRef.current[d.id];
+        const masterLock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || toggleLockRef.current[d.node_id];
         if (masterLock && (now - masterLock.time < 3500)) {
           return { ...d, status: masterLock.status };
         }
@@ -249,7 +260,8 @@ export default function DashboardScreen({ navigation }) {
       setIsLoading(true);
     }
     try {
-      const response = await apiClient.get("/api/devices");
+      // 8-second timeout for reliable operation on slow mobile 3G/4G/hotspot networks
+      const response = await apiClient.get("/api/devices", { timeout: 8000 });
       const data = response.data;
       if (Array.isArray(data)) {
         let formattedList = data.map(d => {
@@ -261,9 +273,13 @@ export default function DashboardScreen({ navigation }) {
           else if (d.device_type === 'ac') mobileType = 'thermostat';
           else if (d.device_type === 'tv' || d.device_type === 'plug') mobileType = 'outlet';
 
-          const val = d.current_state?.value !== undefined 
+          let val = d.current_state?.value !== undefined 
             ? d.current_state.value 
-            : (d.current_state?.speed !== undefined ? d.current_state.speed : 1);
+            : (d.current_state?.speed !== undefined ? d.current_state.speed : (mobileType === 'fan' ? 4 : 1));
+          
+          if (mobileType === 'fan' && (val === 0 || val === null || val === undefined) && (d.current_state?.status === 'ON')) {
+            val = 4;
+          }
 
           const isOnline = d.is_online === true;
           const localIp = d.local_ip || d.current_state?.local_ip || getDeviceLocalIp(d.node_id) || null;
@@ -284,13 +300,12 @@ export default function DashboardScreen({ navigation }) {
           };
         });
 
-        // If phone is on Wi-Fi, verify local hardware presence via 500ms ultra-fast ping
+        // If phone is on Wi-Fi, verify local hardware presence via 800ms ping
         if (isPhoneOnWifiRef.current) {
           const uniqueNodes = Array.from(new Set(formattedList.map(d => getBaseNodeId(d.node_id)).filter(Boolean)));
           const pingPromises = uniqueNodes.map(async (baseNodeId) => {
             const localIp = getDeviceLocalIp(baseNodeId);
-            console.log(`[LOCAL DEBUG] Ping attempt: http://${localIp || baseNodeId + '.local'}/state (timeout: 500ms)`);
-            const localState = await pingLocalDevice(baseNodeId, localIp, 500);
+            const localState = await pingLocalDevice(baseNodeId, localIp, 800);
             return { baseNodeId, localIp, localState };
           });
           const pingResults = await Promise.all(pingPromises);
@@ -301,7 +316,7 @@ export default function DashboardScreen({ navigation }) {
             const pingInfo = pingMap.get(baseNodeId);
             if (pingInfo) {
               if (pingInfo.localState) {
-                // Hardware responded locally in <500ms
+                // Hardware responded locally in <800ms
                 const suffix = parseInt(d.node_id?.split('_').pop(), 10);
                 const parsed = parseLocalChannelState(pingInfo.localState, suffix);
                 let st = parsed.status !== null ? parsed.status : d.status;
@@ -313,9 +328,6 @@ export default function DashboardScreen({ navigation }) {
                   value: val,
                   local_ip: pingInfo.localState.local_ip || pingInfo.localIp || d.local_ip
                 };
-              } else if (!d.is_online) {
-                // Both Cloud is not receiving LWT and Local ping timed out: mark offline cleanly
-                return { ...d, is_online: false, status: false };
               }
             }
             return d;
@@ -362,7 +374,8 @@ export default function DashboardScreen({ navigation }) {
         throw new Error("Returned telemetry data is not a valid list of devices");
       }
     } catch (error) {
-      console.log("[LOCAL DEBUG] Cloud API fetch failed, checking local hardware via 500ms ping...", error?.message || error);
+      console.log("[LOCAL DEBUG] Cloud API fetch slow/unavailable, retaining state and checking LAN...", error?.message || error);
+      showFeedbackToast("Slow Internet: Controls are active in offline mode.", "slow");
       try {
         const cachedDevStr = await AsyncStorage.getItem('@4layers_cached_devices');
         if (cachedDevStr) {
@@ -375,7 +388,7 @@ export default function DashboardScreen({ navigation }) {
               const pingPromises = uniqueNodes.map(async (baseNodeId) => {
                 const localIp = cachedDevs.find(d => getBaseNodeId(d.node_id) === baseNodeId)?.local_ip || getDeviceLocalIp(baseNodeId);
                 console.log(`[LOCAL DEBUG] Catch block ping attempt: http://${localIp || baseNodeId + '.local'}/state (Node: ${baseNodeId})`);
-                const localState = await pingLocalDevice(baseNodeId, localIp, 500);
+                const localState = await pingLocalDevice(baseNodeId, localIp, 1000);
                 return { baseNodeId, localIp, localState };
               });
               const pingResults = await Promise.all(pingPromises);
@@ -397,20 +410,15 @@ export default function DashboardScreen({ navigation }) {
                     status: st,
                     value: val
                   };
-                } else {
-                  // BOTH Cloud and Local ping failed: mark offline cleanly
-                  return { ...d, is_online: false, status: false };
                 }
+                return d;
               });
-            } else {
-              // Not on Wi-Fi and Cloud failed: mark offline cleanly
-              updatedDevs = updatedDevs.map(d => ({ ...d, is_online: false, status: false }));
             }
 
             // Re-evaluate Master Switch state dynamically for affected rooms
             updatedDevs = recalculateMasterStatus(updatedDevs);
 
-            setDevices(updatedDevs);
+            setDevices(prev => (prev && prev.length > 0 ? prev : updatedDevs));
             setHasError(false);
             return;
           }
@@ -528,19 +536,41 @@ export default function DashboardScreen({ navigation }) {
             }
           }
 
+          // If message is a pure HEARTBEAT or connectivity ping, only mark is_online: true without altering relay switch states!
+          const isHeartbeatPayload = payload.status === 'HEARTBEAT' || payload.heartbeat === true || payload.type === 'heartbeat';
+          if (isHeartbeatPayload) {
+            setDevices((prev) => {
+              const updated = prev.map((d) => {
+                if (getBaseNodeId(d.node_id) === baseNodeId) {
+                  return {
+                    ...d,
+                    is_online: true,
+                    local_ip: incomingIp || d.local_ip
+                  };
+                }
+                return d;
+              });
+              return recalculateMasterStatus(updated);
+            });
+            return;
+          }
+
           // Online / telemetry / status message handling
           const nextStatus = payload.status === 'ON' || payload.status === true || payload.status === 1;
-          const nextValue = payload.value ?? payload.speed ?? 1;
+          const nextValue = payload.value ?? payload.speed ?? (channel === 5 ? (nextStatus ? 4 : 0) : 1);
 
           const now = Date.now();
           setDevices((prev) => {
             const updated = prev.map((d) => {
+              const dBase = getBaseNodeId(d.node_id);
+              const isSibling = dBase === baseNodeId;
+
               let isMatch = false;
               if (channel) {
                 const expectedSuffix = `_${channel}`;
                 isMatch = d.node_id === `${baseNodeId}${expectedSuffix}` || (d.node_id?.startsWith(baseNodeId) && d.node_id?.endsWith(expectedSuffix));
               } else {
-                isMatch = d.node_id === baseNodeId || d.node_id?.startsWith(`${baseNodeId}_`);
+                isMatch = isSibling;
               }
 
               if (isMatch) {
@@ -555,17 +585,31 @@ export default function DashboardScreen({ navigation }) {
                   };
                 }
 
+                const isFanDevice = d.type === 'fan' || d.node_id?.endsWith('_5');
+
                 // If telemetry broadcast with channel_1..5
                 if (!channel && payload.channel_1 !== undefined) {
                   const suffix = parseInt(d.node_id?.split('_').pop(), 10);
                   const parsed = parseLocalChannelState(payload, suffix);
                   let st = parsed.status !== null ? parsed.status : nextStatus;
-                  let val = parsed.value !== null ? parsed.value : nextValue;
+                  let val = parsed.value !== null 
+                    ? parsed.value 
+                    : (isFanDevice ? (st ? (d.value > 0 ? d.value : 4) : 0) : nextValue);
                   return { ...d, is_online: true, status: st, value: val };
                 }
 
-                return { ...d, is_online: true, status: nextStatus, value: nextValue };
+                const resolvedVal = isFanDevice
+                  ? (payload.speed ?? payload.value ?? (nextStatus ? (d.value > 0 ? d.value : 4) : 0))
+                  : nextValue;
+
+                return { ...d, is_online: true, status: nextStatus, value: resolvedVal };
               }
+
+              // Sibling channels on the same board are proven online because this node is broadcasting!
+              if (isSibling && !d.is_online) {
+                return { ...d, is_online: true };
+              }
+
               return d;
             });
 
@@ -585,6 +629,18 @@ export default function DashboardScreen({ navigation }) {
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
+    // 1. Immediately hydrate from cache to eliminate white screen/loading lag on offline Wi-Fi
+    AsyncStorage.getItem('@4layers_cached_devices').then((cached) => {
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDevices(prev => (prev.length === 0 ? parsed : prev));
+          }
+        } catch (_) {}
+      }
+    });
+
     const showLoading = !hasLoadedRef.current;
     fetchDevices(showLoading);
     hasLoadedRef.current = true;
@@ -638,10 +694,16 @@ export default function DashboardScreen({ navigation }) {
 
       // 1. Hard 3.5-second Optimistic State Lock on ALL room devices
       const lockNow = Date.now();
-      roomDevIds.forEach(devId => {
-        toggleLockRef.current[devId] = { time: lockNow, status: nextStatus, value: 1 };
+      roomDevs.forEach(dev => {
+        const lockObj = { time: lockNow, status: nextStatus, value: 1 };
+        toggleLockRef.current[dev.id] = lockObj;
+        toggleLockRef.current[String(dev.id)] = lockObj;
+        if (dev.node_id) toggleLockRef.current[dev.node_id] = lockObj;
       });
-      toggleLockRef.current[id] = { time: lockNow, status: nextStatus, value: 1 };
+      const masterLockObj = { time: lockNow, status: nextStatus, value: 1 };
+      toggleLockRef.current[id] = masterLockObj;
+      toggleLockRef.current[String(id)] = masterLockObj;
+      if (target.node_id) toggleLockRef.current[target.node_id] = masterLockObj;
 
       // 2. Instant Optimistic UI update: Turn ALL room devices ON or OFF
       setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: nextStatus } : d));
@@ -1013,7 +1075,7 @@ export default function DashboardScreen({ navigation }) {
           ) : (
             <View>
               {/* Single Top Offline Warning Banner */}
-              {filteredDevices.some(d => d.is_online === false) && (
+              {filteredDevices.length > 0 && filteredDevices.every(d => d.is_online === false) && (
                 <View style={styles.topOfflineWarningBanner}>
                   <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#EF4444" />
                   <View style={{ flex: 1 }}>
@@ -1063,6 +1125,8 @@ export default function DashboardScreen({ navigation }) {
                 ? styles.toastDotLocal
                 : feedbackToast.type === 'cloud'
                 ? styles.toastDotCloud
+                : feedbackToast.type === 'slow'
+                ? styles.toastDotSlow
                 : styles.toastDotOffline,
             ]}
           />
@@ -2171,6 +2235,14 @@ const styles = StyleSheet.create({
   toastDotCloud: {
     backgroundColor: '#38BDF8',
     shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  toastDotSlow: {
+    backgroundColor: '#F59E0B',
+    shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 4,

@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const LOCAL_IP_STORAGE_KEY = "@4layers_device_local_ips";
-const REQUEST_TIMEOUT_MS = 600; // 600ms ultra-fast timeout to prevent UI thread / fallback blocking
+const REQUEST_TIMEOUT_MS = 1500; // 1500ms robust timeout for local hotspot / Wi-Fi commands
 
 // In-memory cache for instant zero-latency lookups
 const localIpCache = {};
@@ -236,9 +236,9 @@ export async function sendLocalControlCommand(nodeId, channel, state, providedLo
 }
 
 /**
- * Ultra-Fast 500ms Ping to verify local hardware presence
+ * Robust 1200ms Ping to verify local hardware presence
  */
-export async function pingLocalDevice(nodeId, providedLocalIp = null, timeoutMs = 500) {
+export async function pingLocalDevice(nodeId, providedLocalIp = null, timeoutMs = 1200) {
   const baseNodeId = getBaseNodeId(nodeId);
   const targetIp = providedLocalIp || getDeviceLocalIp(nodeId);
 
@@ -267,9 +267,9 @@ export async function pingLocalDevice(nodeId, providedLocalIp = null, timeoutMs 
 }
 
 /**
- * Query local ESP32 /state endpoint (500ms fast ping with single fallback)
+ * Query local ESP32 /state endpoint (1200ms ping with single fallback)
  */
-export async function fetchLocalDeviceState(nodeId, providedLocalIp = null, timeoutMs = 500) {
+export async function fetchLocalDeviceState(nodeId, providedLocalIp = null, timeoutMs = 1200) {
   const baseNodeId = getBaseNodeId(nodeId);
   const targetIp = providedLocalIp || getDeviceLocalIp(nodeId);
 

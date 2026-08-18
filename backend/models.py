@@ -157,3 +157,39 @@ class AppSetting(Base):
     value = Column(String, nullable=False)
 
 
+class DeviceOwnership(Base):
+    """
+    Authoritative claim record for a physical ESP32 board (base node_id).
+
+    One board can have at most one active claim. The partial unique index
+    idx_active_claim (see migrations/002_device_ownership.sql) enforces this at
+    the DB level so a race between two simultaneous claims cannot produce two
+    owners. released_at IS NULL means the claim is currently active; a released
+    row is kept as history so transfers stay auditable.
+    """
+    __tablename__ = "device_ownership"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    node_id = Column(String, index=True, nullable=False)
+    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    claimed_at = Column(DateTime, default=datetime.datetime.utcnow, server_default=text("timezone('utc', now())"), nullable=False)
+    released_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    owner = relationship("User")
+
+
+class OwnershipAudit(Base):
+    """Append-only trail of every claim, release and admin force-transfer."""
+    __tablename__ = "ownership_audits"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    node_id = Column(String, index=True, nullable=False)
+    action = Column(String, nullable=False)  # claim | release | admin_transfer
+    from_owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    to_owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    performed_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, server_default=text("timezone('utc', now())"), nullable=False)
+
+

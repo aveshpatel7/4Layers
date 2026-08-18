@@ -713,8 +713,8 @@ def process_voice_command(
     if not raw_text:
         raise HTTPException(status_code=400, detail="Voice command text is empty")
 
-    user_devices = db.query(models.Device).filter(models.Device.owner_id == current_user.id).all()
-    user_rooms = db.query(models.Room).all()
+    user_devices = db.query(models.Device).join(models.Home).filter(models.Home.owner_id == current_user.id).all()
+    user_rooms = db.query(models.Room).join(models.Home).filter(models.Home.owner_id == current_user.id).all()
 
     # Determine intent
     is_on = "on" in raw_text or "chalu" in raw_text or "start" in raw_text

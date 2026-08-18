@@ -229,10 +229,10 @@ def check_schedules():
         db.close()
 
 
-DEVICE_OFFLINE_TIMEOUT_MINUTES = 1  # Mark offline if no message for 1 minute
+DEVICE_OFFLINE_TIMEOUT_MINUTES = 3  # Mark offline if no message for 3 minutes
 
 def check_device_heartbeats():
-    """Runs every 30 seconds. Marks devices offline if last_seen is older than 1 minute."""
+    """Runs every 30 seconds. Marks devices offline if last_seen is older than 3 minutes."""
     db = SessionLocal()
     try:
         cutoff_time = datetime.datetime.utcnow() - datetime.timedelta(minutes=DEVICE_OFFLINE_TIMEOUT_MINUTES)

@@ -132,7 +132,10 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
 
             {/* Fan Speed Controls Modal Content (- and + buttons) */}
             {isFan && (() => {
-              const currentSpeed = (typeof device?.value === 'number' ? device.value : (isEnabled ? 1 : 0));
+              const rawSpeed = (typeof device?.value === 'number' && !isNaN(device.value)) ? device.value : null;
+              const currentSpeed = (rawSpeed !== null && rawSpeed > 0)
+                ? rawSpeed 
+                : (isEnabled ? (rawSpeed === 0 ? 1 : 4) : 0);
               return (
                 <View style={styles.modalControlGroup}>
                   <View style={styles.levelHeaderRow}>

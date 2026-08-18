@@ -396,9 +396,31 @@ def list_all_devices(
 
         owner_email = owner.email if owner else "Unassigned"
         owner_username = owner.username if owner else "Unassigned"
-        firmware_version = merged_state.get("fw_version", merged_state.get("version", "v1.0.0"))
-        ip_address = merged_state.get("ip", first_dev.mac_address or "192.168.1.50")
-        rssi = merged_state.get("rssi", -62)
+        firmware_version = merged_state.get("fw_version") or merged_state.get("version") or "v1.0.0"
+
+        # Correctly resolve real local IP from device records or telemetry
+        detected_ip = None
+        for dev in node_devs:
+            dev_ip = getattr(dev, 'local_ip', None)
+            if dev_ip and dev_ip not in ("0.0.0.0", "127.0.0.1") and not dev_ip.startswith("4L-"):
+                detected_ip = dev_ip
+                break
+        if not detected_ip:
+            raw_ip = merged_state.get("local_ip") or merged_state.get("ip")
+            if raw_ip and not str(raw_ip).startswith("4L-"):
+                detected_ip = str(raw_ip)
+
+        ip_address = detected_ip or "N/A"
+        
+        # Real RSSI from telemetry
+        rssi = merged_state.get("rssi")
+        if rssi is None:
+            for dev in node_devs:
+                if dev.current_state and isinstance(dev.current_state, dict) and "rssi" in dev.current_state:
+                    rssi = dev.current_state["rssi"]
+                    break
+        if rssi is None:
+            rssi = -55 if is_online else None
 
         last_seen_times = [dev.last_seen for dev in node_devs if dev.last_seen]
         latest_last_seen = max(last_seen_times).isoformat() if last_seen_times else None
@@ -416,7 +438,7 @@ def list_all_devices(
             "owner_username": owner_username,
             "firmware_version": firmware_version,
             "ip_address": ip_address,
-            "rssi": rssi,
+            "rssi": rssi if rssi is not None else "--",
             "current_state": merged_state,
             "last_seen": latest_last_seen
         }
@@ -489,7 +511,7 @@ def trigger_remote_ota(ota: OtaUpdateRequest, background_tasks: BackgroundTasks,
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
         try:
-            mqtt.publish_message(topic, payload)
+            mqtt.publish_message(topic, payload, retain=True)
             return {"status": "SUCCESS", "target_topic": topic, "message": f"OTA update command published to {topic}"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"MQTT Publish Error: {str(e)}")
@@ -510,7 +532,7 @@ def trigger_remote_ota(ota: OtaUpdateRequest, background_tasks: BackgroundTasks,
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
         try:
-            mqtt.publish_message(global_topic, global_payload)
+            mqtt.publish_message(global_topic, global_payload, retain=True)
         except Exception:
             pass
 

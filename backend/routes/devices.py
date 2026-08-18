@@ -49,7 +49,14 @@ def add_device(
     ).first()
     
     if existing_node:
-        # Transfer all channels of this base node to current_user's home and room (Universal Re-claiming)
+        existing_home = db.query(models.Home).filter(models.Home.id == existing_node.home_id).first()
+        if existing_home and existing_home.owner_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="DEVICE_ALREADY_CLAIMED: This hardware node is registered to another account. The existing owner must unclaim it first."
+            )
+
+        # If owned by current_user, re-assign home and room idempotently
         all_chan_devices = db.query(models.Device).filter(
             (models.Device.node_id == base_node_id) | 
             (models.Device.node_id.like(f"{base_node_id}_%"))
@@ -275,17 +282,20 @@ def control_device(
         if len(parts) == 2 and parts[1].isdigit():
             base_node_id = parts[0]
             channel = int(parts[1])
-            status_val = requested_state.get("status", "OFF")
+            raw_status = requested_state.get("status") if "status" in requested_state else requested_state.get("state")
+            status_val = mqtt.normalize_status(raw_status)
             
             payload_to_publish = {
                 "channel": channel,
                 "status": status_val
             }
-            if "value" in requested_state:
-                if device.device_type == "fan":
-                    payload_to_publish["speed"] = requested_state["value"]
+            if "value" in requested_state or "speed" in requested_state:
+                speed_val = requested_state.get("speed") if "speed" in requested_state else requested_state.get("value")
+                if device.device_type == "fan" or channel == 5:
+                    payload_to_publish["speed"] = speed_val
+                    payload_to_publish["value"] = speed_val
                 else:
-                    payload_to_publish["value"] = requested_state["value"]
+                    payload_to_publish["value"] = speed_val
                     
             node_id_to_publish = base_node_id
 
@@ -397,7 +407,8 @@ def bulk_control_devices(
     for base_node_id, device_channel_pairs in grouped_by_base.items():
         channels = [pair[1] for pair in device_channel_pairs]
         requested_state = control_data.state
-        status_val = requested_state.get("status", "OFF")
+        raw_status = requested_state.get("status") if "status" in requested_state else requested_state.get("state")
+        status_val = mqtt.normalize_status(raw_status)
 
         if 6 in channels or 7 in channels:
             # Optimize: Only send a single Master Switch (channel 6 or 7) command!
@@ -418,11 +429,13 @@ def bulk_control_devices(
                     "channel": channel,
                     "status": status_val
                 }
-                if "value" in requested_state:
-                    if device.device_type == "fan":
-                        payload_to_publish["speed"] = requested_state["value"]
+                if "value" in requested_state or "speed" in requested_state:
+                    speed_val = requested_state.get("speed") if "speed" in requested_state else requested_state.get("value")
+                    if device.device_type == "fan" or channel == 5:
+                        payload_to_publish["speed"] = speed_val
+                        payload_to_publish["value"] = speed_val
                     else:
-                        payload_to_publish["value"] = requested_state["value"]
+                        payload_to_publish["value"] = speed_val
 
                 mqtt.publish_control_message(
                     node_id=base_node_id,
@@ -516,7 +529,13 @@ def provision_device(
         (models.Device.node_id.like(f"{mac}_%"))
     ).first()
     if device:
-        # Seamless Re-claiming: Ensure device is assigned to current user's primary home
+        existing_home = db.query(models.Home).filter(models.Home.id == device.home_id).first()
+        if existing_home and existing_home.owner_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="DEVICE_ALREADY_CLAIMED: This hardware node is registered to another account. The existing owner must unclaim it first."
+            )
+
         user_home = db.query(models.Home).filter(models.Home.owner_id == current_user.id).first()
         if not user_home:
             user_home = models.Home(name=f"{current_user.username}'s Home", owner_id=current_user.id)
@@ -524,8 +543,6 @@ def provision_device(
             db.commit()
             db.refresh(user_home)
         
-        # Cleanly transfer all 7 channels of this MAC to current user's home & room
-        # and reset channel names to fresh defaults so old user's names never leak!
         for cfg in channel_configs:
             chan_node_id = f"{mac}_{cfg['suffix']}"
             new_chan_name = f"{prefix} {cfg['name']}" if prefix else cfg['name']
@@ -538,7 +555,6 @@ def provision_device(
                 chan_device.device_type = cfg['type']
                 chan_device.current_state = cfg['state']
                 
-                # Delete any old schedules linked to this device from previous owner
                 db.query(models.Schedule).filter(models.Schedule.device_id == chan_device.id).delete(synchronize_session=False)
 
         db.commit()
@@ -643,4 +659,50 @@ def provision_single_channel(
     db.commit()
     db.refresh(new_device)
     return new_device
+
+
+@router.post("/unclaim", status_code=status.HTTP_200_OK)
+def unclaim_device(
+    payload: schemas.DeviceUnclaimRequest,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Unclaim / release ownership of a physical ESP32 board."""
+    base_node_id = payload.node_id.strip()
+    
+    # Find all channels for this node owned by current user
+    chan_devices = db.query(models.Device).join(models.Home).filter(
+        models.Home.owner_id == current_user.id,
+        (models.Device.node_id == base_node_id) | 
+        (models.Device.node_id.like(f"{base_node_id}_%")) |
+        (models.Device.mac_address == base_node_id)
+    ).all()
+    
+    if not chan_devices:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No devices found for this node ID owned by your account."
+        )
+    
+    # Delete schedules and device channel records
+    for dev in chan_devices:
+        db.query(models.Schedule).filter(models.Schedule.device_id == dev.id).delete(synchronize_session=False)
+        db.query(models.DeviceHistory).filter(models.DeviceHistory.device_id == dev.id).delete(synchronize_session=False)
+        db.delete(dev)
+        
+    # Mark DeviceOwnership released if table exists
+    try:
+        ownership_records = db.query(models.DeviceOwnership).filter(
+            models.DeviceOwnership.node_id == base_node_id,
+            models.DeviceOwnership.owner_id == current_user.id,
+            models.DeviceOwnership.released_at.is_(None)
+        ).all()
+        for rec in ownership_records:
+            rec.released_at = datetime.datetime.utcnow()
+    except Exception:
+        pass
+        
+    db.commit()
+    return {"message": f"Device {base_node_id} successfully unclaimed and released."}
+
 

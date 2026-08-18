@@ -100,8 +100,25 @@ int switch2_toggle_count = 0;
 
 volatile int pending_fan_speed = -1;
 
-static TaskHandle_t bulk_on_handle = NULL; 
-static TaskHandle_t bulk_off_handle = NULL;
+// ==========================================
+// FREERTOS COMMAND QUEUE ARCHITECTURE (FIFO Buffer)
+// ==========================================
+typedef enum {
+    CMD_CHANNEL_SET,
+    CMD_FAN_SPEED_SET,
+    CMD_BULK_ALL_ON,
+    CMD_BULK_ALL_OFF
+} cmd_type_t;
+
+typedef struct {
+    cmd_type_t type;
+    uint8_t channel;     // 1 - 7
+    bool state;          // true = ON, false = OFF
+    int8_t speed;        // 0 - 4 (-1 if unchanged)
+    char source[32];     // Command origin icon & label
+} switch_command_t;
+
+static QueueHandle_t command_queue = NULL;
 
 bool nvs_dirty = false;
 uint64_t nvs_dirty_time = 0;
@@ -280,145 +297,218 @@ void restore_fan_speed() {
     }
 }
 
-static void bulk_on_task(void *pv) {
-    Serial.println("⚙️ [SYSTEM] Master Bulk ON Triggered");
-    
-    portENTER_CRITICAL(&state_mux); 
-    switch_state_ch1 = 1; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    digitalWrite(relay1, HIGH); 
-    sendChannelState(1, true); 
-    schedule_nvs_save(); 
-    vTaskDelay(pdMS_TO_TICKS(300)); 
-    
-    portENTER_CRITICAL(&state_mux); 
-    switch_state_ch2 = 1; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    digitalWrite(relay2, HIGH); 
-    sendChannelState(2, true); 
-    schedule_nvs_save(); 
-    vTaskDelay(pdMS_TO_TICKS(300));
-    
-    portENTER_CRITICAL(&state_mux); 
-    switch_state_ch3 = 1; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    digitalWrite(relay3, HIGH); 
-    sendChannelState(3, true); 
-    schedule_nvs_save(); 
-    vTaskDelay(pdMS_TO_TICKS(300));
-    
-    portENTER_CRITICAL(&state_mux); 
-    switch_state_ch4 = 1; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    digitalWrite(relay4, HIGH); 
-    sendChannelState(4, true); 
-    schedule_nvs_save(); 
-    vTaskDelay(pdMS_TO_TICKS(300));
-    
-    bool f_pow; 
-    
-    portENTER_CRITICAL(&state_mux); 
-    f_pow = fan_power; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    if (!f_pow) {
-        restore_fan_speed();
+// ==========================================
+// DIRECT COMMAND EXECUTOR (Called from Command Worker Task)
+// ==========================================
+void execute_command_direct(const switch_command_t *cmd) {
+    if (cmd == NULL) return;
+
+    if (cmd->type == CMD_CHANNEL_SET) {
+        int channel = cmd->channel;
+        bool turnOn = cmd->state;
+
+        if (channel >= 1 && channel <= 4) {
+            if (turnOn) {
+                Serial.printf("%s Command: Channel %d -> ON\n", cmd->source, channel);
+            } else {
+                Serial.printf("%s Command: Channel %d -> OFF\n", cmd->source, channel);
+            }
+
+            portENTER_CRITICAL(&state_mux); 
+            if (channel == 1) switch_state_ch1 = turnOn;
+            else if (channel == 2) switch_state_ch2 = turnOn;
+            else if (channel == 3) switch_state_ch3 = turnOn;
+            else if (channel == 4) switch_state_ch4 = turnOn;
+            portEXIT_CRITICAL(&state_mux);
+            
+            if (channel == 1) {
+                digitalWrite(relay1, turnOn ? HIGH : LOW);
+                sendChannelState(1, turnOn); 
+                schedule_nvs_save();
+            } else if (channel == 2) {
+                digitalWrite(relay2, turnOn ? HIGH : LOW);
+                sendChannelState(2, turnOn); 
+                schedule_nvs_save();
+            } else if (channel == 3) {
+                digitalWrite(relay3, turnOn ? HIGH : LOW);
+                sendChannelState(3, turnOn); 
+                schedule_nvs_save();
+            } else if (channel == 4) {
+                digitalWrite(relay4, turnOn ? HIGH : LOW);
+                sendChannelState(4, turnOn); 
+                schedule_nvs_save();
+            }
+        } else if (channel == 5) {
+            if (turnOn) {
+                Serial.printf("%s Command: Fan Power -> ON\n", cmd->source);
+                restore_fan_speed();
+            } else {
+                Serial.printf("%s Command: Fan Power -> OFF\n", cmd->source);
+                speed_0();
+            }
+        }
+    } else if (cmd->type == CMD_FAN_SPEED_SET) {
+        int speedVal = cmd->speed;
+        Serial.printf("%s Command: Fan Speed -> %d\n", cmd->source, speedVal);
+        if (speedVal == 1) speed_1();
+        else if (speedVal == 2) speed_2();
+        else if (speedVal == 3) speed_3();
+        else if (speedVal == 4) speed_4();
+        else speed_0();
+    } else if (cmd->type == CMD_BULK_ALL_ON) {
+        Serial.printf("%s Command: Master -> ON (Staggered Bulk Action via Queue)\n", cmd->source);
+        
+        portENTER_CRITICAL(&state_mux); 
+        switch_state_ch1 = 1; 
+        portEXIT_CRITICAL(&state_mux);
+        digitalWrite(relay1, HIGH); 
+        sendChannelState(1, true); 
+        schedule_nvs_save(); 
+        vTaskDelay(pdMS_TO_TICKS(250)); 
+
+        portENTER_CRITICAL(&state_mux); 
+        switch_state_ch2 = 1; 
+        portEXIT_CRITICAL(&state_mux);
+        digitalWrite(relay2, HIGH); 
+        sendChannelState(2, true); 
+        schedule_nvs_save(); 
+        vTaskDelay(pdMS_TO_TICKS(250)); 
+
+        portENTER_CRITICAL(&state_mux); 
+        switch_state_ch3 = 1; 
+        portEXIT_CRITICAL(&state_mux);
+        digitalWrite(relay3, HIGH); 
+        sendChannelState(3, true); 
+        schedule_nvs_save(); 
+        vTaskDelay(pdMS_TO_TICKS(250)); 
+
+        portENTER_CRITICAL(&state_mux); 
+        switch_state_ch4 = 1; 
+        portEXIT_CRITICAL(&state_mux);
+        digitalWrite(relay4, HIGH); 
+        sendChannelState(4, true); 
+        schedule_nvs_save(); 
+        vTaskDelay(pdMS_TO_TICKS(250)); 
+
+        bool f_pow; 
+        portENTER_CRITICAL(&state_mux); 
+        f_pow = fan_power; 
+        portEXIT_CRITICAL(&state_mux);
+        if (!f_pow) {
+            restore_fan_speed();
+        }
+        
+        sendChannelState(6, true);
+        Serial.println("⚙️ [SYSTEM] Master Bulk ON Completed!");
+    } else if (cmd->type == CMD_BULK_ALL_OFF) {
+        Serial.printf("%s Command: Master -> OFF (Staggered Bulk Action via Queue)\n", cmd->source);
+
+        portENTER_CRITICAL(&state_mux); 
+        switch_state_ch1 = 0; 
+        portEXIT_CRITICAL(&state_mux);
+        digitalWrite(relay1, LOW); 
+        sendChannelState(1, false); 
+        schedule_nvs_save(); 
+        vTaskDelay(pdMS_TO_TICKS(250)); 
+
+        portENTER_CRITICAL(&state_mux); 
+        switch_state_ch2 = 0; 
+        portEXIT_CRITICAL(&state_mux);
+        digitalWrite(relay2, LOW); 
+        sendChannelState(2, false); 
+        schedule_nvs_save(); 
+        vTaskDelay(pdMS_TO_TICKS(250)); 
+
+        portENTER_CRITICAL(&state_mux); 
+        switch_state_ch3 = 0; 
+        portEXIT_CRITICAL(&state_mux);
+        digitalWrite(relay3, LOW); 
+        sendChannelState(3, false); 
+        schedule_nvs_save(); 
+        vTaskDelay(pdMS_TO_TICKS(250)); 
+
+        portENTER_CRITICAL(&state_mux); 
+        switch_state_ch4 = 0; 
+        portEXIT_CRITICAL(&state_mux);
+        digitalWrite(relay4, LOW); 
+        sendChannelState(4, false); 
+        schedule_nvs_save(); 
+        vTaskDelay(pdMS_TO_TICKS(250)); 
+
+        speed_0(); 
+        sendChannelState(6, false);
+        Serial.println("⚙️ [SYSTEM] Master Bulk OFF Completed!");
     }
-    
-    sendChannelState(6, true);
-    
-    portENTER_CRITICAL(&state_mux); 
-    bulk_on_handle = NULL; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    vTaskDelete(NULL);
 }
 
-static void bulk_off_task(void *pv) {
-    Serial.println("⚙️ [SYSTEM] Master Bulk OFF Triggered");
-    
-    portENTER_CRITICAL(&state_mux); 
-    switch_state_ch1 = 0; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    digitalWrite(relay1, LOW); 
-    sendChannelState(1, false); 
-    schedule_nvs_save(); 
-    vTaskDelay(pdMS_TO_TICKS(300));
-    
-    portENTER_CRITICAL(&state_mux); 
-    switch_state_ch2 = 0; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    digitalWrite(relay2, LOW); 
-    sendChannelState(2, false); 
-    schedule_nvs_save(); 
-    vTaskDelay(pdMS_TO_TICKS(300));
-    
-    portENTER_CRITICAL(&state_mux); 
-    switch_state_ch3 = 0; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    digitalWrite(relay3, LOW); 
-    sendChannelState(3, false); 
-    schedule_nvs_save(); 
-    vTaskDelay(pdMS_TO_TICKS(300));
-    
-    portENTER_CRITICAL(&state_mux); 
-    switch_state_ch4 = 0; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    digitalWrite(relay4, LOW); 
-    sendChannelState(4, false); 
-    schedule_nvs_save(); 
-    vTaskDelay(pdMS_TO_TICKS(300));
-    
-    speed_0(); 
-    sendChannelState(6, false);
-    
-    portENTER_CRITICAL(&state_mux); 
-    bulk_off_handle = NULL; 
-    portEXIT_CRITICAL(&state_mux);
-    
-    vTaskDelete(NULL);
+// ==========================================
+// DEDICATED COMMAND QUEUE WORKER TASK (Core 1)
+// ==========================================
+void command_worker_task(void *pvParameters) {
+    switch_command_t cmd;
+    Serial.println("⚙️ [SYSTEM] Command Queue Worker Task Started on Core 1!");
+
+    while (true) {
+        if (xQueueReceive(command_queue, &cmd, pdMS_TO_TICKS(100)) == pdTRUE) {
+            execute_command_direct(&cmd);
+        }
+    }
+}
+
+// ==========================================
+// MASTER CHANNEL CONTROLLER (Queue-Buffered)
+// ==========================================
+void process_channel_command(int channel, bool turnOn, int speedVal, const char* sourceIcon) {
+    switch_command_t cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    if (sourceIcon) {
+        strncpy(cmd.source, sourceIcon, sizeof(cmd.source) - 1);
+    } else {
+        strncpy(cmd.source, "⚙️ [SYSTEM]", sizeof(cmd.source) - 1);
+    }
+
+    if (channel >= 1 && channel <= 4) {
+        cmd.type = CMD_CHANNEL_SET;
+        cmd.channel = (uint8_t)channel;
+        cmd.state = turnOn;
+        cmd.speed = -1;
+    } else if (channel == 5) {
+        if (speedVal != -1) {
+            cmd.type = CMD_FAN_SPEED_SET;
+            cmd.channel = 5;
+            cmd.state = (speedVal > 0);
+            cmd.speed = (int8_t)speedVal;
+        } else {
+            cmd.type = CMD_CHANNEL_SET;
+            cmd.channel = 5;
+            cmd.state = turnOn;
+            cmd.speed = -1;
+        }
+    } else if (channel == 6 || channel == 7) {
+        cmd.type = turnOn ? CMD_BULK_ALL_ON : CMD_BULK_ALL_OFF;
+        cmd.channel = (uint8_t)channel;
+        cmd.state = turnOn;
+        cmd.speed = -1;
+    } else {
+        return;
+    }
+
+    if (command_queue != NULL) {
+        if (xQueueSend(command_queue, &cmd, pdMS_TO_TICKS(50)) != pdPASS) {
+            Serial.println("⚠️ [QUEUE] Command queue full (16 items buffered)! Executing fallback direct.");
+            execute_command_direct(&cmd);
+        }
+    } else {
+        execute_command_direct(&cmd);
+    }
 }
 
 void All_On() { 
-    portENTER_CRITICAL(&state_mux); 
-    
-    if (bulk_on_handle != NULL || bulk_off_handle != NULL) { 
-        portEXIT_CRITICAL(&state_mux); 
-        return; 
-    } 
-    
-    portEXIT_CRITICAL(&state_mux); 
-    
-    if (xTaskCreate(bulk_on_task, "bulk_on", 8192, NULL, 3, &bulk_on_handle) != pdPASS) { 
-        portENTER_CRITICAL(&state_mux); 
-        bulk_on_handle = NULL; 
-        portEXIT_CRITICAL(&state_mux); 
-    } 
+    process_channel_command(6, true, -1, "⚙️ [SYSTEM]");
 }
 
 void All_Off() { 
-    portENTER_CRITICAL(&state_mux); 
-    
-    if (bulk_off_handle != NULL || bulk_on_handle != NULL) { 
-        portEXIT_CRITICAL(&state_mux); 
-        return; 
-    } 
-    
-    portEXIT_CRITICAL(&state_mux); 
-    
-    if (xTaskCreate(bulk_off_task, "bulk_off", 8192, NULL, 3, &bulk_off_handle) != pdPASS) { 
-        portENTER_CRITICAL(&state_mux); 
-        bulk_off_handle = NULL; 
-        portEXIT_CRITICAL(&state_mux); 
-    } 
+    process_channel_command(6, false, -1, "⚙️ [SYSTEM]");
 }
 
 void IRAM_ATTR rf_isr() {
@@ -525,9 +615,14 @@ void performOTAUpdate(const String& firmwareUrl) {
 // ==========================================
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<384> doc;
     
-    if (deserializeJson(doc, payload, length)) {
+    DeserializationError error = deserializeJson(doc, payload, length);
+    if (error) {
+        Serial.printf("❌ [ERROR] MQTT JSON Parse Failed: %s (Code: %s). Raw Payload (%u bytes): \"", 
+                      error.c_str(), error.code() == DeserializationError::InvalidInput ? "InvalidInput" : "Error", length);
+        Serial.write(payload, length);
+        Serial.println("\"");
         return;
     }
 
@@ -549,104 +644,37 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
         ESP.restart();
     }
     
-    if (!doc.containsKey("channel") || !doc.containsKey("status")) {
+    if (!doc.containsKey("channel") || (!doc.containsKey("status") && !doc.containsKey("state"))) {
+        Serial.println("❌ [ERROR] Invalid MQTT Command: Missing 'channel' or 'status'/'state'");
         return;
     }
 
     int channel = doc["channel"]; 
     bool state = false;
     
-    if (strcmp(doc["status"], "ON") == 0) {
-        state = true;
+    if (doc.containsKey("status")) {
+        if (doc["status"].is<const char*>()) {
+            const char* s = doc["status"].as<const char*>();
+            state = (strcasecmp(s, "ON") == 0 || strcasecmp(s, "TRUE") == 0 || strcmp(s, "1") == 0);
+        } else if (doc["status"].is<bool>()) {
+            state = doc["status"].as<bool>();
+        } else if (doc["status"].is<int>()) {
+            state = (doc["status"].as<int>() != 0);
+        }
+    } else if (doc.containsKey("state")) {
+        if (doc["state"].is<const char*>()) {
+            const char* s = doc["state"].as<const char*>();
+            state = (strcasecmp(s, "ON") == 0 || strcasecmp(s, "TRUE") == 0 || strcmp(s, "1") == 0);
+        } else if (doc["state"].is<bool>()) {
+            state = doc["state"].as<bool>();
+        } else if (doc["state"].is<int>()) {
+            state = (doc["state"].as<int>() != 0);
+        }
     }
     
-    if (state) {
-        Serial.printf("📱 [APP/CLOUD] Command: Channel %d -> ON\n", channel);
-    } else {
-        Serial.printf("📱 [APP/CLOUD] Command: Channel %d -> OFF\n", channel);
-    }
-
-    if (channel == 1) { 
-        portENTER_CRITICAL(&state_mux); 
-        switch_state_ch1 = state; 
-        portEXIT_CRITICAL(&state_mux);
-        
-        if (state) {
-            digitalWrite(relay1, HIGH);
-        } else {
-            digitalWrite(relay1, LOW);
-        }
-        
-        sendChannelState(1, state); 
-        schedule_nvs_save(); 
-    }
-    else if (channel == 2) { 
-        portENTER_CRITICAL(&state_mux); 
-        switch_state_ch2 = state; 
-        portEXIT_CRITICAL(&state_mux);
-        
-        if (state) {
-            digitalWrite(relay2, HIGH);
-        } else {
-            digitalWrite(relay2, LOW);
-        }
-        
-        sendChannelState(2, state); 
-        schedule_nvs_save(); 
-    }
-    else if (channel == 3) { 
-        portENTER_CRITICAL(&state_mux); 
-        switch_state_ch3 = state; 
-        portEXIT_CRITICAL(&state_mux);
-        
-        if (state) {
-            digitalWrite(relay3, HIGH);
-        } else {
-            digitalWrite(relay3, LOW);
-        }
-        
-        sendChannelState(3, state); 
-        schedule_nvs_save(); 
-    }
-    else if (channel == 4) { 
-        portENTER_CRITICAL(&state_mux); 
-        switch_state_ch4 = state; 
-        portEXIT_CRITICAL(&state_mux);
-        
-        if (state) {
-            digitalWrite(relay4, HIGH);
-        } else {
-            digitalWrite(relay4, LOW);
-        }
-        
-        sendChannelState(4, state); 
-        schedule_nvs_save(); 
-    }
-    else if (channel == 5) { 
-        if (doc.containsKey("speed")) {
-            int spd = doc["speed"];
-            Serial.printf("📱 [APP/CLOUD] Command: Fan Speed -> %d\n", spd);
-            
-            portENTER_CRITICAL(&state_mux); 
-            pending_fan_speed = spd; 
-            portEXIT_CRITICAL(&state_mux);
-        } else {
-            portENTER_CRITICAL(&state_mux); 
-            if (state) {
-                pending_fan_speed = fan_speed_memory;
-            } else {
-                pending_fan_speed = 0;
-            }
-            portEXIT_CRITICAL(&state_mux);
-        }
-    }
-    else if (channel == 6) {
-        if (state) {
-            All_On();
-        } else {
-            All_Off();
-        }
-    }
+    int spd = doc.containsKey("speed") ? (int)doc["speed"] : (doc.containsKey("value") && channel == 5 ? (int)doc["value"] : -1);
+    
+    process_channel_command(channel, state, spd, "📱 [APP/CLOUD]");
 }
 
 void setupLocalWebServer() {
@@ -659,12 +687,27 @@ void setupLocalWebServer() {
         doc["local_ip"] = WiFi.localIP().toString();
         
         portENTER_CRITICAL(&state_mux);
+        
+        JsonArray relays = doc.createNestedArray("relays");
+        relays.add(switch_state_ch1 ? 1 : 0);
+        relays.add(switch_state_ch2 ? 1 : 0);
+        relays.add(switch_state_ch3 ? 1 : 0);
+        relays.add(switch_state_ch4 ? 1 : 0);
+        
+        JsonObject fanObj = doc.createNestedObject("fan");
+        fanObj["enabled"] = fan_power;
+        fanObj["speed"] = curr_speed;
+
         doc["channel_1"] = switch_state_ch1 ? "ON" : "OFF";
         doc["channel_2"] = switch_state_ch2 ? "ON" : "OFF";
         doc["channel_3"] = switch_state_ch3 ? "ON" : "OFF";
         doc["channel_4"] = switch_state_ch4 ? "ON" : "OFF";
         doc["channel_5"] = fan_power ? "ON" : "OFF";
         doc["speed"] = curr_speed;
+
+        bool all_on = switch_state_ch1 && switch_state_ch2 && switch_state_ch3 && switch_state_ch4 && fan_power;
+        bool all_off = !switch_state_ch1 && !switch_state_ch2 && !switch_state_ch3 && !switch_state_ch4 && !fan_power;
+        doc["all_state"] = all_on ? "ALL_ON" : (all_off ? "ALL_OFF" : "MIXED");
         portEXIT_CRITICAL(&state_mux);
         
         String res;
@@ -684,75 +727,18 @@ void setupLocalWebServer() {
         String stateStr = server.hasArg("state") ? server.arg("state") : server.arg("status");
         stateStr.toUpperCase();
         bool turnOn = (stateStr == "ON" || stateStr == "TRUE" || stateStr == "1");
+        int spd = server.hasArg("speed") ? server.arg("speed").toInt() : -1;
 
-        // YAHAN ERROR FIX KIYA GAYA HAI: (int) lagaya gaya hai
-        if (channel == 5 && server.hasArg("speed")) {
-            Serial.printf("🌐 [APP/LOCAL] Command: Fan Speed -> %d\n", (int)server.arg("speed").toInt());
-        } else {
-            if (turnOn) {
-                Serial.printf("🌐 [APP/LOCAL] Command: Channel %d -> ON\n", channel);
-            } else {
-                Serial.printf("🌐 [APP/LOCAL] Command: Channel %d -> OFF\n", channel);
-            }
-        }
+        process_channel_command(channel, turnOn, spd, "🌐 [APP/LOCAL]");
 
-        if (channel == 1) { 
-            portENTER_CRITICAL(&state_mux); 
-            switch_state_ch1 = turnOn; 
-            portEXIT_CRITICAL(&state_mux);
-            digitalWrite(relay1, turnOn ? HIGH : LOW);
-            sendChannelState(1, turnOn); 
-            schedule_nvs_save(); 
-        }
-        else if (channel == 2) { 
-            portENTER_CRITICAL(&state_mux); 
-            switch_state_ch2 = turnOn; 
-            portEXIT_CRITICAL(&state_mux);
-            digitalWrite(relay2, turnOn ? HIGH : LOW);
-            sendChannelState(2, turnOn); 
-            schedule_nvs_save(); 
-        }
-        else if (channel == 3) { 
-            portENTER_CRITICAL(&state_mux); 
-            switch_state_ch3 = turnOn; 
-            portEXIT_CRITICAL(&state_mux);
-            digitalWrite(relay3, turnOn ? HIGH : LOW);
-            sendChannelState(3, turnOn); 
-            schedule_nvs_save(); 
-        }
-        else if (channel == 4) { 
-            portENTER_CRITICAL(&state_mux); 
-            switch_state_ch4 = turnOn; 
-            portEXIT_CRITICAL(&state_mux);
-            digitalWrite(relay4, turnOn ? HIGH : LOW);
-            sendChannelState(4, turnOn); 
-            schedule_nvs_save(); 
-        }
-        else if (channel == 5) { 
-            if (server.hasArg("speed")) {
-                int spd = server.arg("speed").toInt();
-                portENTER_CRITICAL(&state_mux); 
-                pending_fan_speed = spd; 
-                portEXIT_CRITICAL(&state_mux);
-            } else {
-                portENTER_CRITICAL(&state_mux); 
-                if (turnOn) {
-                    pending_fan_speed = fan_speed_memory;
-                } else {
-                    pending_fan_speed = 0;
-                }
-                portEXIT_CRITICAL(&state_mux);
-            }
-        }
-        else if (channel == 6 || channel == 7) {
-            if (turnOn) {
-                All_On();
-            } else {
-                All_Off();
-            }
-        }
-        
-        server.send(200, "application/json", "{\"status\":\"success\"}");
+        StaticJsonDocument<128> respDoc;
+        respDoc["success"] = true;
+        respDoc["channel"] = channel;
+        respDoc["state"] = turnOn ? "ON" : "OFF";
+        if (spd != -1) respDoc["speed"] = spd;
+        String resp;
+        serializeJson(respDoc, resp);
+        server.send(200, "application/json", resp);
     });
 
     server.begin();
@@ -1510,7 +1496,16 @@ void setup() {
     Serial.printf("JSON Payload: https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=%%7B%%22uuid%%22:%%22%s%%22%%7D\n", NODE_ID);
     Serial.println("====================================\n");
     
-    xTaskCreatePinnedToCore(system_task, "system_task", 8192, NULL, 5, NULL, 1);
+    // Initialize Command Queue (depth 16) for buffering sequential channel and bulk commands
+    command_queue = xQueueCreate(16, sizeof(switch_command_t));
+    if (command_queue == NULL) {
+        Serial.println("❌ [ERROR] Failed to create FreeRTOS Command Queue!");
+    } else {
+        Serial.println("✅ [SYSTEM] FreeRTOS Command Queue (depth 16) Initialized!");
+    }
+
+    xTaskCreatePinnedToCore(command_worker_task, "cmd_worker", 4096, NULL, 4, NULL, 1);
+    xTaskCreatePinnedToCore(system_task, "system_task", 4096, NULL, 5, NULL, 1);
 
     preferences.begin("wifi", true);
     saved_ssid = preferences.getString("ssid", ""); 
@@ -1589,11 +1584,17 @@ void loop() {
             if (now_ms - last_mqtt_reconnect > 15000 || last_mqtt_reconnect == 0) {
                 last_mqtt_reconnect = now_ms;
                 
+                Serial.printf("📊 [HEAP] Before TLS Connect - Free: %u bytes, Min Free: %u bytes, Max Alloc: %u bytes\n", 
+                              ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
                 Serial.println("☁️ Connecting to EMQX Cloud...");
+                
+                // Explicitly stop previous client session to clear stale buffers and prevent TLS -29184 error
+                espClient.stop();
+
                 String clientId = "4L-Client-" + String(NODE_ID);
                 
                 if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
-                    Serial.println("✅ Cloud Connected!");
+                    Serial.printf("✅ Cloud Connected! Free Heap: %u bytes\n", ESP.getFreeHeap());
                     client.subscribe(command_topic);
                     
                     char ota_topic_node[120];
@@ -1610,8 +1611,8 @@ void loop() {
                     bool master_state = switch_state_ch1 || switch_state_ch2 || switch_state_ch3 || switch_state_ch4 || fan_power;
                     sendChannelState(6, master_state);
                 } else { 
-                    Serial.print("❌ Cloud failed, rc="); 
-                    Serial.println(client.state()); 
+                    Serial.printf("❌ Cloud failed, rc=%d. Free Heap: %u bytes\n", client.state(), ESP.getFreeHeap());
+                    espClient.stop();
                 }
             }
         } else {

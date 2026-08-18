@@ -6,3 +6,32 @@ CONFIG_AUTOSTART_ARDUINO=n
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 CONFIG_PARTITION_TABLE_OFFSET=0x8000
+
+# Arduino ESP32 requires FreeRTOS tick rate 1000Hz
+CONFIG_FREERTOS_HZ=1000
+
+# 4MB Flash configuration for OTA partitions
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+# Bluetooth (BLE) — required by the BLE provisioning portal in main.cpp.
+# Without this, the BLE headers compile empty and the build fails with
+# "BLEDevice/BLEServer has not been declared" errors.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_BLUEDROID_ENABLED=y
+
+# arduino-esp32's ssl_client.cpp (TLS for MQTT) only compiles when PSK
+# ciphersuites are enabled; without this the link fails with
+# "undefined reference to start_ssl_client/stop_ssl_socket" errors.
+CONFIG_MBEDTLS_PSK_MODES=y
+
+# Move FreeRTOS functions from IRAM to flash — needed to free IRAM when
+# Bluetooth is enabled (otherwise linker fails: iram0_0_seg overflowed).
+CONFIG_FREERTOS_PLACE_FUNCTIONS_INTO_FLASH=y
+
+# Dynamic buffer allocation for mbedTLS to reduce heap footprint and prevent TLS record allocation failures (rc=-2 / -29184)
+CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
+CONFIG_MBEDTLS_DYNAMIC_FREE_PEER_CERT=y
+
+
+

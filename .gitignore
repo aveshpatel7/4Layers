@@ -50,4 +50,14 @@ Thumbs.db
 SESSION_HISTORY.md
 tasks/
 scratch/
-
+*.mp4
+*.ogg
+*.zip
+*.log
+.agents/
+.mimosa/
+.zcode/
+4layers_ESP_IDF_Firmware/*.log
+4layers_ESP_IDF_Firmware/*.bat
+4layers_ESP_IDF_Firmware/nul
+4layers_ESP_IDF_Firmware/share_fix/
