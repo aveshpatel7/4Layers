@@ -215,19 +215,28 @@ export default function AppNavigator() {
       setIsDownloadingUpdate(false);
 
       if (result && result.uri) {
-        const contentUri = await FileSystem.getContentUriAsync(result.uri);
-        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: contentUri,
-          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
-          type: 'application/vnd.android.package-archive',
-        });
+        try {
+          const contentUri = await FileSystem.getContentUriAsync(result.uri);
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: contentUri,
+            flags: 268435457, // FLAG_ACTIVITY_NEW_TASK | FLAG_GRANT_READ_URI_PERMISSION
+            type: 'application/vnd.android.package-archive',
+          });
+        } catch (intentErr) {
+          console.warn('[OTA] Direct installer blocked, opening APK URL:', intentErr);
+          await Linking.openURL(updateModalInfo.apk_url);
+        }
       } else {
-        Alert.alert('Update Failed', 'Downloaded file is invalid. Please try again.');
+        await Linking.openURL(updateModalInfo.apk_url);
       }
     } catch (error) {
       console.error('[OTA UPDATE ERROR]', error);
       setIsDownloadingUpdate(false);
-      Alert.alert('Update Error', 'Could not download update. Please check your internet connection.');
+      try {
+        await Linking.openURL(updateModalInfo.apk_url);
+      } catch (_) {
+        Alert.alert('Update Error', 'Could not download update. Please check your internet connection.');
+      }
     }
   };
 

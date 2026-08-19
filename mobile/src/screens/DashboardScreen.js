@@ -236,7 +236,7 @@ export default function DashboardScreen({ navigation }) {
     devList.forEach(d => {
       if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
         const lock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || toggleLockRef.current[d.node_id];
-        const effectiveStatus = (lock && (now - lock.time < 3500)) ? lock.status : d.status;
+        const effectiveStatus = (lock && (now - lock.time < 1200)) ? lock.status : d.status;
         if (effectiveStatus && d.is_online !== false) {
           roomStatusMap[d.room_id] = true;
         }
@@ -246,7 +246,7 @@ export default function DashboardScreen({ navigation }) {
     return devList.map(d => {
       if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
         const masterLock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || toggleLockRef.current[d.node_id];
-        if (masterLock && (now - masterLock.time < 3500)) {
+        if (masterLock && (now - masterLock.time < 1200)) {
           return { ...d, status: masterLock.status };
         }
         return { ...d, status: !!roomStatusMap[d.room_id] };
@@ -356,7 +356,7 @@ export default function DashboardScreen({ navigation }) {
           // Merge with prev to respect active optimistic toggle locks (within 3.5 seconds)
           return uniqueDevicesList.map(newDev => {
             const lock = toggleLockRef.current[newDev.id];
-            if (lock && (now - lock.time < 3500) && newDev.is_online) {
+            if (lock && (now - lock.time < 1200) && newDev.is_online) {
               const existingDev = prev.find(p => p.id === newDev.id);
               return {
                 ...newDev,
@@ -568,15 +568,17 @@ export default function DashboardScreen({ navigation }) {
               let isMatch = false;
               if (channel) {
                 const expectedSuffix = `_${channel}`;
-                isMatch = d.node_id === `${baseNodeId}${expectedSuffix}` || (d.node_id?.startsWith(baseNodeId) && d.node_id?.endsWith(expectedSuffix));
+                isMatch = d.node_id === `${baseNodeId}${expectedSuffix}` || 
+                          (d.node_id?.startsWith(baseNodeId) && d.node_id?.endsWith(expectedSuffix)) ||
+                          (channel === 1 && d.node_id === baseNodeId);
               } else {
                 isMatch = isSibling;
               }
 
               if (isMatch) {
-                const lock = toggleLockRef.current[d.id];
-                // Enforce optimistic state lock within 3.5 seconds
-                if (lock && (now - lock.time < 3500)) {
+                const lock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || toggleLockRef.current[d.node_id];
+                // Enforce optimistic state lock within 1.2 seconds
+                if (lock && (now - lock.time < 1200)) {
                   return {
                     ...d,
                     is_online: true,
