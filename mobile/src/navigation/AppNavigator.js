@@ -213,6 +213,7 @@ export default function AppNavigator() {
 
       const result = await downloadResumable.downloadAsync();
       setIsDownloadingUpdate(false);
+      setUpdateModalInfo(null);
 
       if (result && result.uri) {
         try {
@@ -223,7 +224,7 @@ export default function AppNavigator() {
             type: 'application/vnd.android.package-archive',
           });
         } catch (intentErr) {
-          console.warn('[OTA] Direct installer blocked, opening APK URL:', intentErr);
+          console.warn('[OTA] Direct installer blocked, opening APK URL in browser:', intentErr);
           await Linking.openURL(updateModalInfo.apk_url);
         }
       } else {
