@@ -474,7 +474,7 @@ export default function DashboardScreen({ navigation }) {
             const localIp = incomingIp || getDeviceLocalIp(baseNodeId);
             if (isPhoneOnWifiRef.current && localIp) {
               console.log(`[LOCAL DEBUG] MQTT reported OFFLINE for ${baseNodeId}. Verifying Local LAN ping before marking offline...`);
-              pingLocalDevice(baseNodeId, localIp, 500).then((localState) => {
+              pingLocalDevice(baseNodeId, localIp, 1200).then((localState) => {
                 if (localState) {
                   console.log(`[LOCAL DEBUG] Local ping SUCCESS for ${baseNodeId} after MQTT OFFLINE. Device is active locally on LAN!`);
                   setDevices((prev) => {
