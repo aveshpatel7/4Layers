@@ -560,23 +560,25 @@ os.makedirs(FIRMWARE_DIR, exist_ok=True)
 
 @router.post("/firmware/upload")
 async def upload_firmware_file(file: UploadFile = File(...)):
-    """Upload a new .bin firmware file for OTA updates."""
-    if not file.filename.endswith(".bin"):
-        raise HTTPException(status_code=400, detail="Only .bin firmware files are supported")
+    """Upload a new .bin firmware or .apk mobile app file for OTA updates."""
+    if not (file.filename.endswith(".bin") or file.filename.endswith(".apk")):
+        raise HTTPException(status_code=400, detail="Only .bin and .apk files are supported")
 
     filename = file.filename
     target_path = os.path.join(FIRMWARE_DIR, filename)
-    latest_path = os.path.join(FIRMWARE_DIR, "latest.bin")
 
     with open(target_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    shutil.copyfile(target_path, latest_path)
+    if filename.endswith(".bin"):
+        shutil.copyfile(target_path, os.path.join(FIRMWARE_DIR, "latest.bin"))
+    elif filename.endswith(".apk"):
+        shutil.copyfile(target_path, os.path.join(FIRMWARE_DIR, "latest.apk"))
 
     return {
         "status": "SUCCESS",
         "filename": filename,
-        "latest_url": "/firmware/latest.bin",
+        "latest_url": f"/firmware/{'latest.apk' if filename.endswith('.apk') else 'latest.bin'}",
         "named_url": f"/firmware/{filename}"
     }
 
