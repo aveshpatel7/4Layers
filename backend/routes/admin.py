@@ -511,7 +511,7 @@ def trigger_remote_ota(ota: OtaUpdateRequest, background_tasks: BackgroundTasks,
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
         try:
-            mqtt.publish_message(topic, payload, retain=True)
+            mqtt.publish_message(topic, payload, retain=False)
             return {"status": "SUCCESS", "target_topic": topic, "message": f"OTA update command published to {topic}"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"MQTT Publish Error: {str(e)}")
@@ -532,7 +532,7 @@ def trigger_remote_ota(ota: OtaUpdateRequest, background_tasks: BackgroundTasks,
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
         try:
-            mqtt.publish_message(global_topic, global_payload, retain=True)
+            mqtt.publish_message(global_topic, global_payload, retain=False)
         except Exception:
             pass
 

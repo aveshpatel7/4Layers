@@ -939,15 +939,22 @@ void publishOTAStatus(const char* status, int progress)
 
 void performOTAUpdate(const String& firmwareUrl) 
 {
-    int jitterMs = random(1000, 5000);
-    logRemote("================================================");
-    logRemote("[OTA] Starting Update. Jitter Delay: " + String(jitterMs) + "ms");
-    delay(jitterMs);
+    int jitterMs = random(1000, 4000);
+    Serial.println("================================================");
+    Serial.printf("[OTA] Starting Update in %dms Jitter Delay...\n", jitterMs);
+    vTaskDelay(pdMS_TO_TICKS(jitterMs));
 
-    logRemote("[OTA] Target URL: " + firmwareUrl);
+    Serial.println("[OTA] Target URL: " + firmwareUrl);
+    
+    // Temporarily detach from Task Watchdog so large flash writes & MD5 verification won't trigger TWDT reset
+    esp_task_wdt_delete(NULL);
+
     WiFiClientSecure otaClient;
     otaClient.setInsecure();
-    otaClient.setTimeout(15000);
+    otaClient.setTimeout(25000); // 25s socket timeout
+
+    httpUpdate.rebootOnUpdate(false);
+    httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     httpUpdate.onProgress([](int cur, int total) 
     {
@@ -962,29 +969,26 @@ void performOTAUpdate(const String& firmwareUrl)
         if (percent != lastPercent && (percent % 10 == 0 || percent == 100)) 
         {
             lastPercent = percent;
-            publishOTAStatus("downloading", percent);
-            logRemote("[OTA PROGRESS] Downloaded " + String(percent) + "%");
+            Serial.printf("📥 [OTA PROGRESS] Downloaded %d%% (%d / %d bytes)\n", percent, cur, total);
         }
-        
-        esp_task_wdt_reset(); 
     });
 
-    publishOTAStatus("downloading", 0);
     Serial.println("⚙️ [SYSTEM] OTA Download starting...");
     
     t_httpUpdate_return ret = httpUpdate.update(otaClient, firmwareUrl);
 
     if (ret == HTTP_UPDATE_OK) 
     {
-        logRemote("[OTA SUCCESS] Flashing complete! Rebooting...");
-        publishOTAStatus("success", 100);
-        delay(1000);
+        Serial.println("🎉 [OTA SUCCESS] Flashing complete! Rebooting into new firmware...");
+        vTaskDelay(pdMS_TO_TICKS(1500));
         ESP.restart();
     } 
     else 
     {
-        logRemote("[OTA ERROR] Failed! Code: " + String(httpUpdate.getLastError()));
-        publishOTAStatus("failed", 0);
+        Serial.printf("❌ [OTA ERROR] Failed! Code: %d (%s)\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+        // Re-attach task to watchdog on failure
+        esp_task_wdt_add(NULL);
+        esp_task_wdt_reset();
     }
 }
 
