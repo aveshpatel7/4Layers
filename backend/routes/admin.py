@@ -662,7 +662,7 @@ def admin_get_app_version(db: Session = Depends(get_db), admin: dict = Depends(g
         return os.getenv(key.upper(), default)
 
     return {
-        "latest_version": get_setting("latest_version", "1.0.0"),
+        "latest_version": get_setting("latest_version", "1.0.4"),
         "force_update": get_setting("force_update", "false").lower() in ["true", "1", "yes"],
         "apk_url": get_setting("apk_url", "https://4layers.in/latest.apk")
     }
