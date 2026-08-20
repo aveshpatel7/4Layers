@@ -444,12 +444,12 @@ ADMIN_HTML = """<!DOCTYPE html>
                 <div class="metrics-grid" style="margin-bottom: 20px;">
                     <div class="metric-card">
                         <div class="metric-icon green">
-                            <i class="fa-solid fa-shield-halved"></i>
+                            <i class="fa-solid fa-microchip"></i>
                         </div>
                         <div class="metric-info">
-                            <span class="metric-label">Active Warranties</span>
+                            <span class="metric-label">Active Hardware Boards</span>
                             <h3 id="stat-active-warranties">--</h3>
-                            <span class="metric-sub green">Protected Devices</span>
+                            <span class="metric-sub green" id="stat-sub-switches">-- Active Channels</span>
                         </div>
                     </div>
 
@@ -458,7 +458,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                             <i class="fa-solid fa-triangle-exclamation"></i>
                         </div>
                         <div class="metric-info">
-                            <span class="metric-label">Voided Warranties</span>
+                            <span class="metric-label">Voided Boards</span>
                             <h3 id="stat-void-warranties">--</h3>
                             <span class="metric-sub red">>100k Toggles / >50 Crashes</span>
                         </div>
@@ -469,7 +469,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                             <i class="fa-solid fa-calendar-xmark"></i>
                         </div>
                         <div class="metric-info">
-                            <span class="metric-label">Expired Warranties</span>
+                            <span class="metric-label">Expired Boards</span>
                             <h3 id="stat-expired-warranties">--</h3>
                             <span class="metric-sub">> 1 Year Operational</span>
                         </div>
@@ -477,12 +477,12 @@ ADMIN_HTML = """<!DOCTYPE html>
 
                     <div class="metric-card">
                         <div class="metric-icon purple">
-                            <i class="fa-solid fa-crown"></i>
+                            <i class="fa-solid fa-users"></i>
                         </div>
                         <div class="metric-info">
-                            <span class="metric-label">Heavy Users</span>
+                            <span class="metric-label">Registered Users</span>
                             <h3 id="stat-heavy-users">--</h3>
-                            <span class="metric-sub">> 5000 Total ON Hours</span>
+                            <span class="metric-sub purple" id="stat-sub-heavy">-- Heavy Users</span>
                         </div>
                     </div>
                 </div>
@@ -490,12 +490,12 @@ ADMIN_HTML = """<!DOCTYPE html>
                 <div class="panel-card">
                     <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
                         <div>
-                            <h3><i class="fa-solid fa-file-shield"></i> IoT Usage & Warranty Validation Report</h3>
-                            <p class="card-desc" style="margin-top: 4px;">Automated warranty tracking, cumulative cycle toggles, runtime hours, and crash counter audits.</p>
+                            <h3><i class="fa-solid fa-file-shield"></i> User Accounts & Hardware Usage Audit</h3>
+                            <p class="card-desc" style="margin-top: 4px;">User profile activity tracking, physical board hardware telemetry, switch runtime audits, and instant data extraction.</p>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center;">
                             <button class="btn btn-accent" id="btn-export-warranty-csv">
-                                <i class="fa-solid fa-file-arrow-down"></i> Export Warranty Report (CSV)
+                                <i class="fa-solid fa-file-arrow-down"></i> Export Full Fleet Audit (CSV)
                             </button>
                         </div>
                     </div>
@@ -503,40 +503,28 @@ ADMIN_HTML = """<!DOCTYPE html>
                     <div class="table-actions" style="margin: 15px 0; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
                         <div class="search-box" style="flex: 1; min-width: 250px; position: relative;">
                             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                            <input type="text" id="warranty-search-input" placeholder="Search user email, device name, or node ID..." class="form-input" style="padding-left: 36px; width: 100%;">
+                            <input type="text" id="warranty-search-input" placeholder="Search by user email, username, phone, or board Node ID..." class="form-input" style="padding-left: 36px; width: 100%;">
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center;">
-                            <select id="warranty-status-filter" class="form-select" style="min-width: 160px;">
+                            <select id="warranty-status-filter" class="form-select" style="min-width: 170px;">
                                 <option value="ALL">All Warranty Status</option>
-                                <option value="ACTIVE">Active (Valid)</option>
-                                <option value="VOID">Void (Abused)</option>
-                                <option value="EXPIRED">Expired (>1 Year)</option>
+                                <option value="ACTIVE">Active Boards (Valid)</option>
+                                <option value="VOID">Void Boards (Abused)</option>
+                                <option value="EXPIRED">Expired Boards (>1 Year)</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="table-container">
-                        <table class="data-table" id="usage-warranty-table">
-                            <thead>
-                                <tr>
-                                    <th>User Account</th>
-                                    <th>Device Name / Node ID</th>
-                                    <th>Switch / Channel</th>
-                                    <th>Toggle Cycles</th>
-                                    <th>Total ON Hours</th>
-                                    <th>Crashes</th>
-                                    <th>Activated On</th>
-                                    <th>Warranty Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usage-warranty-table-body">
-                                <tr><td colspan="8" class="text-center" style="padding: 24px;">Loading warranty & usage analytics...</td></tr>
-                            </tbody>
-                        </table>
+                    <!-- User Account Cards Container -->
+                    <div id="usage-warranty-cards-container" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div class="text-center" style="padding: 40px; color: var(--text-secondary);">
+                            <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
+                            <div>Loading user accounts and hardware warranty analytics...</div>
+                        </div>
                     </div>
 
-                    <div class="pagination-footer">
-                        <div class="pagination-info" id="warranty-pagination-info">Showing 0 to 0 of 0 records</div>
+                    <div class="pagination-footer" style="margin-top: 20px;">
+                        <div class="pagination-info" id="warranty-pagination-info">Showing 0 to 0 of 0 users</div>
                         <div class="pagination-controls">
                             <button class="pagination-btn" id="warranty-prev-btn" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
                             <span id="warranty-page-num" class="pagination-page">Page 1 of 1</span>
@@ -803,8 +791,108 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .modal-overlay.active { display: flex; }
 .modal-card { background: #1e293b; border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 90%; max-width: 500px; padding: 24px; box-shadow: var(--card-shadow); }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.modal-close { background: transparent; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+/* --- User Account & Hardware Warranty Cards CSS --- */
+.user-analytics-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: var(--transition);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.user-analytics-card:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+.user-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.user-avatar-circle {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+    flex-shrink: 0;
+}
+.hardware-board-strip {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-md);
+    margin-top: 14px;
+    padding: 16px;
+    transition: var(--transition);
+}
+.hardware-board-strip:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+.hardware-board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.board-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+    padding: 12px;
+    background: rgba(2, 6, 23, 0.4);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+.board-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.board-stat-item .stat-lbl {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.board-stat-item .stat-val {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+.switch-channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+.switch-channel-card {
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.switch-channel-card.on {
+    border-color: rgba(0, 230, 118, 0.35);
+    background: rgba(0, 230, 118, 0.04);
+}
 """
 
 ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
@@ -1999,11 +2087,11 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     });
 
-    /* --- Usage Analytics & Warranty Validation Controller --- */
+    /* --- Usage Analytics & Warranty Validation Controller (User & Board Hierarchy) --- */
     let warrantyCurrentPage = 1;
     let warrantyTotalPages = 1;
     let warrantyTotalRecords = 0;
-    const warrantyTableBody = document.getElementById('usage-warranty-table-body');
+    const warrantyCardsContainer = document.getElementById('usage-warranty-cards-container');
     const warrantySearchInput = document.getElementById('warranty-search-input');
     const warrantyStatusFilter = document.getElementById('warranty-status-filter');
     const warrantyPrevBtn = document.getElementById('warranty-prev-btn');
@@ -2014,31 +2102,40 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchUsageAnalytics(page = 1) {
         warrantyCurrentPage = page;
-        if (!warrantyTableBody) return;
-        warrantyTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading usage analytics & warranty data...</td></tr>`;
+        if (!warrantyCardsContainer) return;
+        warrantyCardsContainer.innerHTML = `
+            <div class="text-center" style="padding: 40px; color: var(--text-secondary);">
+                <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
+                <div>Loading user accounts and hardware warranty analytics...</div>
+            </div>
+        `;
 
         const search = warrantySearchInput ? warrantySearchInput.value.trim() : '';
         const filterVal = warrantyStatusFilter ? warrantyStatusFilter.value : 'ALL';
 
         try {
-            const url = `/api/admin/analytics/usage?page=${warrantyCurrentPage}&page_size=25&search=${encodeURIComponent(search)}&filter_warranty=${encodeURIComponent(filterVal)}`;
+            const url = `/api/admin/analytics/usage?page=${warrantyCurrentPage}&page_size=10&search=${encodeURIComponent(search)}&filter_warranty=${encodeURIComponent(filterVal)}`;
             const res = await authFetch(url);
             if (res.ok) {
                 const data = await res.json();
                 const summary = data.summary || {};
                 const pagination = data.pagination || {};
-                const records = data.records || [];
+                const users = data.records || [];
 
                 // Update Metric Cards
                 const activeEl = document.getElementById('stat-active-warranties');
+                const subSwitchesEl = document.getElementById('stat-sub-switches');
                 const voidEl = document.getElementById('stat-void-warranties');
                 const expEl = document.getElementById('stat-expired-warranties');
-                const heavyEl = document.getElementById('stat-heavy-users');
+                const usersEl = document.getElementById('stat-heavy-users');
+                const subHeavyEl = document.getElementById('stat-sub-heavy');
 
-                if (activeEl) activeEl.textContent = summary.active_warranties ?? 0;
-                if (voidEl) voidEl.textContent = summary.void_warranties ?? 0;
-                if (expEl) expEl.textContent = summary.expired_warranties ?? 0;
-                if (heavyEl) heavyEl.textContent = summary.heavy_users_count ?? 0;
+                if (activeEl) activeEl.textContent = `${summary.active_warranties ?? 0} Boards`;
+                if (subSwitchesEl) subSwitchesEl.textContent = `${summary.total_switches ?? 0} Active Channels`;
+                if (voidEl) voidEl.textContent = `${summary.void_warranties ?? 0} Boards`;
+                if (expEl) expEl.textContent = `${summary.expired_warranties ?? 0} Boards`;
+                if (usersEl) usersEl.textContent = `${summary.total_users ?? 0} Users`;
+                if (subHeavyEl) subHeavyEl.textContent = `${summary.heavy_users_count ?? 0} Heavy Users (>5000h)`;
 
                 warrantyTotalRecords = pagination.total_records || 0;
                 warrantyTotalPages = pagination.total_pages || 1;
@@ -2046,76 +2143,195 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
                 if (warrantyPageNum) warrantyPageNum.textContent = `Page ${warrantyCurrentPage} of ${warrantyTotalPages}`;
                 if (warrantyPaginationInfo) {
-                    const startRec = records.length > 0 ? (warrantyCurrentPage - 1) * pagination.page_size + 1 : 0;
-                    const endRec = (warrantyCurrentPage - 1) * pagination.page_size + records.length;
-                    warrantyPaginationInfo.textContent = `Showing ${startRec} to ${endRec} of ${warrantyTotalRecords} records`;
+                    const startRec = users.length > 0 ? (warrantyCurrentPage - 1) * pagination.page_size + 1 : 0;
+                    const endRec = (warrantyCurrentPage - 1) * pagination.page_size + users.length;
+                    warrantyPaginationInfo.textContent = `Showing ${startRec} to ${endRec} of ${warrantyTotalRecords} user accounts`;
                 }
                 if (warrantyPrevBtn) warrantyPrevBtn.disabled = warrantyCurrentPage <= 1;
                 if (warrantyNextBtn) warrantyNextBtn.disabled = warrantyCurrentPage >= warrantyTotalPages;
 
-                if (records.length === 0) {
-                    warrantyTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px; color: var(--text-secondary);">No usage or warranty records found.</td></tr>`;
+                if (users.length === 0) {
+                    warrantyCardsContainer.innerHTML = `
+                        <div class="text-center" style="padding: 48px; background: rgba(30, 41, 59, 0.4); border-radius: var(--radius-lg); border: 1px dashed var(--border-color); color: var(--text-secondary);">
+                            <i class="fa-solid fa-folder-open fa-2x" style="margin-bottom: 10px; color: #64748b;"></i>
+                            <div>No user accounts or hardware boards matched your criteria.</div>
+                        </div>
+                    `;
                     return;
                 }
 
-                warrantyTableBody.innerHTML = records.map(r => {
-                    let badgeClass = 'green';
-                    let iconClass = 'fa-shield-halved';
-                    if (r.warranty_status === 'VOID') {
-                        badgeClass = 'red';
-                        iconClass = 'fa-triangle-exclamation';
-                    } else if (r.warranty_status === 'EXPIRED') {
-                        badgeClass = 'gray';
-                        iconClass = 'fa-calendar-xmark';
-                    }
+                warrantyCardsContainer.innerHTML = users.map(u => {
+                    const avatarLetter = (u.username || u.email || 'U')[0].toUpperCase();
+                    const heavyBadge = u.is_heavy_user ? `<span class="badge purple" style="font-size: 10px;" title="Heavy Appliance User: >5000 hrs"><i class="fa-solid fa-crown"></i> Heavy User</span>` : '';
+                    const boards = u.hardware_boards || [];
 
-                    const heavyTag = r.is_heavy_user ? `<span class="badge purple" style="margin-left: 6px; font-size: 9.5px;" title="Heavy User: >5000 ON Hours"><i class="fa-solid fa-crown"></i> Heavy</span>` : '';
-                    const actDateFormatted = r.activated_at ? new Date(r.activated_at).toLocaleDateString() : 'N/A';
+                    const boardsHtml = boards.map((b, bIdx) => {
+                        let badgeClass = 'green';
+                        let iconClass = 'fa-shield-halved';
+                        if (b.warranty_status === 'VOID') {
+                            badgeClass = 'red';
+                            iconClass = 'fa-triangle-exclamation';
+                        } else if (b.warranty_status === 'EXPIRED') {
+                            badgeClass = 'gray';
+                            iconClass = 'fa-calendar-xmark';
+                        }
+
+                        const statusPulse = b.is_online ? `<span class="status-indicator online"></span> <span style="color: #00E676; font-size: 12px; font-weight: 600;">Online</span>` : `<span class="status-indicator offline"></span> <span style="color: #94a3b8; font-size: 12px;">Offline</span>`;
+                        const actDateFormatted = b.activated_at ? new Date(b.activated_at).toLocaleDateString() : 'N/A';
+                        const toggleId = `switches-tray-${u.user_id}-${bIdx}`;
+
+                        const switchesList = b.switches || [];
+                        const switchesHtml = switchesList.map(s => {
+                            const isChOn = (s.current_state && (s.current_state.status === 'ON' || s.current_state.state === 'ON'));
+                            const icon = s.device_type === 'fan' ? 'fa-fan' : (s.switch_channel.includes('Master') ? 'fa-power-off' : 'fa-lightbulb');
+                            return `
+                                <div class="switch-channel-card ${isChOn ? 'on' : ''}">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="font-weight: 600; font-size: 12.5px; color: #f8fafc; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid ${icon}" style="color: ${isChOn ? '#00E676' : '#94a3b8'};"></i>
+                                            ${escapeHtml(s.switch_channel)}
+                                        </div>
+                                        <span style="font-size: 10.5px; font-weight: 700; color: ${isChOn ? '#00E676' : '#94a3b8'};">${isChOn ? 'ON' : 'OFF'}</span>
+                                    </div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(s.device_name)}</div>
+                                    <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                        <span style="color: #cbd5e1;"><i class="fa-solid fa-rotate"></i> <strong>${Number(s.toggles).toLocaleString()}</strong></span>
+                                        <span style="color: #38bdf8;"><i class="fa-solid fa-clock"></i> <strong>${s.on_hours}h</strong></span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+
+                        return `
+                            <div class="hardware-board-strip">
+                                <div class="hardware-board-header">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            ${statusPulse}
+                                        </div>
+                                        <div style="font-weight: 600; font-size: 13.5px; color: #ffffff;">${escapeHtml(b.board_name)}</div>
+                                        <span class="badge blue font-mono" style="font-size: 11px;">${escapeHtml(b.base_node_id)}</span>
+                                        <span style="font-size: 11px; color: var(--text-secondary);">IP: <code style="color: #38bdf8;">${escapeHtml(b.local_ip)}</code></span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="badge ${badgeClass}" style="font-size: 11.5px; padding: 4px 10px;">
+                                            <i class="fa-solid ${iconClass}"></i> Warranty: ${b.warranty_status}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="board-stats-row">
+                                    <div class="board-stat-item">
+                                        <span class="stat-lbl">Cumulative Cycles</span>
+                                        <span class="stat-val" style="color: ${b.total_board_toggles > 100000 ? '#ef4444' : '#00E676'};">${Number(b.total_board_toggles).toLocaleString()}</span>
+                                    </div>
+                                    <div class="board-stat-item">
+                                        <span class="stat-lbl">Active Runtime</span>
+                                        <span class="stat-val" style="color: #38bdf8;">${b.total_board_on_hours} hrs</span>
+                                    </div>
+                                    <div class="board-stat-item">
+                                        <span class="stat-lbl">Power Restarts</span>
+                                        <span class="stat-val" style="color: #94a3b8;">${b.boot_count} boots</span>
+                                    </div>
+                                    <div class="board-stat-item">
+                                        <span class="stat-lbl">Brownout Crashes</span>
+                                        <span class="stat-val" style="color: ${b.crash_count > 50 ? '#ef4444' : (b.crash_count > 0 ? '#f59e0b' : '#94a3b8')};">${b.crash_count}</span>
+                                    </div>
+                                    <div class="board-stat-item">
+                                        <span class="stat-lbl">Activated On</span>
+                                        <span class="stat-val" style="font-size: 12px; color: var(--text-secondary);">${actDateFormatted}</span>
+                                    </div>
+                                </div>
+
+                                <div style="margin-top: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <div style="font-size: 12px; font-weight: 600; color: #cbd5e1;">
+                                            <i class="fa-solid fa-toggle-on" style="color: var(--accent-blue);"></i> 6 Switch Channels & Appliances (${switchesList.length} Connected)
+                                        </div>
+                                    </div>
+                                    <div class="switch-channels-grid">
+                                        ${switchesHtml}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
 
                     return `
-                        <tr>
-                            <td>
-                                <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center;">
-                                    ${escapeHtml(r.user_email)}
-                                    ${heavyTag}
+                        <div class="user-analytics-card" id="user-card-${u.user_id}">
+                            <div class="user-card-header">
+                                <div style="display: flex; align-items: center; gap: 14px;">
+                                    <div class="user-avatar-circle">${avatarLetter}</div>
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                            <span style="font-size: 15px; font-weight: 700; color: var(--text-primary);">${escapeHtml(u.email)}</span>
+                                            ${heavyBadge}
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                                            <strong>@${escapeHtml(u.username)}</strong> &bull; Phone: ${escapeHtml(u.phone)}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">@${escapeHtml(r.username)}</div>
-                            </td>
-                            <td>
-                                <div style="font-weight: 500; color: var(--text-primary);">${escapeHtml(r.device_name)}</div>
-                                <div style="font-size: 11px; color: #3b82f6; font-family: var(--font-mono);">${escapeHtml(r.node_id)}</div>
-                            </td>
-                            <td>
-                                <span style="font-weight: 600; color: #f8fafc;">${escapeHtml(r.switch_channel)}</span>
-                            </td>
-                            <td>
-                                <span style="font-family: var(--font-mono); font-weight: 700; color: ${r.toggle_count > 100000 ? '#ef4444' : '#00E676'};">${Number(r.toggle_count).toLocaleString()}</span>
-                                <div style="font-size: 10px; color: var(--text-secondary);">cycles</div>
-                            </td>
-                            <td>
-                                <span style="font-family: var(--font-mono); font-weight: 700; color: #38bdf8;">${r.total_on_hours} hrs</span>
-                            </td>
-                            <td>
-                                <span style="font-family: var(--font-mono); font-weight: 700; color: ${r.crash_count > 50 ? '#ef4444' : (r.crash_count > 0 ? '#f59e0b' : '#94a3b8')};">${r.crash_count}</span>
-                                <div style="font-size: 10px; color: var(--text-secondary);">${r.boot_count} boots</div>
-                            </td>
-                            <td style="font-size: 12px; color: var(--text-secondary);">
-                                ${actDateFormatted}
-                            </td>
-                            <td>
-                                <span class="badge ${badgeClass}">
-                                    <i class="fa-solid ${iconClass}"></i> ${r.warranty_status}
-                                </span>
-                            </td>
-                        </tr>
+
+                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                    <span class="badge blue" style="font-size: 11px;"><i class="fa-solid fa-microchip"></i> ${u.total_boards_count} Hardware Board${u.total_boards_count !== 1 ? 's' : ''}</span>
+                                    <span class="badge gray" style="font-size: 11px;"><i class="fa-solid fa-sliders"></i> ${u.total_switches_count} Switches</span>
+                                    <span class="badge green" style="font-size: 11px;"><i class="fa-solid fa-clock"></i> ${u.total_user_on_hours}h Total ON</span>
+                                    <button class="btn btn-outline btn-sm btn-export-user-csv" data-user-id="${u.user_id}" data-user-email="${escapeHtml(u.email)}" style="font-size: 11.5px; padding: 6px 12px;">
+                                        <i class="fa-solid fa-file-csv"></i> Extract User Data (CSV)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="user-card-body" style="margin-top: 6px;">
+                                ${boards.length > 0 ? boardsHtml : '<div style="padding: 16px; color: var(--text-secondary); font-size: 12.5px;">No physical hardware boards linked to this account yet.</div>'}
+                            </div>
+                        </div>
                     `;
                 }).join('');
+
+                // Attach Per-User CSV Download Handlers
+                document.querySelectorAll('.btn-export-user-csv').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const userId = btn.getAttribute('data-user-id');
+                        const userEmail = btn.getAttribute('data-user-email') || 'User';
+                        try {
+                            btn.disabled = true;
+                            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Exporting...`;
+                            const token = getAdminToken();
+                            const res = await fetch(`/api/admin/analytics/usage/export?user_id=${encodeURIComponent(userId)}`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const downloadUrl = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = downloadUrl;
+                                a.download = `4Layers_Audit_${userEmail.split('@')[0]}_${new Date().toISOString().slice(0,10)}.csv`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(downloadUrl);
+                                logTerminal(`Exported warranty audit report for ${userEmail}.`, 'success');
+                            } else {
+                                alert("Failed to export user CSV report.");
+                            }
+                        } catch (err) {
+                            alert(`Export error: ${err.message}`);
+                        } finally {
+                            btn.disabled = false;
+                            btn.innerHTML = `<i class="fa-solid fa-file-csv"></i> Extract User Data (CSV)`;
+                        }
+                    });
+                });
+
             } else {
-                warrantyTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px; color: var(--accent-red);">Failed to load warranty analytics (HTTP ${res.status}).</td></tr>`;
+                warrantyCardsContainer.innerHTML = `<div class="text-center" style="padding: 30px; color: var(--accent-red);">Failed to load usage analytics (HTTP ${res.status}).</div>`;
             }
         } catch (err) {
-            if (warrantyTableBody) {
-                warrantyTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px; color: var(--accent-red);">Error: ${err.message}</td></tr>`;
+            if (warrantyCardsContainer) {
+                warrantyCardsContainer.innerHTML = `<div class="text-center" style="padding: 30px; color: var(--accent-red);">Error: ${err.message}</div>`;
             }
         }
     }
@@ -2148,7 +2364,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         btnExportWarrantyCsv.addEventListener('click', async () => {
             try {
                 btnExportWarrantyCsv.disabled = true;
-                btnExportWarrantyCsv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating CSV...`;
+                btnExportWarrantyCsv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Fleet CSV...`;
                 const search = warrantySearchInput ? warrantySearchInput.value.trim() : '';
                 const filterVal = warrantyStatusFilter ? warrantyStatusFilter.value : 'ALL';
                 
@@ -2166,12 +2382,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     const downloadUrl = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = downloadUrl;
-                    a.download = `4Layers_Warranty_Report_${new Date().toISOString().slice(0,10)}.csv`;
+                    a.download = `4Layers_Fleet_Warranty_Audit_${new Date().toISOString().slice(0,10)}.csv`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(downloadUrl);
-                    logTerminal("Exported Warranty & Usage Audit CSV report successfully.", "success");
+                    logTerminal("Exported Full Fleet Warranty Audit CSV report successfully.", "success");
                 } else {
                     alert("Failed to export CSV. Please ensure you are logged in.");
                 }
@@ -2179,7 +2395,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 alert(`Export Error: ${e.message}`);
             } finally {
                 btnExportWarrantyCsv.disabled = false;
-                btnExportWarrantyCsv.innerHTML = `<i class="fa-solid fa-file-arrow-down"></i> Export Warranty Report (CSV)`;
+                btnExportWarrantyCsv.innerHTML = `<i class="fa-solid fa-file-arrow-down"></i> Export Full Fleet Audit (CSV)`;
             }
         });
     }

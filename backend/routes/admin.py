@@ -736,100 +736,141 @@ def get_switch_label(device: models.Device) -> str:
 @router.get("/analytics/usage")
 def get_usage_and_warranty_analytics(
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
+    page_size: int = Query(10, ge=1, le=100),
     search: Optional[str] = None,
     filter_warranty: Optional[str] = None,
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
     """
-    Returns aggregated IoT usage telemetry and warranty validation records.
-    Columns: User Email, Username, Device ID, Device Name, Node ID, Switch/Channel,
-             Toggle Count, Total ON Hours, Crash Count, Activated Date, Warranty Status, is_heavy_user.
+    Returns hierarchical IoT usage telemetry and warranty validation records grouped by User Account and Hardware Switchboard.
+    Avoids confusion between 4 physical hardware boards and 24 individual relay channels (6 switches per board).
     """
-    # Query all devices with home and owner pre-loaded
-    query = db.query(models.Device).join(models.Home, models.Device.home_id == models.Home.id, isouter=True)\
-                                  .join(models.User, models.Home.owner_id == models.User.id, isouter=True)
+    # Fetch all devices with home, room, and owner
+    devices = db.query(models.Device).join(models.Home, models.Device.home_id == models.Home.id, isouter=True)\
+                                    .join(models.User, models.Home.owner_id == models.User.id, isouter=True).all()
 
-    if search:
-        search_term = f"%{search.strip().lower()}%"
-        query = query.filter(
-            or_(
-                models.Device.name.ilike(search_term),
-                models.Device.node_id.ilike(search_term),
-                models.User.email.ilike(search_term),
-                models.User.username.ilike(search_term)
-            )
-        )
+    # Fetch all registered users
+    users = db.query(models.User).all()
 
-    all_matched_devices = query.order_by(models.Device.activated_at.desc()).all()
+    # Map user_id -> User details
+    user_map = {str(u.id): u for u in users}
 
-    # Pre-calculate user total ON hours for subscription heavy-user targeting (>5000 hours)
-    user_total_hours: dict = {}
-    for dev in all_matched_devices:
-        user_id = str(dev.home.owner_id) if (dev.home and dev.home.owner_id) else "unassigned"
-        on_hrs = round((dev.total_on_duration_seconds or 0) / 3600.0, 2)
-        user_total_hours[user_id] = user_total_hours.get(user_id, 0.0) + on_hrs
+    # Group devices by User ID -> Base Node ID (Physical Board)
+    grouped_by_user = {}
+    
+    # Initialize all registered users in grouped structure
+    for u in users:
+        uid = str(u.id)
+        grouped_by_user[uid] = {
+            "user_id": uid,
+            "username": u.username,
+            "email": u.email,
+            "phone": getattr(u, "phone_number", None) or getattr(u, "phone", None) or "N/A",
+            "created_at": u.created_at.isoformat() if hasattr(u, "created_at") and u.created_at else None,
+            "is_heavy_user": False,
+            "total_user_on_hours": 0.0,
+            "total_user_toggles": 0,
+            "total_boards_count": 0,
+            "total_switches_count": 0,
+            "boards_dict": {}
+        }
 
-    # Transform and apply dynamic warranty computation
-    records = []
-    active_count = 0
-    void_count = 0
-    expired_count = 0
-    heavy_users_set = set()
+    # Include Unassigned bucket if devices exist without owners
+    unassigned_uid = "unassigned"
+    grouped_by_user[unassigned_uid] = {
+        "user_id": unassigned_uid,
+        "username": "Unassigned Hardware",
+        "email": "unassigned@smartnest.local",
+        "phone": "N/A",
+        "created_at": None,
+        "is_heavy_user": False,
+        "total_user_on_hours": 0.0,
+        "total_user_toggles": 0,
+        "total_boards_count": 0,
+        "total_switches_count": 0,
+        "boards_dict": {}
+    }
 
-    for dev in all_matched_devices:
+    # Distribute devices into their physical boards per user
+    for dev in devices:
         owner = dev.home.owner if (dev.home and dev.home.owner) else None
-        user_id_str = str(owner.id) if owner else "unassigned"
-        user_email = owner.email if owner else "Unassigned / Guest"
-        username = owner.username if owner else "Unassigned"
+        uid = str(owner.id) if owner else unassigned_uid
+
+        if uid not in grouped_by_user:
+            grouped_by_user[uid] = {
+                "user_id": uid,
+                "username": owner.username if owner else "Unassigned",
+                "email": owner.email if owner else "Unassigned",
+                "phone": getattr(owner, "phone_number", None) if owner else "N/A",
+                "created_at": owner.created_at.isoformat() if owner and hasattr(owner, "created_at") and owner.created_at else None,
+                "is_heavy_user": False,
+                "total_user_on_hours": 0.0,
+                "total_user_toggles": 0,
+                "total_boards_count": 0,
+                "total_switches_count": 0,
+                "boards_dict": {}
+            }
+
+        raw_node = dev.node_id or f"DEV-{dev.id}"
+        base_node = raw_node.split('_')[0] if '_' in raw_node else raw_node
 
         toggles = dev.total_toggle_count or 0
         crashes = dev.crash_count or 0
         boots = dev.boot_count or 0
         on_secs = dev.total_on_duration_seconds or 0
         on_hours = round(on_secs / 3600.0, 2)
-        act_date = dev.activated_at or dev.created_at if hasattr(dev, "created_at") else datetime.datetime.utcnow()
-        calculated_status = compute_warranty_status(act_date, toggles, crashes)
+        act_date = dev.activated_at or (dev.created_at if hasattr(dev, "created_at") else datetime.datetime.utcnow())
+        calc_status = compute_warranty_status(act_date, toggles, crashes)
 
-        # Update model in DB if changed
-        if dev.warranty_status != calculated_status:
-            dev.warranty_status = calculated_status
+        if dev.warranty_status != calc_status:
+            dev.warranty_status = calc_status
             db.add(dev)
 
-        if calculated_status == models.WarrantyStatus.ACTIVE.value:
-            active_count += 1
-        elif calculated_status == models.WarrantyStatus.VOID.value:
-            void_count += 1
-        elif calculated_status == models.WarrantyStatus.EXPIRED.value:
-            expired_count += 1
+        user_boards = grouped_by_user[uid]["boards_dict"]
+        if base_node not in user_boards:
+            user_boards[base_node] = {
+                "base_node_id": base_node,
+                "board_name": f"ESP32 Switchboard ({base_node})",
+                "home_name": dev.home.name if dev.home else "Default Home",
+                "room_name": dev.room.name if dev.room else "Main Room",
+                "mac_address": dev.mac_address or "N/A",
+                "local_ip": getattr(dev, "local_ip", None) or "N/A",
+                "is_online": dev.is_online,
+                "firmware_version": "v12.5",
+                "activated_at": act_date.isoformat() if act_date else None,
+                "boot_count": boots,
+                "crash_count": crashes,
+                "total_board_toggles": 0,
+                "total_board_on_hours": 0.0,
+                "warranty_status": calc_status,
+                "switches": []
+            }
 
-        is_heavy = user_total_hours.get(user_id_str, 0.0) > 5000.0
-        if is_heavy and owner:
-            heavy_users_set.add(user_email)
+        b_entry = user_boards[base_node]
+        b_entry["total_board_toggles"] += toggles
+        b_entry["total_board_on_hours"] = round(b_entry["total_board_on_hours"] + on_hours, 2)
+        b_entry["boot_count"] = max(b_entry["boot_count"], boots)
+        b_entry["crash_count"] = max(b_entry["crash_count"], crashes)
+        if dev.is_online:
+            b_entry["is_online"] = True
+        if dev.local_ip and dev.local_ip not in ("0.0.0.0", "127.0.0.1", "N/A"):
+            b_entry["local_ip"] = dev.local_ip
 
-        # Filter check
-        if filter_warranty and filter_warranty.upper() != "ALL":
-            if calculated_status != filter_warranty.upper():
-                continue
+        # Board-level warranty evaluation
+        b_entry["warranty_status"] = compute_warranty_status(act_date, b_entry["total_board_toggles"], b_entry["crash_count"])
 
-        records.append({
+        b_entry["switches"].append({
             "device_id": str(dev.id),
-            "device_name": dev.name,
             "node_id": dev.node_id,
             "switch_channel": get_switch_label(dev),
+            "device_name": dev.name,
             "device_type": dev.device_type,
-            "user_email": user_email,
-            "username": username,
-            "toggle_count": toggles,
-            "total_on_hours": on_hours,
-            "crash_count": crashes,
-            "boot_count": boots,
-            "activated_at": act_date.isoformat() if act_date else None,
-            "warranty_status": calculated_status,
+            "toggles": toggles,
+            "on_hours": on_hours,
             "is_online": dev.is_online,
-            "is_heavy_user": is_heavy,
-            "user_total_on_hours": round(user_total_hours.get(user_id_str, 0.0), 2)
+            "current_state": dev.current_state or {},
+            "warranty_status": calc_status
         })
 
     try:
@@ -837,31 +878,96 @@ def get_usage_and_warranty_analytics(
     except Exception:
         db.rollback()
 
-    total_records = len(records)
-    total_pages = max(1, math.ceil(total_records / page_size))
+    # Flatten and calculate User Level Totals
+    all_user_records = []
+    total_physical_boards = 0
+    total_switches_count = 0
+    active_boards_count = 0
+    void_boards_count = 0
+    expired_boards_count = 0
+    heavy_users_count = 0
+
+    for uid, udata in list(grouped_by_user.items()):
+        boards_list = list(udata["boards_dict"].values())
+        if uid == unassigned_uid and len(boards_list) == 0:
+            continue
+
+        udata["hardware_boards"] = boards_list
+        udata["total_boards_count"] = len(boards_list)
+        udata["total_switches_count"] = sum(len(b["switches"]) for b in boards_list)
+        udata["total_user_toggles"] = sum(b["total_board_toggles"] for b in boards_list)
+        udata["total_user_on_hours"] = round(sum(b["total_board_on_hours"] for b in boards_list), 2)
+        udata["is_heavy_user"] = udata["total_user_on_hours"] > 5000.0
+
+        if udata["is_heavy_user"]:
+            heavy_users_count += 1
+
+        total_physical_boards += len(boards_list)
+        total_switches_count += udata["total_switches_count"]
+
+        for b in boards_list:
+            if b["warranty_status"] == models.WarrantyStatus.ACTIVE.value:
+                active_boards_count += 1
+            elif b["warranty_status"] == models.WarrantyStatus.VOID.value:
+                void_boards_count += 1
+            elif b["warranty_status"] == models.WarrantyStatus.EXPIRED.value:
+                expired_boards_count += 1
+
+        # Search Filtering
+        if search and search.strip():
+            st = search.strip().lower()
+            match_user = (
+                st in udata["email"].lower() or
+                st in udata["username"].lower() or
+                any(st in b["base_node_id"].lower() for b in boards_list) or
+                any(st in (b["mac_address"] or "").lower() for b in boards_list)
+            )
+            if not match_user:
+                continue
+
+        # Warranty Status Filtering (match if any board matches filter)
+        if filter_warranty and filter_warranty.upper() != "ALL":
+            fw = filter_warranty.upper()
+            filtered_boards = [b for b in boards_list if b["warranty_status"] == fw]
+            if not filtered_boards:
+                continue
+            udata["hardware_boards"] = filtered_boards
+
+        # Clean internal helper key
+        udata.pop("boards_dict", None)
+        all_user_records.append(udata)
+
+    # Sort users by total ON hours descending
+    all_user_records.sort(key=lambda u: u["total_user_on_hours"], reverse=True)
+
+    total_users_matched = len(all_user_records)
+    total_pages = max(1, math.ceil(total_users_matched / page_size))
     start_idx = (page - 1) * page_size
-    paginated_records = records[start_idx:start_idx + page_size]
+    paginated_users = all_user_records[start_idx:start_idx + page_size]
 
     return {
         "summary": {
-            "total_records": total_records,
-            "active_warranties": active_count,
-            "void_warranties": void_count,
-            "expired_warranties": expired_count,
-            "heavy_users_count": len(heavy_users_set)
+            "total_users": len(users),
+            "total_hardware_boards": total_physical_boards,
+            "total_switches": total_switches_count,
+            "active_warranties": active_boards_count,
+            "void_warranties": void_boards_count,
+            "expired_warranties": expired_boards_count,
+            "heavy_users_count": heavy_users_count
         },
         "pagination": {
             "page": page,
             "page_size": page_size,
             "total_pages": total_pages,
-            "total_records": total_records
+            "total_records": total_users_matched
         },
-        "records": paginated_records
+        "records": paginated_users
     }
 
 
 @router.get("/analytics/usage/export")
 def export_usage_warranty_csv(
+    user_id: Optional[str] = None,
     search: Optional[str] = None,
     filter_warranty: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -869,6 +975,7 @@ def export_usage_warranty_csv(
 ):
     """
     Generates downloadable legal CSV report for warranty validation and usage auditing.
+    Supports exporting all users or a specific single user account.
     """
     import csv
     import io
@@ -876,6 +983,9 @@ def export_usage_warranty_csv(
 
     query = db.query(models.Device).join(models.Home, models.Device.home_id == models.Home.id, isouter=True)\
                                   .join(models.User, models.Home.owner_id == models.User.id, isouter=True)
+
+    if user_id and user_id != "unassigned":
+        query = query.filter(models.User.id == user_id)
 
     if search:
         search_term = f"%{search.strip().lower()}%"
@@ -897,14 +1007,13 @@ def export_usage_warranty_csv(
     writer.writerow([
         "User Email",
         "Username",
-        "Device Name",
-        "Node ID",
-        "Switch Channel",
+        "Physical Board Node ID",
+        "Switch Channel / Name",
         "Device Type",
         "Toggle Cycles",
         "Total ON Hours",
-        "Crash Count",
-        "Boot Count",
+        "Board Crash Count",
+        "Board Boot Count",
         "Activated Date (UTC)",
         "Warranty Status",
         "Heavy User (>5000h)",
@@ -923,40 +1032,40 @@ def export_usage_warranty_csv(
         boots = dev.boot_count or 0
         on_secs = dev.total_on_duration_seconds or 0
         on_hours = round(on_secs / 3600.0, 2)
-        act_date = dev.activated_at if dev.activated_at else datetime.datetime.utcnow()
-        warranty_status = compute_warranty_status(act_date, toggles, crashes)
+        act_date = dev.activated_at or (dev.created_at if hasattr(dev, "created_at") else datetime.datetime.utcnow())
+        status = compute_warranty_status(act_date, toggles, crashes)
+
+        raw_node = dev.node_id or f"DEV-{dev.id}"
+        base_node = raw_node.split('_')[0] if '_' in raw_node else raw_node
 
         if filter_warranty and filter_warranty.upper() != "ALL":
-            if warranty_status != filter_warranty.upper():
+            if status != filter_warranty.upper():
                 continue
 
         writer.writerow([
             user_email,
             username,
-            dev.name,
-            dev.node_id,
-            get_switch_label(dev),
+            base_node,
+            f"{get_switch_label(dev)} ({dev.name})",
             dev.device_type,
             toggles,
-            f"{on_hours:.2f}",
+            f"{on_hours} hrs",
             crashes,
             boots,
-            act_date.strftime("%Y-%m-%d %H:%M:%S") if act_date else "N/A",
-            warranty_status,
+            act_date.isoformat() if act_date else "N/A",
+            status,
             "YES" if on_hours > 5000 else "NO",
             audit_timestamp
         ])
 
-    csv_content = output.getvalue()
-    filename = f"4Layers_Warranty_Usage_Report_{datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+    csv_data = output.getvalue()
+    filename = f"4Layers_Warranty_Audit_{user_id or 'Fleet'}_{datetime.datetime.utcnow().strftime('%Y%m%d')}.csv"
 
     return Response(
-        content=csv_content,
+        content=csv_data,
         media_type="text/csv",
         headers={
             "Content-Disposition": f"attachment; filename={filename}",
-            "Cache-Control": "no-cache"
+            "Access-Control-Expose-Headers": "Content-Disposition"
         }
     )
-
-
