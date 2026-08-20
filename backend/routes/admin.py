@@ -4,6 +4,8 @@ Provides endpoints for User Management, Live Device Monitoring, and MQTT/Firmwar
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from pydantic import BaseModel
@@ -12,12 +14,40 @@ import datetime
 import uuid
 import logging
 import math
+import os
 
 from backend.database import get_db
-from backend import models, mqtt
+from backend import models, mqtt, auth
 
 router = APIRouter(prefix="/api/admin", tags=["Admin Management"])
 logger = logging.getLogger(__name__)
+
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Qadir")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "qadir#/777")
+
+admin_security = HTTPBearer(auto_error=False)
+
+def get_current_admin(credentials: Optional[HTTPAuthorizationCredentials] = Depends(admin_security)):
+    """Enforce administrator authentication on admin endpoints."""
+    if not credentials or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin authentication required. Please log in."
+        )
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        if payload.get("role") != "admin" and not payload.get("is_admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Administrator privileges required"
+            )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired admin session token"
+        )
 
 # Global in-memory storage for real-time OTA progress & remote device logs
 OTA_STATUS_CACHE = {}  # { node_id: { "status": "downloading", "progress": 45, "updated_at": "..." } }
@@ -56,8 +86,37 @@ def append_device_log(node_id: str, log_message: str):
 mqtt.set_ota_ws_broadcaster(update_ota_status_cache)
 mqtt.set_device_log_broadcaster(append_device_log)
 
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+@router.post("/login")
+def admin_login(req: AdminLoginRequest):
+    """Authenticate administrator and return access token."""
+    username = req.username.strip() if req.username else ""
+    password = req.password.strip() if req.password else ""
+    
+    if username != ADMIN_USERNAME or password != ADMIN_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid administrator username or password"
+        )
+        
+    token_data = {
+        "sub": "admin",
+        "username": ADMIN_USERNAME,
+        "role": "admin",
+        "is_admin": True
+    }
+    token = auth.create_access_token(token_data, expires_delta=datetime.timedelta(days=30))
+    return {
+        "status": "SUCCESS",
+        "token": token,
+        "username": ADMIN_USERNAME
+    }
+
 @router.get("/ota/status")
-def get_ota_status():
+def get_ota_status(admin: dict = Depends(get_current_admin)):
     """Returns current in-memory dict of OTA progress per node with 30s timeout check and 5s auto-clear for completed/failed jobs."""
     now = datetime.datetime.utcnow()
     result = {}
@@ -93,7 +152,7 @@ def get_ota_status():
     return result
 
 @router.get("/devices/{node_id}/logs")
-def get_device_logs(node_id: str):
+def get_device_logs(node_id: str, admin: dict = Depends(get_current_admin)):
     """Retrieve last 100 live terminal log entries for a specific ESP32 node or all nodes."""
     clean_id = node_id.strip()
     if clean_id.upper() in ["ALL", "ALL_ONLINE_BOARDS", "BROADCAST"]:
@@ -136,7 +195,7 @@ from sqlalchemy import func
 import re
 
 @router.get("/stats")
-def get_admin_stats(db: Session = Depends(get_db)):
+def get_admin_stats(db: Session = Depends(get_db), admin: dict = Depends(get_current_admin)):
     """Overview statistics for Admin Dashboard."""
     total_users = db.query(models.User).count()
     devices = db.query(models.Device).all()
@@ -181,7 +240,8 @@ def list_all_users(
     limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = None,
     status: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: dict = Depends(get_current_admin)
 ):
     """List registered users with server-side pagination, search, and status filtering."""
     query = db.query(models.User)
@@ -301,7 +361,7 @@ def reenable_user_schedules(user: models.User, db: Session):
         logger.error("Error in reenable_user_schedules: %s", err)
 
 @router.put("/users/{user_id}/status")
-def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = Depends(get_db)):
+def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = Depends(get_db), admin: dict = Depends(get_current_admin)):
     """Enable or block user account access with custom reason & hardware safety shutdown."""
     try:
         u_uuid = uuid.UUID(user_id)
@@ -325,7 +385,7 @@ def update_user_status(user_id: str, status_in: UserStatusUpdate, db: Session = 
     return {"message": "User status updated successfully", "is_active": bool(user.is_active), "block_reason": user.block_reason}
 
 @router.delete("/users/{user_id}")
-def delete_user_account(user_id: str, payload: Optional[UserDeleteRequest] = None, db: Session = Depends(get_db)):
+def delete_user_account(user_id: str, payload: Optional[UserDeleteRequest] = None, db: Session = Depends(get_db), admin: dict = Depends(get_current_admin)):
     """Delete a user account, turn OFF physical hardware, purge linked resources, and lock access with reason."""
     try:
         u_uuid = uuid.UUID(user_id)
@@ -357,7 +417,8 @@ def list_all_devices(
     limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = None,
     online: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: dict = Depends(get_current_admin)
 ):
     """List all registered ESP32 physical hardware boards grouped by base node_id with pagination & filtering."""
     devices = db.query(models.Device).all()
@@ -498,7 +559,7 @@ async def _staggered_ota_broadcast_task(nodes: list, firmware_url: str, version:
         await asyncio.sleep(0.05)  # 50ms throttle delay between dispatches
 
 @router.post("/ota/trigger")
-def trigger_remote_ota(ota: OtaUpdateRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def trigger_remote_ota(ota: OtaUpdateRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db), admin: dict = Depends(get_current_admin)):
     """Publish remote OTA update command to ESP32 boards via MQTT with throttled broadcast for fleet scalability."""
     target_node = ota.device_id.split('_')[0] if ota.device_id else None
     
@@ -544,7 +605,7 @@ def trigger_remote_ota(ota: OtaUpdateRequest, background_tasks: BackgroundTasks,
         }
 
 @router.post("/mqtt/publish")
-def publish_custom_mqtt(req: MqttPublishRequest):
+def publish_custom_mqtt(req: MqttPublishRequest, admin: dict = Depends(get_current_admin)):
     """Publish custom MQTT JSON payload for testing & debugging."""
     try:
         mqtt.publish_message(req.topic, req.payload)
@@ -559,7 +620,7 @@ FIRMWARE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 os.makedirs(FIRMWARE_DIR, exist_ok=True)
 
 @router.post("/firmware/upload")
-async def upload_firmware_file(file: UploadFile = File(...)):
+async def upload_firmware_file(file: UploadFile = File(...), admin: dict = Depends(get_current_admin)):
     """Upload a new .bin firmware or .apk mobile app file for OTA updates."""
     if not (file.filename.endswith(".bin") or file.filename.endswith(".apk")):
         raise HTTPException(status_code=400, detail="Only .bin and .apk files are supported")
@@ -589,7 +650,7 @@ class AppVersionUpdatePayload(BaseModel):
     apk_url: str = "https://4layers.in/latest.apk"
 
 @router.get("/app/version")
-def admin_get_app_version(db: Session = Depends(get_db)):
+def admin_get_app_version(db: Session = Depends(get_db), admin: dict = Depends(get_current_admin)):
     """Retrieve current mobile app OTA version settings for admin control."""
     def get_setting(key: str, default: str) -> str:
         try:
@@ -607,7 +668,7 @@ def admin_get_app_version(db: Session = Depends(get_db)):
     }
 
 @router.post("/app/version")
-def admin_update_app_version(payload: AppVersionUpdatePayload, db: Session = Depends(get_db)):
+def admin_update_app_version(payload: AppVersionUpdatePayload, db: Session = Depends(get_db), admin: dict = Depends(get_current_admin)):
     """Update mobile app OTA version settings."""
     settings_map = {
         "latest_version": payload.latest_version.strip(),

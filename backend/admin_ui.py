@@ -73,6 +73,13 @@ ADMIN_HTML = """<!DOCTYPE html>
                         <i class="fa-solid fa-network-wired"></i>
                         <span>MQTT Broker: Connected</span>
                     </div>
+                    <div class="admin-user-badge" id="admin-user-badge" style="display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); padding: 6px 12px; border-radius: 20px;">
+                        <i class="fa-solid fa-user-shield" style="color: #00E676;"></i>
+                        <span id="admin-username-display" style="font-size: 12.5px; font-weight: 600; color: #f8fafc;">Admin: Qadir</span>
+                        <button class="btn btn-outline" id="btn-admin-logout" style="padding: 3px 8px; font-size: 11px; border-radius: 6px; margin-left: 4px; border-color: rgba(239,68,68,0.4); color: #ef4444;" title="Logout">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </div>
                     <button class="btn btn-primary" id="btn-refresh-data">
                         <i class="fa-solid fa-arrows-rotate"></i>
                         <span>Refresh Data</span>
@@ -454,6 +461,39 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
+    <!-- Admin Login Overlay -->
+    <div id="admin-login-overlay" class="login-overlay">
+        <div class="login-card">
+            <div class="login-header">
+                <img src="/admin/logo.png?v=2.5.10" alt="4Layers Logo" class="login-logo" />
+                <h2>4Layers Admin Console</h2>
+                <p>Secure Administrator Access</p>
+            </div>
+            <div id="login-error-banner" class="login-error" style="display: none;"></div>
+            <form id="admin-login-form">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500;"><i class="fa-solid fa-user"></i> Username</label>
+                    <input type="text" id="login-username" class="form-input" placeholder="Enter admin username" required autofocus autocomplete="username" style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 14px; border-radius: var(--radius-md); font-size: 13.5px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500;"><i class="fa-solid fa-lock"></i> Password</label>
+                    <div style="position: relative;">
+                        <input type="password" id="login-password" class="form-input" placeholder="Enter admin password" required autocomplete="current-password" style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 42px 10px 14px; border-radius: var(--radius-md); font-size: 13.5px;">
+                        <button type="button" id="toggle-login-password" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 16px;">
+                            <i class="fa-solid fa-eye" id="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to Admin Console
+                </button>
+            </form>
+            <div class="login-footer">
+                <span><i class="fa-solid fa-shield-halved" style="color: #00E676;"></i> 256-Bit TLS Encrypted Connection</span>
+            </div>
+        </div>
+    </div>
+
     <script src="/admin/app.js?v=2.5.10"></script>
 </body>
 </html>
@@ -476,6 +516,69 @@ ADMIN_CSS = """/* 4Layers Admin Console - Glassmorphic Dark Theme System */
     --radius-lg: 16px;
     --radius-md: 10px;
     --font-mono: 'JetBrains Mono', monospace;
+}
+
+.login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.97);
+    backdrop-filter: blur(20px);
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.login-card {
+    background: rgba(30, 41, 59, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 20px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 230, 118, 0.15);
+}
+.login-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+.login-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    object-fit: contain;
+    margin-bottom: 12px;
+    box-shadow: 0 0 20px rgba(0, 230, 118, 0.35);
+}
+.login-header h2 {
+    font-size: 19px;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 0.5px;
+}
+.login-header p {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+.login-error {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+.login-footer {
+    text-align: center;
+    margin-top: 22px;
+    font-size: 12px;
+    color: #64748b;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
@@ -598,6 +701,145 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     let allDevices = [];
     let serialPort = null;
 
+    const ADMIN_TOKEN_KEY = '4layers_admin_token';
+    const ADMIN_USER_KEY = '4layers_admin_user';
+
+    function getAdminToken() {
+        return localStorage.getItem(ADMIN_TOKEN_KEY);
+    }
+
+    function setAdminToken(token, username) {
+        localStorage.setItem(ADMIN_TOKEN_KEY, token);
+        localStorage.setItem(ADMIN_USER_KEY, username);
+        const nameEl = document.getElementById('admin-username-display');
+        if (nameEl) nameEl.textContent = `Admin: ${username || 'Qadir'}`;
+    }
+
+    function clearAdminToken() {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        localStorage.removeItem(ADMIN_USER_KEY);
+    }
+
+    function showLoginModal(errorMsg = '') {
+        const modal = document.getElementById('admin-login-overlay');
+        if (modal) {
+            modal.style.display = 'flex';
+            const errBox = document.getElementById('login-error-banner');
+            if (errBox) {
+                if (errorMsg) {
+                    errBox.textContent = errorMsg;
+                    errBox.style.display = 'block';
+                } else {
+                    errBox.style.display = 'none';
+                }
+            }
+        }
+    }
+
+    function hideLoginModal() {
+        const modal = document.getElementById('admin-login-overlay');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    async function authFetch(url, options = {}) {
+        const token = getAdminToken();
+        if (!token) {
+            showLoginModal("Please sign in to access the Admin Console.");
+            throw new Error("Unauthorized");
+        }
+        if (!options.headers) {
+            options.headers = {};
+        }
+        if (options.headers instanceof Headers) {
+            options.headers.set('Authorization', `Bearer ${token}`);
+        } else {
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, options);
+        if (response.status === 401 || response.status === 403) {
+            clearAdminToken();
+            showLoginModal("Session expired or unauthorized. Please log in again.");
+            throw new Error("Unauthorized");
+        }
+        return response;
+    }
+
+    // Connect Admin Login Form & Password Eye Toggle
+    const adminLoginForm = document.getElementById('admin-login-form');
+    const loginUsernameInput = document.getElementById('login-username');
+    const loginPasswordInput = document.getElementById('login-password');
+    const toggleLoginPasswordBtn = document.getElementById('toggle-login-password');
+    const btnAdminLogout = document.getElementById('btn-admin-logout');
+
+    if (toggleLoginPasswordBtn) {
+        toggleLoginPasswordBtn.addEventListener('click', () => {
+            const isPassword = loginPasswordInput.type === 'password';
+            loginPasswordInput.type = isPassword ? 'text' : 'password';
+            const icon = toggleLoginPasswordBtn.querySelector('i');
+            if (icon) {
+                icon.className = isPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+            }
+        });
+    }
+
+    if (adminLoginForm) {
+        adminLoginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = loginUsernameInput.value.trim();
+            const password = loginPasswordInput.value.trim();
+            const submitBtn = adminLoginForm.querySelector('button[type="submit"]');
+
+            if (!username || !password) {
+                showLoginModal("Please enter both username and password.");
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing In...';
+            }
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    setAdminToken(data.token, data.username);
+                    hideLoginModal();
+                    logTerminal(`Administrator '${data.username}' authenticated successfully!`, 'success');
+                    loadAllData();
+                } else {
+                    const err = await res.json();
+                    showLoginModal(err.detail || "Invalid administrator credentials.");
+                }
+            } catch (err) {
+                showLoginModal(`Connection error: ${err.message}`);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to Admin Console';
+                }
+            }
+        });
+    }
+
+    if (btnAdminLogout) {
+        btnAdminLogout.addEventListener('click', () => {
+            if (confirm("Are you sure you want to log out of the Admin Console?")) {
+                clearAdminToken();
+                showLoginModal("You have been logged out.");
+                logTerminal("Administrator logged out.", "info");
+            }
+        });
+    }
+
     const navItems = document.querySelectorAll('.nav-item');
     const tabPanes = document.querySelectorAll('.tab-pane');
     const activeTitle = document.getElementById('active-tab-title');
@@ -664,6 +906,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     });
 
     function logTerminal(message, type = 'info') {
+        if (!liveTerminal) return;
         const line = document.createElement('div');
         line.className = `term-line ${type}`;
         const timestamp = new Date().toLocaleTimeString();
@@ -674,7 +917,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchStats() {
         try {
-            const res = await fetch('/api/admin/stats');
+            const res = await authFetch('/api/admin/stats');
             if (res.ok) {
                 const data = await res.json();
                 document.getElementById('stat-total-users').textContent = data.total_users;
@@ -697,7 +940,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         
         try {
             const url = `/api/admin/users?page=${userCurrentPage}&limit=50&search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`;
-            const res = await fetch(url);
+            const res = await authFetch(url);
             if (res.ok) {
                 const responseData = await res.json();
                 allUsers = responseData.data || [];
@@ -818,7 +1061,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const url = `/api/admin/devices?page=${nodeCurrentPage}&limit=50&search=${encodeURIComponent(search)}&online=${encodeURIComponent(online)}`;
-            const res = await fetch(url);
+            const res = await authFetch(url);
             if (res.ok) {
                 const responseData = await res.json();
                 allDevices = responseData.data || [];
@@ -968,7 +1211,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const res = await fetch(`/api/admin/users/${userId}/status`, {
+            const res = await authFetch(`/api/admin/users/${userId}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: newStatus, reason: reason })
@@ -998,7 +1241,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         const finalReason = reason.trim() || "Account deleted by administrator";
 
         try {
-            const res = await fetch(`/api/admin/users/${userId}`, {
+            const res = await authFetch(`/api/admin/users/${userId}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reason: finalReason })
@@ -1061,7 +1304,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         try {
             logTerminal(`Publishing OTA Command... Target: ${target || 'ALL_ONLINE_BOARDS'}, Version: ${version}`, 'info');
             
-            const res = await fetch('/api/admin/ota/trigger', {
+            const res = await authFetch('/api/admin/ota/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1132,11 +1375,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     let currentOtaStatusMap = {};
 
     async function pollOtaStatus() {
+        if (!getAdminToken()) return;
         if (isPollingOta) return; // Prevent concurrent overlapping requests
         isPollingOta = true;
 
         try {
-            const res = await fetch('/api/admin/ota/status');
+            const res = await authFetch('/api/admin/ota/status');
             if (res.ok) {
                 const statusMap = await res.json();
                 currentOtaStatusMap = statusMap || {};
@@ -1410,7 +1654,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             formData.append('file', file);
             try {
-                const res = await fetch('/api/admin/firmware/upload', {
+                const res = await authFetch('/api/admin/firmware/upload', {
                     method: 'POST',
                     body: formData
                 });
@@ -1439,7 +1683,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         const payload = document.getElementById('test-mqtt-payload').value;
 
         try {
-            const res = await fetch('/api/admin/mqtt/publish', {
+            const res = await authFetch('/api/admin/mqtt/publish', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ topic, payload })
@@ -1483,13 +1727,14 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     let isPollingLogs = false;
 
     async function pollRemoteDeviceLogs() {
+        if (!getAdminToken()) return;
         if (isPollingLogs) return;
         isPollingLogs = true;
         const targetNode = monitorTargetNodeSelect ? monitorTargetNodeSelect.value : 'ALL';
         const queryTarget = targetNode || 'ALL';
 
         try {
-            const res = await fetch(`/api/admin/devices/${queryTarget}/logs`);
+            const res = await authFetch(`/api/admin/devices/${queryTarget}/logs`);
             if (res.ok) {
                 const data = await res.json();
                 const logs = data.logs || [];
@@ -1648,6 +1893,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     let isLoadingAllData = false;
     async function loadAllData() {
+        if (!getAdminToken()) return;
         if (isLoadingAllData) return;
         isLoadingAllData = true;
         try {
@@ -1657,8 +1903,28 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    btnRefresh.addEventListener('click', loadAllData);
-    loadAllData();
-    setInterval(loadAllData, 15000);
+    btnRefresh.addEventListener('click', () => {
+        if (getAdminToken()) {
+            loadAllData();
+        } else {
+            showLoginModal();
+        }
+    });
+
+    const initialToken = getAdminToken();
+    if (!initialToken) {
+        showLoginModal();
+    } else {
+        const savedUser = localStorage.getItem(ADMIN_USER_KEY);
+        const nameEl = document.getElementById('admin-username-display');
+        if (nameEl) nameEl.textContent = `Admin: ${savedUser || 'Qadir'}`;
+        loadAllData();
+    }
+
+    setInterval(() => {
+        if (getAdminToken()) {
+            loadAllData();
+        }
+    }, 15000);
 });
 """
