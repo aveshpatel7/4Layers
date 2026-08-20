@@ -137,6 +137,14 @@ int switch2_toggle_count = 0;
 
 volatile int pending_fan_speed = -1;
 
+// --- IoT Usage Analytics & Warranty Telemetry Variables ---
+uint32_t board_boot_count = 1;
+uint32_t board_crash_count = 0;
+uint32_t switch_toggles[6] = {0, 0, 0, 0, 0, 0}; // ch1..ch5 cumulative toggles
+uint32_t switch_on_ms[6] = {0, 0, 0, 0, 0, 0};   // ch1..ch5 accumulated ON ms
+unsigned long last_turn_on_time[6] = {0, 0, 0, 0, 0, 0};
+unsigned long last_telemetry_publish_time = 0;
+
 // ==========================================
 // FREERTOS COMMAND QUEUE ARCHITECTURE (FIFO Buffer)
 // ==========================================
@@ -374,6 +382,28 @@ void sendChannelState(int channel, bool status, int val = -1)
         doc["value"] = safe_speed;
     }
 
+    // IoT Usage Tracking: Increment toggle count and update active ON runtime
+    if (channel >= 1 && channel <= 5)
+    {
+        switch_toggles[channel]++;
+        unsigned long current_ms = millis();
+        if (status)
+        {
+            if (last_turn_on_time[channel] == 0)
+            {
+                last_turn_on_time[channel] = current_ms;
+            }
+        }
+        else
+        {
+            if (last_turn_on_time[channel] > 0)
+            {
+                switch_on_ms[channel] += (current_ms - last_turn_on_time[channel]);
+                last_turn_on_time[channel] = 0;
+            }
+        }
+    }
+
     char buffer[256];
     serializeJson(doc, buffer);
     
@@ -392,6 +422,46 @@ void sendChannelState(int channel, bool status, int val = -1)
     {
         Serial.printf("⚠️ [MQTT] Busy, dropped state publish for Channel %d\n", channel);
     }
+}
+
+void publishTelemetry()
+{
+    if (!mqtt_link_up || !client.connected()) return;
+
+    char telemetry_topic[100];
+    snprintf(telemetry_topic, sizeof(telemetry_topic), "home/device/%s/telemetry", NODE_ID);
+    
+    unsigned long now_ms = millis();
+
+    for (int ch = 1; ch <= 5; ch++)
+    {
+        uint32_t active_ms = switch_on_ms[ch];
+        if (last_turn_on_time[ch] > 0 && now_ms >= last_turn_on_time[ch])
+        {
+            active_ms += (now_ms - last_turn_on_time[ch]);
+        }
+        float on_hours = (float)active_ms / 3600000.0f;
+
+        StaticJsonDocument<256> doc;
+        doc["node_id"] = NODE_ID;
+        doc["channel"] = ch;
+        doc["toggles"] = switch_toggles[ch];
+        doc["on_hours"] = serialized(String(on_hours, 2));
+        doc["boot_count"] = board_boot_count;
+        doc["crash_count"] = board_crash_count;
+        doc["rssi"] = WiFi.RSSI();
+        doc["uptime"] = (uint32_t)(now_ms / 1000);
+
+        char buffer[256];
+        serializeJson(doc, buffer);
+
+        if (MQTT_LOCK_TAKE(pdMS_TO_TICKS(200)))
+        {
+            client.publish(telemetry_topic, buffer, false);
+            MQTT_LOCK_GIVE();
+        }
+    }
+    Serial.printf("📊 [TELEMETRY] Published usage & warranty stats for %s (Boot: %u, Crashes: %u)\n", NODE_ID, board_boot_count, board_crash_count);
 }
 
 void pref_save_fan() 
@@ -2047,6 +2117,27 @@ void setup()
     snprintf(command_topic, sizeof(command_topic), "home/device/%s/control", NODE_ID);
     snprintf(status_topic, sizeof(status_topic), "home/device/%s/status", NODE_ID);
 
+    // Track Boot Count and Crash / Brownout detection via NVS
+    esp_reset_reason_t reset_reason = esp_reset_reason();
+    preferences.begin("telemetry", false);
+    board_boot_count = preferences.getUInt("boot_count", 0) + 1;
+    preferences.putUInt("boot_count", board_boot_count);
+    board_crash_count = preferences.getUInt("crash_count", 0);
+    
+    // Check if reset was caused by a crash or brownout
+    if (reset_reason == ESP_RST_PANIC || 
+        reset_reason == ESP_RST_INT_WDT || 
+        reset_reason == ESP_RST_TASK_WDT || 
+        reset_reason == ESP_RST_WDT || 
+        reset_reason == ESP_RST_BROWNOUT) 
+    {
+        board_crash_count++;
+        preferences.putUInt("crash_count", board_crash_count);
+        Serial.printf("⚠️ [HARDWARE AUDIT] Abnormal Reset Detected (Reason %d)! Crash Count = %u\n", (int)reset_reason, board_crash_count);
+    }
+    preferences.end();
+    Serial.printf("📊 [NVS TELEMETRY] Boot Count: %u | Crash Count: %u\n", board_boot_count, board_crash_count);
+
     Serial.println("\n====================================");
     Serial.printf("📡 Node ID Generated: %s\n", NODE_ID);
     Serial.println("====================================\n");
@@ -2242,6 +2333,16 @@ void loop()
     else 
     {
         digitalWrite(wifiLed, (now_ms / 1000) % 2);
+    }
+
+    // Periodic IoT Usage & Warranty Telemetry publishing every 60 seconds
+    if (now_ms - last_telemetry_publish_time >= 60000)
+    {
+        last_telemetry_publish_time = now_ms;
+        if (mqtt_link_up)
+        {
+            publishTelemetry();
+        }
     }
 
     vTaskDelay(pdMS_TO_TICKS(50));
