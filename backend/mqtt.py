@@ -210,6 +210,46 @@ def on_message(client, userdata, msg):
                     previous_state = device.current_state or {}
                     was_offline = not device.is_online
                     
+                    # Handle telemetry counters (toggles, runtime hours, crashes, boots)
+                    if "toggles" in state_data or "toggle_count" in state_data:
+                        device.total_toggle_count = int(state_data.get("toggles") or state_data.get("toggle_count") or device.total_toggle_count or 0)
+                    if "on_hours" in state_data:
+                        device.total_on_duration_seconds = int(float(state_data["on_hours"]) * 3600)
+                    elif "on_duration_seconds" in state_data:
+                        device.total_on_duration_seconds = int(state_data["on_duration_seconds"])
+                    if "crash_count" in state_data:
+                        device.crash_count = int(state_data["crash_count"])
+                    if "boot_count" in state_data:
+                        device.boot_count = int(state_data["boot_count"])
+
+                    # Re-evaluate dynamic warranty status
+                    toggles_val = device.total_toggle_count or 0
+                    crashes_val = device.crash_count or 0
+                    act_date = device.activated_at or datetime.utcnow()
+                    if toggles_val > 100000 or crashes_val > 50:
+                        device.warranty_status = models.WarrantyStatus.VOID.value
+                    elif (datetime.utcnow() - act_date).days > 365:
+                        device.warranty_status = models.WarrantyStatus.EXPIRED.value
+                    else:
+                        device.warranty_status = models.WarrantyStatus.ACTIVE.value
+
+                    # Record snapshot in DeviceTelemetry table
+                    if is_telemetry or "toggles" in state_data or "on_hours" in state_data:
+                        telemetry_row = models.DeviceTelemetry(
+                            device_id=device.id,
+                            node_id=target_node_id,
+                            channel=state_data.get("channel"),
+                            toggles=toggles_val,
+                            on_duration_seconds=device.total_on_duration_seconds or 0,
+                            on_hours=round((device.total_on_duration_seconds or 0) / 3600.0, 2),
+                            boot_count=device.boot_count or 0,
+                            crash_count=crashes_val,
+                            rssi=state_data.get("rssi"),
+                            uptime_seconds=state_data.get("uptime"),
+                            raw_payload=state_data
+                        )
+                        db.add(telemetry_row)
+
                     clean_state = {
                         "status": state_data.get("status", "OFF")
                     }
@@ -222,7 +262,11 @@ def on_message(client, userdata, msg):
 
                     new_state = {**previous_state, **clean_state}
                     
-                    if previous_state != new_state or was_offline or incoming_local_ip:
+                    if previous_state != new_state or was_offline or incoming_local_ip or is_telemetry:
+                        # Increment toggle counter on real state change
+                        if previous_state.get("status") != clean_state.get("status") and clean_state.get("status") in ["ON", "OFF"]:
+                            device.total_toggle_count = (device.total_toggle_count or 0) + 1
+
                         device.current_state = new_state
                         device.is_online = True
                         if incoming_local_ip:
@@ -232,7 +276,7 @@ def on_message(client, userdata, msg):
                         
                         history_entry = models.DeviceHistory(
                             device_id=device.id,
-                            change_type="status_confirmed",
+                            change_type="telemetry_snapshot" if is_telemetry else "status_confirmed",
                             previous_state=previous_state,
                             new_state=clean_state
                         )
@@ -249,7 +293,7 @@ def on_message(client, userdata, msg):
                             db.add(alert_entry)
 
                         db.commit()
-                        logger.info("Device node %s status updated via MQTT: %s", target_node_id, state_data)
+                        logger.info("Device node %s updated via MQTT: %s", target_node_id, state_data)
                     else:
                         logger.info("Device node %s state is already up-to-date.", target_node_id)
                 else:

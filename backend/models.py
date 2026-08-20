@@ -1,9 +1,18 @@
 import uuid
 import datetime
-from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, text, JSON
+import enum
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, text, JSON, Integer, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from backend.database import Base
+
+
+class WarrantyStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    VOID = "VOID"
+    EXPIRED = "EXPIRED"
+    UNKNOWN = "UNKNOWN"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -65,12 +74,58 @@ class Device(Base):
     is_online = Column(Boolean, default=False, server_default=text("false"), nullable=False)
     current_state = Column(JSON, default={}, server_default=text("'{}'"), nullable=False)
     last_seen = Column(DateTime, default=datetime.datetime.utcnow, nullable=True)
+    activated_at = Column(DateTime, default=datetime.datetime.utcnow, server_default=text("timezone('utc', now())"), nullable=False)
+    warranty_status = Column(String(32), default=WarrantyStatus.ACTIVE.value, server_default=text("'ACTIVE'"), nullable=False)
+    total_toggle_count = Column(Integer, default=0, server_default=text("0"), nullable=False)
+    total_on_duration_seconds = Column(Integer, default=0, server_default=text("0"), nullable=False)
+    crash_count = Column(Integer, default=0, server_default=text("0"), nullable=False)
+    boot_count = Column(Integer, default=0, server_default=text("0"), nullable=False)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, server_default=text("timezone('utc', now())"), nullable=False)
 
     # Relationships
     home = relationship("Home", back_populates="devices")
     room = relationship("Room", back_populates="devices")
     history = relationship("DeviceHistory", back_populates="device", cascade="all, delete-orphan")
+    telemetry = relationship("DeviceTelemetry", back_populates="device", cascade="all, delete-orphan")
+
+    @property
+    def telemetries(self):
+        return self.telemetry
+
+    @property
+    def total_on_hours(self) -> float:
+        if not self.total_on_duration_seconds:
+            return 0.0
+        return round(self.total_on_duration_seconds / 3600.0, 2)
+
+
+class DeviceTelemetry(Base):
+    """
+    Periodic usage and diagnostic snapshots published by ESP32 boards.
+    Stores cumulative toggles, active ON durations, boot/crash events, and RF diagnostics.
+    """
+    __tablename__ = "device_telemetries"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4)
+    device_id = Column(UUID(as_uuid=True), ForeignKey("devices.id", ondelete="CASCADE"), nullable=True, index=True)
+    node_id = Column(String, index=True, nullable=False)
+    channel = Column(Integer, nullable=True)
+    toggles = Column(Integer, default=0, server_default=text("0"), nullable=False)
+    on_duration_seconds = Column(Integer, default=0, server_default=text("0"), nullable=False)
+    on_hours = Column(Float, default=0.0, server_default=text("0.0"), nullable=False)
+    boot_count = Column(Integer, default=0, server_default=text("0"), nullable=False)
+    crash_count = Column(Integer, default=0, server_default=text("0"), nullable=False)
+    rssi = Column(Integer, nullable=True)
+    uptime_seconds = Column(Integer, nullable=True)
+    raw_payload = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, server_default=text("timezone('utc', now())"), nullable=False)
+
+    # Relationships
+    device = relationship("Device", back_populates="telemetry")
+
+    @property
+    def timestamp(self):
+        return self.created_at
 
 
 class DeviceHistory(Base):

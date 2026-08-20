@@ -45,6 +45,10 @@ ADMIN_HTML = """<!DOCTYPE html>
                     <i class="fa-solid fa-bolt-lightning"></i>
                     <span>Firmware & OTA Center</span>
                 </button>
+                <button class="nav-item" data-tab="analytics">
+                    <i class="fa-solid fa-shield-heart"></i>
+                    <span>Usage & Warranty</span>
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -431,6 +435,113 @@ ADMIN_HTML = """<!DOCTYPE html>
                     <p class="card-desc" style="margin-bottom:10px;">Displays live execution, HTTP status, memory usage, and mandatory error traces for both USB Flashing and Remote MQTT OTA updates.</p>
                     <div class="terminal-box device-console-terminal" id="device-console-terminal-box" style="height: 320px; font-family: 'JetBrains Mono', monospace; background-color: #000; color: #00E676; padding: 14px; border: 1px solid rgba(0, 230, 118, 0.3);">
                         <div class="term-line info">[4LAYERS CONSOLE] Monitor Ready. Select target node or trigger OTA / USB flash to stream real-time logs...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: USAGE & WARRANTY REPORT -->
+            <section id="tab-analytics" class="tab-pane">
+                <div class="metrics-grid" style="margin-bottom: 20px;">
+                    <div class="metric-card">
+                        <div class="metric-icon green">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <div class="metric-info">
+                            <span class="metric-label">Active Warranties</span>
+                            <h3 id="stat-active-warranties">--</h3>
+                            <span class="metric-sub green">Protected Devices</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon red">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div class="metric-info">
+                            <span class="metric-label">Voided Warranties</span>
+                            <h3 id="stat-void-warranties">--</h3>
+                            <span class="metric-sub red">>100k Toggles / >50 Crashes</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon gray">
+                            <i class="fa-solid fa-calendar-xmark"></i>
+                        </div>
+                        <div class="metric-info">
+                            <span class="metric-label">Expired Warranties</span>
+                            <h3 id="stat-expired-warranties">--</h3>
+                            <span class="metric-sub">> 1 Year Operational</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon purple">
+                            <i class="fa-solid fa-crown"></i>
+                        </div>
+                        <div class="metric-info">
+                            <span class="metric-label">Heavy Users</span>
+                            <h3 id="stat-heavy-users">--</h3>
+                            <span class="metric-sub">> 5000 Total ON Hours</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-card">
+                    <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <h3><i class="fa-solid fa-file-shield"></i> IoT Usage & Warranty Validation Report</h3>
+                            <p class="card-desc" style="margin-top: 4px;">Automated warranty tracking, cumulative cycle toggles, runtime hours, and crash counter audits.</p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="btn btn-accent" id="btn-export-warranty-csv">
+                                <i class="fa-solid fa-file-arrow-down"></i> Export Warranty Report (CSV)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-actions" style="margin: 15px 0; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                        <div class="search-box" style="flex: 1; min-width: 250px; position: relative;">
+                            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                            <input type="text" id="warranty-search-input" placeholder="Search user email, device name, or node ID..." class="form-input" style="padding-left: 36px; width: 100%;">
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <select id="warranty-status-filter" class="form-select" style="min-width: 160px;">
+                                <option value="ALL">All Warranty Status</option>
+                                <option value="ACTIVE">Active (Valid)</option>
+                                <option value="VOID">Void (Abused)</option>
+                                <option value="EXPIRED">Expired (>1 Year)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table" id="usage-warranty-table">
+                            <thead>
+                                <tr>
+                                    <th>User Account</th>
+                                    <th>Device Name / Node ID</th>
+                                    <th>Switch / Channel</th>
+                                    <th>Toggle Cycles</th>
+                                    <th>Total ON Hours</th>
+                                    <th>Crashes</th>
+                                    <th>Activated On</th>
+                                    <th>Warranty Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usage-warranty-table-body">
+                                <tr><td colspan="8" class="text-center" style="padding: 24px;">Loading warranty & usage analytics...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-footer">
+                        <div class="pagination-info" id="warranty-pagination-info">Showing 0 to 0 of 0 records</div>
+                        <div class="pagination-controls">
+                            <button class="pagination-btn" id="warranty-prev-btn" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
+                            <span id="warranty-page-num" class="pagination-page">Page 1 of 1</span>
+                            <button class="pagination-btn" id="warranty-next-btn" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -888,7 +999,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         overview: { title: "Dashboard Overview", subtitle: "Real-time system operational stats and server metrics" },
         users: { title: "Users & Activity Monitor", subtitle: "Manage registered user accounts, active sessions, and linked devices" },
         nodes: { title: "MQTT Nodes Monitor", subtitle: "Real-time status, firmware versions, and WiFi signal strength" },
-        flasher: { title: "Firmware & OTA Center", subtitle: "Remote MQTT OTA updates and WebSerial browser USB flashing" }
+        flasher: { title: "Firmware & OTA Center", subtitle: "Remote MQTT OTA updates and WebSerial browser USB flashing" },
+        analytics: { title: "IoT Usage & Warranty Validation Report", subtitle: "Comprehensive appliance runtime analysis, cycle stress audits, and legal warranty status classification" }
     };
 
     navItems.forEach(button => {
@@ -1887,6 +1999,191 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     });
 
+    /* --- Usage Analytics & Warranty Validation Controller --- */
+    let warrantyCurrentPage = 1;
+    let warrantyTotalPages = 1;
+    let warrantyTotalRecords = 0;
+    const warrantyTableBody = document.getElementById('usage-warranty-table-body');
+    const warrantySearchInput = document.getElementById('warranty-search-input');
+    const warrantyStatusFilter = document.getElementById('warranty-status-filter');
+    const warrantyPrevBtn = document.getElementById('warranty-prev-btn');
+    const warrantyNextBtn = document.getElementById('warranty-next-btn');
+    const warrantyPageNum = document.getElementById('warranty-page-num');
+    const warrantyPaginationInfo = document.getElementById('warranty-pagination-info');
+    const btnExportWarrantyCsv = document.getElementById('btn-export-warranty-csv');
+
+    async function fetchUsageAnalytics(page = 1) {
+        warrantyCurrentPage = page;
+        if (!warrantyTableBody) return;
+        warrantyTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading usage analytics & warranty data...</td></tr>`;
+
+        const search = warrantySearchInput ? warrantySearchInput.value.trim() : '';
+        const filterVal = warrantyStatusFilter ? warrantyStatusFilter.value : 'ALL';
+
+        try {
+            const url = `/api/admin/analytics/usage?page=${warrantyCurrentPage}&page_size=25&search=${encodeURIComponent(search)}&filter_warranty=${encodeURIComponent(filterVal)}`;
+            const res = await authFetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                const summary = data.summary || {};
+                const pagination = data.pagination || {};
+                const records = data.records || [];
+
+                // Update Metric Cards
+                const activeEl = document.getElementById('stat-active-warranties');
+                const voidEl = document.getElementById('stat-void-warranties');
+                const expEl = document.getElementById('stat-expired-warranties');
+                const heavyEl = document.getElementById('stat-heavy-users');
+
+                if (activeEl) activeEl.textContent = summary.active_warranties ?? 0;
+                if (voidEl) voidEl.textContent = summary.void_warranties ?? 0;
+                if (expEl) expEl.textContent = summary.expired_warranties ?? 0;
+                if (heavyEl) heavyEl.textContent = summary.heavy_users_count ?? 0;
+
+                warrantyTotalRecords = pagination.total_records || 0;
+                warrantyTotalPages = pagination.total_pages || 1;
+                warrantyCurrentPage = pagination.page || 1;
+
+                if (warrantyPageNum) warrantyPageNum.textContent = `Page ${warrantyCurrentPage} of ${warrantyTotalPages}`;
+                if (warrantyPaginationInfo) {
+                    const startRec = records.length > 0 ? (warrantyCurrentPage - 1) * pagination.page_size + 1 : 0;
+                    const endRec = (warrantyCurrentPage - 1) * pagination.page_size + records.length;
+                    warrantyPaginationInfo.textContent = `Showing ${startRec} to ${endRec} of ${warrantyTotalRecords} records`;
+                }
+                if (warrantyPrevBtn) warrantyPrevBtn.disabled = warrantyCurrentPage <= 1;
+                if (warrantyNextBtn) warrantyNextBtn.disabled = warrantyCurrentPage >= warrantyTotalPages;
+
+                if (records.length === 0) {
+                    warrantyTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px; color: var(--text-secondary);">No usage or warranty records found.</td></tr>`;
+                    return;
+                }
+
+                warrantyTableBody.innerHTML = records.map(r => {
+                    let badgeClass = 'green';
+                    let iconClass = 'fa-shield-halved';
+                    if (r.warranty_status === 'VOID') {
+                        badgeClass = 'red';
+                        iconClass = 'fa-triangle-exclamation';
+                    } else if (r.warranty_status === 'EXPIRED') {
+                        badgeClass = 'gray';
+                        iconClass = 'fa-calendar-xmark';
+                    }
+
+                    const heavyTag = r.is_heavy_user ? `<span class="badge purple" style="margin-left: 6px; font-size: 9.5px;" title="Heavy User: >5000 ON Hours"><i class="fa-solid fa-crown"></i> Heavy</span>` : '';
+                    const actDateFormatted = r.activated_at ? new Date(r.activated_at).toLocaleDateString() : 'N/A';
+
+                    return `
+                        <tr>
+                            <td>
+                                <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center;">
+                                    ${escapeHtml(r.user_email)}
+                                    ${heavyTag}
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">@${escapeHtml(r.username)}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 500; color: var(--text-primary);">${escapeHtml(r.device_name)}</div>
+                                <div style="font-size: 11px; color: #3b82f6; font-family: var(--font-mono);">${escapeHtml(r.node_id)}</div>
+                            </td>
+                            <td>
+                                <span style="font-weight: 600; color: #f8fafc;">${escapeHtml(r.switch_channel)}</span>
+                            </td>
+                            <td>
+                                <span style="font-family: var(--font-mono); font-weight: 700; color: ${r.toggle_count > 100000 ? '#ef4444' : '#00E676'};">${Number(r.toggle_count).toLocaleString()}</span>
+                                <div style="font-size: 10px; color: var(--text-secondary);">cycles</div>
+                            </td>
+                            <td>
+                                <span style="font-family: var(--font-mono); font-weight: 700; color: #38bdf8;">${r.total_on_hours} hrs</span>
+                            </td>
+                            <td>
+                                <span style="font-family: var(--font-mono); font-weight: 700; color: ${r.crash_count > 50 ? '#ef4444' : (r.crash_count > 0 ? '#f59e0b' : '#94a3b8')};">${r.crash_count}</span>
+                                <div style="font-size: 10px; color: var(--text-secondary);">${r.boot_count} boots</div>
+                            </td>
+                            <td style="font-size: 12px; color: var(--text-secondary);">
+                                ${actDateFormatted}
+                            </td>
+                            <td>
+                                <span class="badge ${badgeClass}">
+                                    <i class="fa-solid ${iconClass}"></i> ${r.warranty_status}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                warrantyTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px; color: var(--accent-red);">Failed to load warranty analytics (HTTP ${res.status}).</td></tr>`;
+            }
+        } catch (err) {
+            if (warrantyTableBody) {
+                warrantyTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px; color: var(--accent-red);">Error: ${err.message}</td></tr>`;
+            }
+        }
+    }
+
+    if (warrantySearchInput) {
+        let debounceTimer;
+        warrantySearchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fetchUsageAnalytics(1), 300);
+        });
+    }
+
+    if (warrantyStatusFilter) {
+        warrantyStatusFilter.addEventListener('change', () => fetchUsageAnalytics(1));
+    }
+
+    if (warrantyPrevBtn) {
+        warrantyPrevBtn.addEventListener('click', () => {
+            if (warrantyCurrentPage > 1) fetchUsageAnalytics(warrantyCurrentPage - 1);
+        });
+    }
+
+    if (warrantyNextBtn) {
+        warrantyNextBtn.addEventListener('click', () => {
+            if (warrantyCurrentPage < warrantyTotalPages) fetchUsageAnalytics(warrantyCurrentPage + 1);
+        });
+    }
+
+    if (btnExportWarrantyCsv) {
+        btnExportWarrantyCsv.addEventListener('click', async () => {
+            try {
+                btnExportWarrantyCsv.disabled = true;
+                btnExportWarrantyCsv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating CSV...`;
+                const search = warrantySearchInput ? warrantySearchInput.value.trim() : '';
+                const filterVal = warrantyStatusFilter ? warrantyStatusFilter.value : 'ALL';
+                
+                const token = getAdminToken();
+                const exportUrl = `/api/admin/analytics/usage/export?search=${encodeURIComponent(search)}&filter_warranty=${encodeURIComponent(filterVal)}`;
+                
+                const response = await fetch(exportUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `4Layers_Warranty_Report_${new Date().toISOString().slice(0,10)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(downloadUrl);
+                    logTerminal("Exported Warranty & Usage Audit CSV report successfully.", "success");
+                } else {
+                    alert("Failed to export CSV. Please ensure you are logged in.");
+                }
+            } catch (e) {
+                alert(`Export Error: ${e.message}`);
+            } finally {
+                btnExportWarrantyCsv.disabled = false;
+                btnExportWarrantyCsv.innerHTML = `<i class="fa-solid fa-file-arrow-down"></i> Export Warranty Report (CSV)`;
+            }
+        });
+    }
+
     function escapeHtml(str) {
         return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
@@ -1897,7 +2194,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         if (isLoadingAllData) return;
         isLoadingAllData = true;
         try {
-            await Promise.all([fetchStats(), fetchUsers(userCurrentPage), fetchDevices(nodeCurrentPage)]);
+            await Promise.all([fetchStats(), fetchUsers(userCurrentPage), fetchDevices(nodeCurrentPage), fetchUsageAnalytics(warrantyCurrentPage)]);
         } finally {
             isLoadingAllData = false;
         }

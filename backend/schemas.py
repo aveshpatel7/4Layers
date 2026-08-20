@@ -1,7 +1,18 @@
 import datetime
+from enum import Enum
 from typing import Optional, Any, Dict, List
 from pydantic import BaseModel, Field, EmailStr
 from uuid import UUID
+
+# --- Warranty Enums ---
+class WarrantyStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    VOID = "VOID"
+    EXPIRED = "EXPIRED"
+    UNKNOWN = "UNKNOWN"
+
+WarrantyStatusEnum = WarrantyStatus
+
 
 # --- User Schemas ---
 class UserBase(BaseModel):
@@ -98,6 +109,8 @@ class DeviceBase(BaseModel):
 class DeviceCreate(DeviceBase):
     room_id: Optional[UUID] = None
     home_id: UUID
+    mac_address: Optional[str] = None
+    activated_at: Optional[datetime.datetime] = None
 
 class DeviceResponse(DeviceBase):
     id: UUID
@@ -111,6 +124,13 @@ class DeviceResponse(DeviceBase):
     is_online: bool
     current_state: Dict[str, Any] = {}
     last_seen: Optional[datetime.datetime] = None
+    activated_at: Optional[datetime.datetime] = None
+    warranty_status: Optional[str] = "ACTIVE"
+    total_toggle_count: int = 0
+    total_on_duration_seconds: int = 0
+    total_on_hours: Optional[float] = 0.0
+    crash_count: int = 0
+    boot_count: int = 0
     updated_at: datetime.datetime
 
     model_config = {
@@ -121,6 +141,8 @@ class DeviceUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     device_type: Optional[str] = Field(None, description="Must be 'light', 'fan', or 'outlet'")
     room_id: Optional[UUID] = None
+    activated_at: Optional[datetime.datetime] = None
+    warranty_status: Optional[str] = None
 
 class DeviceProvision(BaseModel):
     mac_address: str = Field(..., min_length=1, description="MAC address of the physical hardware")
@@ -257,4 +279,72 @@ class PendingInviteItemResponse(BaseModel):
     inviter_username: str
     inviter_email: str
     created_at: datetime.datetime
+
+
+# --- Device Telemetry Schemas ---
+class DeviceTelemetryBase(BaseModel):
+    node_id: str
+    channel: Optional[int] = None
+    toggles: int = 0
+    on_duration_seconds: int = 0
+    on_hours: float = 0.0
+    boot_count: int = 0
+    crash_count: int = 0
+    rssi: Optional[int] = None
+    uptime_seconds: Optional[int] = None
+    raw_payload: Optional[Dict[str, Any]] = None
+
+class DeviceTelemetryCreate(DeviceTelemetryBase):
+    device_id: Optional[UUID] = None
+
+class DeviceTelemetryResponse(DeviceTelemetryBase):
+    id: UUID
+    device_id: Optional[UUID] = None
+    created_at: datetime.datetime
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+# --- Usage & Warranty Analytics Schemas ---
+class UsageAnalyticsSummary(BaseModel):
+    total_devices: int = 0
+    active_count: int = 0
+    expired_count: int = 0
+    void_count: int = 0
+    heavy_user_count: int = 0
+
+class UsageAnalyticsItem(BaseModel):
+    user_id: Optional[UUID] = None
+    user_email: Optional[str] = None
+    user_name: Optional[str] = None
+    is_heavy_user: bool = False
+    user_total_on_hours: float = 0.0
+    device_id: UUID
+    node_id: str
+    device_name: str
+    device_type: str
+    channel: Optional[int] = None
+    total_toggle_count: int = 0
+    total_on_duration_seconds: int = 0
+    total_on_hours: float = 0.0
+    crash_count: int = 0
+    boot_count: int = 0
+    activated_at: Optional[datetime.datetime] = None
+    warranty_status: str = "ACTIVE"
+    warranty_reason: Optional[str] = None
+
+    model_config = {
+        "from_attributes": True
+    }
+
+class UsageAnalyticsResponse(BaseModel):
+    total_records: int
+    page: int
+    page_size: int
+    total_pages: int
+    summary: UsageAnalyticsSummary
+    items: List[UsageAnalyticsItem]
+
 

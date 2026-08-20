@@ -697,3 +697,266 @@ def admin_update_app_version(payload: AppVersionUpdatePayload, db: Session = Dep
         }
     }
 
+
+def compute_warranty_status(activated_at: Optional[datetime.datetime], total_toggles: int, crash_count: int) -> str:
+    """
+    Evaluates dynamic warranty status:
+    - VOID if total_toggles > 100,000 OR crash_count > 50 (hardware abuse / extreme stress / unstable power)
+    - EXPIRED if activated_at > 365 days ago
+    - ACTIVE if within 1 year and thresholds are not breached
+    """
+    if (total_toggles or 0) > 100000 or (crash_count or 0) > 50:
+        return models.WarrantyStatus.VOID.value
+    if activated_at:
+        now_dt = datetime.datetime.now(datetime.timezone.utc) if activated_at.tzinfo else datetime.datetime.utcnow()
+        if (now_dt - activated_at).days > 365:
+            return models.WarrantyStatus.EXPIRED.value
+    return models.WarrantyStatus.ACTIVE.value
+
+
+def get_switch_label(device: models.Device) -> str:
+    """Derives user-friendly switch/channel name from node_id or device_type."""
+    if device.node_id and "_" in device.node_id:
+        suffix = device.node_id.rsplit("_", 1)[-1]
+        if suffix.isdigit():
+            s_num = int(suffix)
+            if s_num == 5 or device.device_type == "fan":
+                return "Fan"
+            elif s_num in [6, 7] or device.device_type == "master":
+                return "Master Switch"
+            else:
+                return f"Switch {s_num}"
+    if device.device_type == "fan":
+        return "Fan"
+    elif device.device_type == "master":
+        return "Master Switch"
+    return device.name or "Switch"
+
+
+@router.get("/analytics/usage")
+def get_usage_and_warranty_analytics(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
+    search: Optional[str] = None,
+    filter_warranty: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Returns aggregated IoT usage telemetry and warranty validation records.
+    Columns: User Email, Username, Device ID, Device Name, Node ID, Switch/Channel,
+             Toggle Count, Total ON Hours, Crash Count, Activated Date, Warranty Status, is_heavy_user.
+    """
+    # Query all devices with home and owner pre-loaded
+    query = db.query(models.Device).join(models.Home, models.Device.home_id == models.Home.id, isouter=True)\
+                                  .join(models.User, models.Home.owner_id == models.User.id, isouter=True)
+
+    if search:
+        search_term = f"%{search.strip().lower()}%"
+        query = query.filter(
+            or_(
+                models.Device.name.ilike(search_term),
+                models.Device.node_id.ilike(search_term),
+                models.User.email.ilike(search_term),
+                models.User.username.ilike(search_term)
+            )
+        )
+
+    all_matched_devices = query.order_by(models.Device.activated_at.desc()).all()
+
+    # Pre-calculate user total ON hours for subscription heavy-user targeting (>5000 hours)
+    user_total_hours: dict = {}
+    for dev in all_matched_devices:
+        user_id = str(dev.home.owner_id) if (dev.home and dev.home.owner_id) else "unassigned"
+        on_hrs = round((dev.total_on_duration_seconds or 0) / 3600.0, 2)
+        user_total_hours[user_id] = user_total_hours.get(user_id, 0.0) + on_hrs
+
+    # Transform and apply dynamic warranty computation
+    records = []
+    active_count = 0
+    void_count = 0
+    expired_count = 0
+    heavy_users_set = set()
+
+    for dev in all_matched_devices:
+        owner = dev.home.owner if (dev.home and dev.home.owner) else None
+        user_id_str = str(owner.id) if owner else "unassigned"
+        user_email = owner.email if owner else "Unassigned / Guest"
+        username = owner.username if owner else "Unassigned"
+
+        toggles = dev.total_toggle_count or 0
+        crashes = dev.crash_count or 0
+        boots = dev.boot_count or 0
+        on_secs = dev.total_on_duration_seconds or 0
+        on_hours = round(on_secs / 3600.0, 2)
+        act_date = dev.activated_at or dev.created_at if hasattr(dev, "created_at") else datetime.datetime.utcnow()
+        calculated_status = compute_warranty_status(act_date, toggles, crashes)
+
+        # Update model in DB if changed
+        if dev.warranty_status != calculated_status:
+            dev.warranty_status = calculated_status
+            db.add(dev)
+
+        if calculated_status == models.WarrantyStatus.ACTIVE.value:
+            active_count += 1
+        elif calculated_status == models.WarrantyStatus.VOID.value:
+            void_count += 1
+        elif calculated_status == models.WarrantyStatus.EXPIRED.value:
+            expired_count += 1
+
+        is_heavy = user_total_hours.get(user_id_str, 0.0) > 5000.0
+        if is_heavy and owner:
+            heavy_users_set.add(user_email)
+
+        # Filter check
+        if filter_warranty and filter_warranty.upper() != "ALL":
+            if calculated_status != filter_warranty.upper():
+                continue
+
+        records.append({
+            "device_id": str(dev.id),
+            "device_name": dev.name,
+            "node_id": dev.node_id,
+            "switch_channel": get_switch_label(dev),
+            "device_type": dev.device_type,
+            "user_email": user_email,
+            "username": username,
+            "toggle_count": toggles,
+            "total_on_hours": on_hours,
+            "crash_count": crashes,
+            "boot_count": boots,
+            "activated_at": act_date.isoformat() if act_date else None,
+            "warranty_status": calculated_status,
+            "is_online": dev.is_online,
+            "is_heavy_user": is_heavy,
+            "user_total_on_hours": round(user_total_hours.get(user_id_str, 0.0), 2)
+        })
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    total_records = len(records)
+    total_pages = max(1, math.ceil(total_records / page_size))
+    start_idx = (page - 1) * page_size
+    paginated_records = records[start_idx:start_idx + page_size]
+
+    return {
+        "summary": {
+            "total_records": total_records,
+            "active_warranties": active_count,
+            "void_warranties": void_count,
+            "expired_warranties": expired_count,
+            "heavy_users_count": len(heavy_users_set)
+        },
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_records": total_records
+        },
+        "records": paginated_records
+    }
+
+
+@router.get("/analytics/usage/export")
+def export_usage_warranty_csv(
+    search: Optional[str] = None,
+    filter_warranty: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Generates downloadable legal CSV report for warranty validation and usage auditing.
+    """
+    import csv
+    import io
+    from fastapi.responses import Response
+
+    query = db.query(models.Device).join(models.Home, models.Device.home_id == models.Home.id, isouter=True)\
+                                  .join(models.User, models.Home.owner_id == models.User.id, isouter=True)
+
+    if search:
+        search_term = f"%{search.strip().lower()}%"
+        query = query.filter(
+            or_(
+                models.Device.name.ilike(search_term),
+                models.Device.node_id.ilike(search_term),
+                models.User.email.ilike(search_term),
+                models.User.username.ilike(search_term)
+            )
+        )
+
+    devices = query.order_by(models.Device.activated_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write Legal CSV Header
+    writer.writerow([
+        "User Email",
+        "Username",
+        "Device Name",
+        "Node ID",
+        "Switch Channel",
+        "Device Type",
+        "Toggle Cycles",
+        "Total ON Hours",
+        "Crash Count",
+        "Boot Count",
+        "Activated Date (UTC)",
+        "Warranty Status",
+        "Heavy User (>5000h)",
+        "Audit Timestamp (UTC)"
+    ])
+
+    audit_timestamp = datetime.datetime.utcnow().isoformat()
+
+    for dev in devices:
+        owner = dev.home.owner if (dev.home and dev.home.owner) else None
+        user_email = owner.email if owner else "Unassigned / Guest"
+        username = owner.username if owner else "Unassigned"
+
+        toggles = dev.total_toggle_count or 0
+        crashes = dev.crash_count or 0
+        boots = dev.boot_count or 0
+        on_secs = dev.total_on_duration_seconds or 0
+        on_hours = round(on_secs / 3600.0, 2)
+        act_date = dev.activated_at if dev.activated_at else datetime.datetime.utcnow()
+        warranty_status = compute_warranty_status(act_date, toggles, crashes)
+
+        if filter_warranty and filter_warranty.upper() != "ALL":
+            if warranty_status != filter_warranty.upper():
+                continue
+
+        writer.writerow([
+            user_email,
+            username,
+            dev.name,
+            dev.node_id,
+            get_switch_label(dev),
+            dev.device_type,
+            toggles,
+            f"{on_hours:.2f}",
+            crashes,
+            boots,
+            act_date.strftime("%Y-%m-%d %H:%M:%S") if act_date else "N/A",
+            warranty_status,
+            "YES" if on_hours > 5000 else "NO",
+            audit_timestamp
+        ])
+
+    csv_content = output.getvalue()
+    filename = f"4Layers_Warranty_Usage_Report_{datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Cache-Control": "no-cache"
+        }
+    )
+
+

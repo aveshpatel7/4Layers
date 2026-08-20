@@ -297,28 +297,47 @@ def startup_event():
     Base.metadata.create_all(bind=engine)
     
     try:
-        with engine.begin() as conn:
-            # Check sqlite vs postgres
-            is_sqlite = "sqlite" in str(engine.url)
-            
-            # Migration check for new columns
-            for table, col, dtype, default in [
-                ("users", "email_verified", "BOOLEAN", "DEFAULT FALSE"),
-                ("users", "email_verification_token", "VARCHAR(255)", ""),
-                ("users", "email_verification_sent_at", "DATETIME", ""),
-                ("users", "reset_password_token", "VARCHAR(255)", ""),
-                ("users", "reset_password_sent_at", "DATETIME", ""),
-                ("devices", "local_ip", "VARCHAR(64)", ""),
-            ]:
-                if is_sqlite:
-                    cmd = f"ALTER TABLE {table} ADD COLUMN {col} {dtype}"
-                else:
-                    cmd = f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {dtype}"
-                if default:
-                    cmd += f" {default}"
-                conn.execute(text(cmd))
-    except Exception as col_err:
-        logger.info("Migration status for %s.%s: %s", table, col, col_err)
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        is_sqlite = "sqlite" in str(engine.url)
+
+        # Migration matrix: (table, col, pg_type, sqlite_type, default_clause)
+        columns_to_migrate = [
+            ("users", "email_verified", "BOOLEAN", "BOOLEAN", "DEFAULT FALSE"),
+            ("users", "email_verification_token", "VARCHAR(255)", "VARCHAR(255)", None),
+            ("users", "email_verification_sent_at", "TIMESTAMP WITH TIME ZONE", "DATETIME", None),
+            ("users", "reset_password_token", "VARCHAR(255)", "VARCHAR(255)", None),
+            ("users", "reset_password_sent_at", "TIMESTAMP WITH TIME ZONE", "DATETIME", None),
+            ("devices", "local_ip", "VARCHAR(64)", "VARCHAR(64)", None),
+            # Milestone 1: Warranty & Usage Analytics Columns
+            ("devices", "activated_at", "TIMESTAMP WITH TIME ZONE", "DATETIME", "DEFAULT CURRENT_TIMESTAMP"),
+            ("devices", "warranty_status", "VARCHAR(32)", "VARCHAR(32)", "DEFAULT 'ACTIVE'"),
+            ("devices", "total_toggle_count", "INTEGER", "INTEGER", "DEFAULT 0"),
+            ("devices", "total_on_duration_seconds", "INTEGER", "INTEGER", "DEFAULT 0"),
+            ("devices", "crash_count", "INTEGER", "INTEGER", "DEFAULT 0"),
+            ("devices", "boot_count", "INTEGER", "INTEGER", "DEFAULT 0"),
+        ]
+
+        for table, col, pg_type, sqlite_type, default in columns_to_migrate:
+            if table in existing_tables:
+                current_cols = {c["name"] for c in inspector.get_columns(table)}
+                if col not in current_cols:
+                    dtype = sqlite_type if is_sqlite else pg_type
+                    if is_sqlite:
+                        cmd = f"ALTER TABLE {table} ADD COLUMN {col} {dtype}"
+                    else:
+                        cmd = f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {dtype}"
+                    if default:
+                        cmd += f" {default}"
+                    try:
+                        with engine.begin() as conn:
+                            conn.execute(text(cmd))
+                        logger.info("Auto-migration: Added column %s.%s successfully.", table, col)
+                    except Exception as col_err:
+                        logger.warning("Auto-migration warning on %s.%s: %s", table, col, col_err)
+    except Exception as mig_err:
+        logger.error("Startup auto-migration encountered error: %s", mig_err)
         
     print("Database tables initialized and schema verified.")
 
