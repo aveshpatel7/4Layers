@@ -164,7 +164,8 @@ export default function DashboardScreen({ navigation }) {
 
   const fetchRoomsMapping = async () => {
     try {
-      const roomsRes = await apiClient.get('/api/rooms');
+      // 2.5s fast timeout to prevent long stalls on offline Wi-Fi (no WAN internet)
+      const roomsRes = await apiClient.get('/api/rooms', { timeout: 2500 });
       if (roomsRes.data && roomsRes.data.length > 0) {
         const mapping = {};
         roomsRes.data.forEach(r => {
@@ -178,18 +179,18 @@ export default function DashboardScreen({ navigation }) {
         
         // Auto-select first room if none is selected, or if selected room was deleted
         const roomIds = roomsRes.data.map(r => r.id);
+        const lastSelected = await AsyncStorage.getItem('@4layers_last_selected_room');
         setSelectedRoom(prev => {
-          if (!prev || !roomIds.includes(prev)) {
-            return roomsRes.data[0].id;
-          }
-          return prev;
+          if (prev && roomIds.includes(prev)) return prev;
+          if (lastSelected && roomIds.includes(lastSelected)) return lastSelected;
+          return roomsRes.data[0].id;
         });
       } else {
         setDbRooms([]);
         setSelectedRoom("");
       }
     } catch (e) {
-      console.warn("Failed to fetch room mapping (offline):", e);
+      console.warn("Failed to fetch room mapping (offline, using cache):", e?.message || e);
       try {
         const cached = await AsyncStorage.getItem('@4layers_cached_rooms');
         if (cached) {
@@ -199,7 +200,13 @@ export default function DashboardScreen({ navigation }) {
             parsed.forEach(r => { mapping[r.id] = r.name; });
             setRoomMapping(mapping);
             setDbRooms(parsed);
-            setSelectedRoom(prev => prev || parsed[0].id);
+            const roomIds = parsed.map(r => r.id);
+            const lastSelected = await AsyncStorage.getItem('@4layers_last_selected_room');
+            setSelectedRoom(prev => {
+              if (prev && roomIds.includes(prev)) return prev;
+              if (lastSelected && roomIds.includes(lastSelected)) return lastSelected;
+              return parsed[0].id;
+            });
           }
         }
       } catch (_) {}
@@ -208,21 +215,21 @@ export default function DashboardScreen({ navigation }) {
 
   const fetchUnreadAlertsCount = async () => {
     try {
-      const res = await apiClient.get('/api/alerts?unread_only=true');
+      const res = await apiClient.get('/api/alerts?unread_only=true', { timeout: 2500 });
       setUnreadAlertsCount(res.data.length);
     } catch (e) {
-      console.warn("Failed to fetch unread alerts count:", e);
+      // Offline silent
     }
   };
 
   const fetchProfile = async () => {
     try {
-      const res = await apiClient.get('/api/users/me');
+      const res = await apiClient.get('/api/users/me', { timeout: 2500 });
       if (res.data && res.data.username) {
         setUsername(res.data.username);
       }
     } catch (e) {
-      console.warn("Failed to fetch user profile name:", e);
+      // Offline silent
     }
   };
 
@@ -256,12 +263,61 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const fetchDevices = async (showLoading = false) => {
-    if (showLoading) {
+    if (showLoading && devices.length === 0) {
       setIsLoading(true);
     }
+
+    // 1. FAST LOCAL LAN PING: If phone is on Wi-Fi, immediately query local hardware
+    if (isPhoneOnWifiRef.current || isPhoneOnWifi) {
+      try {
+        const cachedDevStr = await AsyncStorage.getItem('@4layers_cached_devices');
+        const sourceDevs = devices.length > 0 ? devices : (cachedDevStr ? JSON.parse(cachedDevStr) : []);
+        if (Array.isArray(sourceDevs) && sourceDevs.length > 0) {
+          const uniqueNodes = Array.from(new Set(sourceDevs.map(d => getBaseNodeId(d.node_id)).filter(Boolean)));
+          const pingPromises = uniqueNodes.map(async (baseNodeId) => {
+            const localIp = sourceDevs.find(d => getBaseNodeId(d.node_id) === baseNodeId)?.local_ip || getDeviceLocalIp(baseNodeId);
+            const localState = await pingLocalDevice(baseNodeId, localIp, 1000);
+            return { baseNodeId, localIp, localState };
+          });
+          const pingResults = await Promise.all(pingPromises);
+          const pingMap = new Map(pingResults.map(r => [r.baseNodeId, r]));
+
+          let anyLocalPingSucceeded = false;
+          let locallyUpdated = sourceDevs.map(d => {
+            const baseNodeId = getBaseNodeId(d.node_id);
+            const pingInfo = pingMap.get(baseNodeId);
+            if (pingInfo && pingInfo.localState) {
+              anyLocalPingSucceeded = true;
+              const suffix = parseInt(d.node_id?.split('_').pop(), 10);
+              const parsed = parseLocalChannelState(pingInfo.localState, suffix);
+              let st = parsed.status !== null ? parsed.status : d.status;
+              let val = parsed.value !== null ? parsed.value : d.value;
+              return {
+                ...d,
+                is_online: true,
+                local_ip: pingInfo.localState.local_ip || pingInfo.localIp || d.local_ip,
+                status: st,
+                value: val
+              };
+            }
+            return d;
+          });
+
+          if (anyLocalPingSucceeded) {
+            locallyUpdated = recalculateMasterStatus(locallyUpdated);
+            setDevices(locallyUpdated);
+            setIsLoading(false);
+            setHasError(false);
+          }
+        }
+      } catch (localScanErr) {
+        console.log("[LOCAL DEBUG] Pre-cloud local scan error:", localScanErr);
+      }
+    }
+
+    // 2. PARALLEL CLOUD API SYNC (2500ms Fast Timeout)
     try {
-      // 8-second timeout for reliable operation on slow mobile 3G/4G/hotspot networks
-      const response = await apiClient.get("/api/devices", { timeout: 8000 });
+      const response = await apiClient.get("/api/devices", { timeout: 2500 });
       const data = response.data;
       if (Array.isArray(data)) {
         let formattedList = data.map(d => {
@@ -375,19 +431,19 @@ export default function DashboardScreen({ navigation }) {
       }
     } catch (error) {
       console.log("[LOCAL DEBUG] Cloud API fetch slow/unavailable, retaining state and checking LAN...", error?.message || error);
-      showFeedbackToast("Slow Internet: Controls are active in offline mode.", "slow");
+      showFeedbackToast("Local Mode: Connected directly via Wi-Fi.", "local");
       try {
         const cachedDevStr = await AsyncStorage.getItem('@4layers_cached_devices');
         if (cachedDevStr) {
           const cachedDevs = JSON.parse(cachedDevStr);
           if (Array.isArray(cachedDevs) && cachedDevs.length > 0) {
             let updatedDevs = [...cachedDevs];
-            if (isPhoneOnWifiRef.current) {
+            if (isPhoneOnWifiRef.current || isPhoneOnWifi) {
               // Extract all unique base node IDs from cached devices
               const uniqueNodes = Array.from(new Set(cachedDevs.map(d => getBaseNodeId(d.node_id)).filter(Boolean)));
               const pingPromises = uniqueNodes.map(async (baseNodeId) => {
                 const localIp = cachedDevs.find(d => getBaseNodeId(d.node_id) === baseNodeId)?.local_ip || getDeviceLocalIp(baseNodeId);
-                console.log(`[LOCAL DEBUG] Catch block ping attempt: http://${localIp || baseNodeId + '.local'}/state (Node: ${baseNodeId})`);
+                console.log(`[LOCAL DEBUG] Offline catch ping attempt: http://${localIp || baseNodeId + '.local'}/state (Node: ${baseNodeId})`);
                 const localState = await pingLocalDevice(baseNodeId, localIp, 1000);
                 return { baseNodeId, localIp, localState };
               });
@@ -418,7 +474,8 @@ export default function DashboardScreen({ navigation }) {
             // Re-evaluate Master Switch state dynamically for affected rooms
             updatedDevs = recalculateMasterStatus(updatedDevs);
 
-            setDevices(prev => (prev && prev.length > 0 ? prev : updatedDevs));
+            // CRITICAL FIX: ALWAYS update devices so live local ping states are rendered!
+            setDevices(updatedDevs);
             setHasError(false);
             return;
           }
@@ -428,9 +485,7 @@ export default function DashboardScreen({ navigation }) {
       }
       setHasError(false);
     } finally {
-      if (showLoading) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
   };
 
@@ -632,16 +687,66 @@ export default function DashboardScreen({ navigation }) {
 
   useEffect(() => {
     // 1. Immediately hydrate from cache to eliminate white screen/loading lag on offline Wi-Fi
-    AsyncStorage.getItem('@4layers_cached_devices').then((cached) => {
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setDevices(prev => (prev.length === 0 ? parsed : prev));
-          }
-        } catch (_) {}
+    const hydrateAllCaches = async () => {
+      try {
+        const [cachedRoomsStr, cachedLastRoom, cachedDevsStr] = await Promise.all([
+          AsyncStorage.getItem('@4layers_cached_rooms'),
+          AsyncStorage.getItem('@4layers_last_selected_room'),
+          AsyncStorage.getItem('@4layers_cached_devices')
+        ]);
+
+        let loadedRooms = [];
+        let chosenRoomId = cachedLastRoom || "";
+
+        if (cachedRoomsStr) {
+          try {
+            const parsedRooms = JSON.parse(cachedRoomsStr);
+            if (Array.isArray(parsedRooms) && parsedRooms.length > 0) {
+              loadedRooms = parsedRooms;
+              const mapping = {};
+              parsedRooms.forEach(r => { mapping[r.id] = r.name; });
+              setRoomMapping(mapping);
+              setDbRooms(parsedRooms);
+              const roomIds = parsedRooms.map(r => r.id);
+              if (!chosenRoomId || !roomIds.includes(chosenRoomId)) {
+                chosenRoomId = parsedRooms[0].id;
+              }
+              setSelectedRoom(chosenRoomId);
+            }
+          } catch (_) {}
+        }
+
+        if (cachedDevsStr) {
+          try {
+            const parsedDevs = JSON.parse(cachedDevsStr);
+            if (Array.isArray(parsedDevs) && parsedDevs.length > 0) {
+              setDevices(parsedDevs);
+              setIsLoading(false);
+
+              // If rooms were not yet cached, construct fallback room from devices
+              if (loadedRooms.length === 0) {
+                const uniqueRoomIds = Array.from(new Set(parsedDevs.map(d => d.room_id).filter(Boolean)));
+                if (uniqueRoomIds.length > 0) {
+                  const fallbackRooms = uniqueRoomIds.map((rid, idx) => ({
+                    id: rid,
+                    name: idx === 0 ? 'Home' : `Room ${idx + 1}`
+                  }));
+                  const mapping = {};
+                  fallbackRooms.forEach(r => { mapping[r.id] = r.name; });
+                  setRoomMapping(mapping);
+                  setDbRooms(fallbackRooms);
+                  setSelectedRoom(fallbackRooms[0].id);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (err) {
+        console.warn("[Dashboard] Initial cache load error:", err);
       }
-    });
+    };
+
+    hydrateAllCaches();
 
     const showLoading = !hasLoadedRef.current;
     fetchDevices(showLoading);
@@ -651,7 +756,7 @@ export default function DashboardScreen({ navigation }) {
       fetchUnreadAlertsCount();
     }, 3000);
     return () => clearInterval(intervalId);
-  }, [roomMapping]);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = navigation?.addListener ? navigation.addListener('focus', () => {
@@ -663,7 +768,7 @@ export default function DashboardScreen({ navigation }) {
     }) : () => {};
 
     return unsubscribe;
-  }, [navigation, roomMapping]);
+  }, [navigation]);
 
   const handleToggleDevice = async (id) => {
     const target = devices.find((d) => d.id === id);
@@ -708,7 +813,15 @@ export default function DashboardScreen({ navigation }) {
       if (target.node_id) toggleLockRef.current[target.node_id] = masterLockObj;
 
       // 2. Instant Optimistic UI update: Turn ALL room devices ON or OFF
-      setDevices((prev) => prev.map((d) => roomDevIds.includes(d.id) ? { ...d, status: nextStatus } : d));
+      setDevices((prev) => {
+        const updated = prev.map((d) => {
+          if (roomDevIds.includes(d.id) || d.id === id) {
+            return { ...d, status: nextStatus };
+          }
+          return d;
+        });
+        return recalculateMasterStatus(updated);
+      });
 
       // 3. Network Execution: LOCAL FIRST (Bypass Mode) -> CLOUD FALLBACK
       const targetLocalIp = target.local_ip || getDeviceLocalIp(baseNodeId);
@@ -878,45 +991,53 @@ export default function DashboardScreen({ navigation }) {
   const handleBulkControl = async (turnOn) => {
     const targetState = turnOn ? 'ON' : 'OFF';
     const roomDevs = filteredDevices;
-    const deviceIds = roomDevs.map(d => d.id);
+    const roomDevIds = roomDevs.map(d => d.id);
 
-    if (deviceIds.length === 0) return;
-
-    const uniqueBaseNodeIds = Array.from(new Set(roomDevs.map(d => getBaseNodeId(d.node_id)).filter(Boolean)));
-
-    // 1. Hard 3.5-second Optimistic State Lock
+    // 1. Hard 3.5-second Optimistic State Lock on ALL room devices
     const lockNow = Date.now();
-    deviceIds.forEach(devId => {
-      toggleLockRef.current[devId] = { time: lockNow, status: turnOn, value: 1 };
+    roomDevs.forEach(dev => {
+      const lockObj = { time: lockNow, status: turnOn, value: 1 };
+      toggleLockRef.current[dev.id] = lockObj;
+      toggleLockRef.current[String(dev.id)] = lockObj;
+      if (dev.node_id) toggleLockRef.current[dev.node_id] = lockObj;
     });
 
-    // 2. Optimistic UI update
-    setDevices(prev => prev.map(d => deviceIds.includes(d.id) ? { ...d, status: turnOn } : d));
+    // 2. Instant Optimistic UI update for all devices
+    setDevices((prev) => {
+      const updated = prev.map((d) => {
+        if (roomDevIds.includes(d.id)) {
+          return { ...d, status: turnOn };
+        }
+        return d;
+      });
+      return recalculateMasterStatus(updated);
+    });
 
-    // 3. Network Execution: LOCAL FIRST -> CLOUD FALLBACK
-    let allLocalSucceeded = false;
-    if ((isPhoneOnWifi || isPhoneOnWifiRef.current) && uniqueBaseNodeIds.length > 0) {
-      try {
-        const localPromises = uniqueBaseNodeIds.map(async (baseNodeId) => {
-          const ip = getDeviceLocalIp(baseNodeId);
-          if (!ip) throw new Error(`No local IP for ${baseNodeId}`);
-          console.log(`[LOCAL DEBUG] 🟡 LOCAL FIRST: Sending Bulk HTTP to ${ip} (Node: ${baseNodeId}, Channel 7 -> ${targetState})`);
-          return sendLocalControlCommand(baseNodeId, 7, targetState, ip);
-        });
-        await Promise.all(localPromises);
-        allLocalSucceeded = true;
-        console.log("[LOCAL DEBUG] ⚡ Bulk control executed 100% locally via Wi-Fi bypass!");
-      } catch (localErr) {
-        console.log(`[LOCAL DEBUG] Local Bulk control failed (${localErr.message}), falling back to Cloud route...`);
+    // 3. Network Execution: LOCAL FIRST (Bypass Mode) -> CLOUD FALLBACK
+    let anyLocalBypass = false;
+    if (isPhoneOnWifi || isPhoneOnWifiRef.current) {
+      const uniqueBaseNodes = Array.from(new Set(roomDevs.map(d => getBaseNodeId(d.node_id)).filter(Boolean)));
+      for (const bNode of uniqueBaseNodes) {
+        const bIp = roomDevs.find(d => getBaseNodeId(d.node_id) === bNode)?.local_ip || getDeviceLocalIp(bNode);
+        if (bIp) {
+          try {
+            console.log(`[LOCAL DEBUG] 🟡 LOCAL FIRST: Bulk command to ${bIp} (Node: ${bNode}, Master Ch 6 -> ${targetState})`);
+            const res = await sendLocalControlCommand(bNode, 6, targetState, bIp);
+            if (res && res.success) {
+              anyLocalBypass = true;
+            }
+          } catch (localErr) {
+            console.log(`[LOCAL DEBUG] Bulk Local HTTP failed for ${bNode}: ${localErr.message}`);
+          }
+        }
       }
     }
 
-    if (!allLocalSucceeded) {
-      console.log(`[LOCAL DEBUG] 🔵 CLOUD ROUTE: Sending Bulk control via AWS Cloud API...`);
-      // Backend owns the single MQTT publish; app must not double-publish here.
+    if (!anyLocalBypass) {
+      console.log(`[LOCAL DEBUG] 🔵 CLOUD ROUTE: Bulk control via AWS Cloud API...`);
       try {
         await apiClient.post('/api/devices/bulk-control', {
-          device_ids: deviceIds,
+          device_ids: roomDevIds,
           state: { status: targetState }
         });
       } catch (err) {
@@ -926,12 +1047,27 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
-  const filteredDevices = devices.filter((device) => device.room_id === selectedRoom);
+  const filteredDevices = useMemo(() => {
+    if (!devices || devices.length === 0) return [];
+    if (selectedRoom) {
+      const matched = devices.filter((device) => device.room_id === selectedRoom);
+      if (matched.length > 0) return matched;
+    }
+    // Fallback: If selectedRoom is empty or has no matches, match first room in dbRooms
+    if (dbRooms.length > 0) {
+      const firstRoomId = dbRooms[0].id;
+      const matchedFirst = devices.filter((device) => device.room_id === firstRoomId);
+      if (matchedFirst.length > 0) return matchedFirst;
+    }
+    // Fallback: show all devices
+    return devices;
+  }, [devices, selectedRoom, dbRooms]);
 
   const isSecurityArmed = !!isArmed;
   const ROOM_TABS = dbRooms.map((r) => ({ id: r.id, label: r.name }));
 
-  const currentRoomName = dbRooms.find(r => r.id === selectedRoom)?.name || (dbRooms.length === 0 ? 'No Rooms Found' : 'Select Room');
+  const currentRoomName = dbRooms.find(r => r.id === selectedRoom)?.name 
+    || (dbRooms.length > 0 ? dbRooms[0].name : (devices.length > 0 ? 'Home' : 'No Rooms Found'));
 
   return <SafeAreaView style={styles.safeContainer} {...swipePanResponder.panHandlers}>
       <StatusBar barStyle="light-content" backgroundColor={TOKENS.bg} />
@@ -967,6 +1103,7 @@ export default function DashboardScreen({ navigation }) {
                   style={[styles.roomModalItem, isSelected && styles.roomModalItemActive]}
                   onPress={() => {
                     setSelectedRoom(room.id);
+                    AsyncStorage.setItem('@4layers_last_selected_room', String(room.id)).catch(() => {});
                     setIsRoomPickerOpen(false);
                   }}
                   activeOpacity={0.7}

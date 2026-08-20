@@ -86,10 +86,19 @@ export default function RoomsScreen({ navigation: navProp }) {
 
   const fetchRooms = async () => {
     try {
-      const response = await apiClient.get('/api/rooms');
-      setRooms(response.data || []);
+      const response = await apiClient.get('/api/rooms', { timeout: 3000 });
+      if (response.data) {
+        setRooms(response.data);
+        AsyncStorage.setItem('@4layers_cached_rooms', JSON.stringify(response.data)).catch(() => {});
+      }
     } catch (error) {
-      console.error('Failed to fetch rooms list:', error);
+      console.error('Failed to fetch rooms list (offline fallback):', error);
+      try {
+        const cached = await AsyncStorage.getItem('@4layers_cached_rooms');
+        if (cached) {
+          setRooms(JSON.parse(cached));
+        }
+      } catch (_) {}
     }
   };
 
