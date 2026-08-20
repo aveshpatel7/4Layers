@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Application from 'expo-application';
 import apiClient from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 
@@ -621,7 +622,9 @@ export default function SettingsScreen({ navigation }) {
       {/* App Info */}
       <View style={styles.appInfo}>
         <Text style={styles.appInfoText}>4Layers Home Automation Panel</Text>
-        <Text style={styles.appInfoText}>v1.0.0</Text>
+        <Text style={styles.appInfoText}>
+          {Application.nativeApplicationVersion ? `v${Application.nativeApplicationVersion}` : 'v1.0.5'}
+        </Text>
       </View>
     </ScrollView>
   );
