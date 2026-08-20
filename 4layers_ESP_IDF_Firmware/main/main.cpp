@@ -1008,6 +1008,13 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
 
     if (doc.containsKey("action") && doc["action"] == "OTA_UPDATE") 
     {
+        const char* target_ver = doc["version"];
+        if (target_ver && strlen(target_ver) > 0 && strcmp(target_ver, "v2.0.5") == 0)
+        {
+            Serial.printf("ℹ️ [OTA] Firmware is already running version (%s). Skipping update.\n", target_ver);
+            return;
+        }
+
         const char* url_ptr = doc["firmware_url"];
         
         if (url_ptr && strlen(url_ptr) > 0) 
