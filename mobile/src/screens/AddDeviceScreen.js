@@ -36,8 +36,9 @@ export default function AddDeviceScreen({ navigation }) {
   const [name, setName] = useState('');
   const [type, setType] = useState('light');
   const [nodeId, setNodeId] = useState('');
-  const [ssid, setSsid] = useState('HomeNetwork_5G');
+  const [ssid, setSsid] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
+  const [showWifiPassword, setShowWifiPassword] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [setupLoading, setSetupLoading] = useState(true);
@@ -376,13 +377,16 @@ export default function AddDeviceScreen({ navigation }) {
                   onChangeText={setWifiPassword}
                   placeholder="••••••••"
                   placeholderTextColor="rgba(255,255,255,0.2)"
-                  secureTextEntry
+                  secureTextEntry={!showWifiPassword}
                   mode="flat"
                   underlineColor="transparent"
                   activeUnderlineColor="transparent"
                   textColor="#FFFFFF"
-                  style={styles.nativeInput}
+                  style={[styles.nativeInput, { flex: 1 }]}
                 />
+                <TouchableOpacity onPress={() => setShowWifiPassword(!showWifiPassword)} style={{ padding: 6 }} activeOpacity={0.7}>
+                  <MaterialCommunityIcons name={showWifiPassword ? "eye-off" : "eye"} size={20} color={TOKENS.textSecondary} />
+                </TouchableOpacity>
               </View>
             </View>
 

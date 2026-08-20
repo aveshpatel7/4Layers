@@ -13,6 +13,7 @@ export default function RegisterScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
   // Alert Snackbar states
@@ -165,12 +166,19 @@ export default function RegisterScreen({ navigation }) {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             mode="outlined"
-            secureTextEntry={!showPassword}
+            secureTextEntry={!showConfirmPassword}
             autoCapitalize="none"
             textColor="#FFFFFF"
             activeOutlineColor="#22C55E"
             outlineColor="#262626"
             left={<TextInput.Icon icon="shield-lock" iconColor="#9CA3AF" />}
+            right={
+              <TextInput.Icon 
+                icon={showConfirmPassword ? 'eye-off' : 'eye'} 
+                iconColor="#9CA3AF"
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              />
+            }
             style={styles.input}
           />
 

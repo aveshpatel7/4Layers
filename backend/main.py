@@ -123,10 +123,10 @@ def get_app_version(db=Depends(get_db)):
             pass
         return os.getenv(key.upper(), default)
 
-    latest_version = get_setting("latest_version", "1.0.2")
+    latest_version = get_setting("latest_version", "1.0.3")
     force_update_str = get_setting("force_update", "false")
     force_update = force_update_str.lower() in ["true", "1", "yes"]
-    apk_url = get_setting("apk_url", "https://raw.githubusercontent.com/MD-NAVED/4Layers/main/4Layers.apk")
+    apk_url = get_setting("apk_url", "https://edabtynvpy.ap-south-1.awsapprunner.com/firmware/latest.apk")
 
     return {
         "latest_version": latest_version,

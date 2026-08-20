@@ -101,6 +101,7 @@ export default function ProvisioningScreen({ route, navigation }) {
   const [pairingMethod, setPairingMethod] = useState('WIFI'); // WIFI or BLE
   const [ssid, setSsid] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
+  const [showWifiPassword, setShowWifiPassword] = useState(false);
   const [showWifiInputs, setShowWifiInputs] = useState(true);
   const [deviceType, setDeviceType] = useState('light'); // light, fan, AC
   
@@ -980,12 +981,19 @@ export default function ProvisioningScreen({ route, navigation }) {
                     value={wifiPassword}
                     onChangeText={setWifiPassword}
                     mode="outlined"
-                    secureTextEntry
+                    secureTextEntry={!showWifiPassword}
                     textColor="#FFFFFF"
                     theme={{ colors: { primary: TOKENS.accent, background: TOKENS.surfaceLow } }}
                     style={styles.input}
                     placeholder="Enter router password"
                     placeholderTextColor={TOKENS.textSecondary}
+                    right={
+                      <TextInput.Icon
+                        icon={showWifiPassword ? 'eye-off' : 'eye'}
+                        iconColor={TOKENS.textSecondary}
+                        onPress={() => setShowWifiPassword(!showWifiPassword)}
+                      />
+                    }
                   />
                 </View>
 

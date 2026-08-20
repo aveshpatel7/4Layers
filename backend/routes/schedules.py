@@ -136,6 +136,7 @@ def get_schedules(
     return query.all()
 
 @router.patch("/{schedule_id}", response_model=schemas.ScheduleResponse)
+@router.put("/{schedule_id}", response_model=schemas.ScheduleResponse)
 def update_schedule(
     schedule_id: UUID,
     schedule_data: schemas.ScheduleUpdate,
@@ -162,6 +163,11 @@ def update_schedule(
         schedule.days = schedule_data.days.lower()
     if schedule_data.enabled is not None:
         schedule.enabled = schedule_data.enabled
+    if schedule_data.actions is not None:
+        schedule.actions_json = schedule_data.actions
+        # If primary device_id is updated in actions, sync device_id
+        if len(schedule_data.actions) > 0 and schedule_data.actions[0].get("device_id"):
+            schedule.device_id = schedule_data.actions[0]["device_id"]
         
     db.commit()
     db.refresh(schedule)

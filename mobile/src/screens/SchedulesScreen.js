@@ -90,6 +90,7 @@ export default function SchedulesScreen() {
   const [selectedDays, setSelectedDays] = useState(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']);
   const [selectedDayOptionLabel, setSelectedDayOptionLabel] = useState('Everyday');
   const [isSaving, setIsSaving] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState(null);
 
   const toggleDeviceSelection = (id) => {
     if (selectedDeviceIds.includes(id)) {
@@ -158,6 +159,7 @@ export default function SchedulesScreen() {
   }, [wheelHour, wheelMinute]);
 
   const handleOpenCreateModal = () => {
+    setEditingScheduleId(null);
     const now = new Date();
     let rawHours = now.getHours();
     const rawMinutes = now.getMinutes();
@@ -191,6 +193,64 @@ export default function SchedulesScreen() {
     setShowRoomPicker(false);
     setSelectedAction('ON');
 
+    setModalVisible(true);
+  };
+
+  const handleOpenEditModal = (schedule) => {
+    if (!schedule) return;
+    setEditingScheduleId(schedule.id);
+
+    // 1. Parse time
+    const timeStr = schedule.time || '08:00';
+    const parts = timeStr.split(':');
+    let rawH = parseInt(parts[0], 10);
+    if (isNaN(rawH)) rawH = 8;
+    const rawM = parseInt(parts[1], 10);
+    const mStr = (isNaN(rawM) ? 0 : rawM).toString().padStart(2, '0');
+    const period = rawH >= 12 ? 'PM' : 'AM';
+    let displayH = rawH % 12;
+    if (displayH === 0) displayH = 12;
+    const hStr = displayH.toString().padStart(2, '0');
+
+    setWheelHour(hStr);
+    setWheelMinute(mStr);
+    setWheelPeriod(period);
+    setScheduleTime(timeStr);
+
+    // 2. Parse repeat days
+    const rawDays = schedule.days ? schedule.days.toLowerCase().split(',').map(d => d.trim()).filter(Boolean) : ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    setSelectedDays(rawDays);
+    if (rawDays.length === 7) {
+      setSelectedDayOptionLabel('Everyday');
+    } else if (rawDays.length === 5 && !rawDays.includes('sat') && !rawDays.includes('sun')) {
+      setSelectedDayOptionLabel('Weekdays');
+    } else if (rawDays.length === 2 && rawDays.includes('sat') && rawDays.includes('sun')) {
+      setSelectedDayOptionLabel('Weekends');
+    } else {
+      setSelectedDayOptionLabel('Custom');
+    }
+
+    // 3. Parse action
+    setSelectedAction(schedule.action || 'ON');
+
+    // 4. Parse devices
+    if (schedule.actions_json && Array.isArray(schedule.actions_json) && schedule.actions_json.length > 0) {
+      const devIds = schedule.actions_json.map(a => a.device_id).filter(Boolean);
+      setSelectedDeviceIds(devIds);
+      if (devIds.length > 0) {
+        setSelectedDeviceId(devIds[0]);
+      }
+    } else if (schedule.device_id) {
+      setSelectedDeviceIds([schedule.device_id]);
+      setSelectedDeviceId(schedule.device_id);
+    } else {
+      setSelectedDeviceIds([]);
+    }
+
+    setScheduleName(schedule.name || '');
+    setSelectedRoomId('ALL');
+    setShowTimeWheel(false);
+    setShowRoomPicker(false);
     setModalVisible(true);
   };
 
@@ -302,7 +362,7 @@ const normalizeTimeInput = (raw) => {
   return `${hStr}:${mStr}`;
 };
 
-  const handleCreateSchedule = async () => {
+  const handleSaveSchedule = async () => {
     const targetIds = selectedDeviceIds.length > 0 ? selectedDeviceIds : (selectedDeviceId ? [selectedDeviceId] : []);
 
     if (targetIds.length === 0) {
@@ -327,25 +387,33 @@ const normalizeTimeInput = (raw) => {
         action: selectedAction
       }));
 
-      await apiClient.post('/api/schedules', {
+      const payload = {
         device_id: targetIds[0],
         action: selectedAction,
         time: formattedTime,
         days: daysCSV,
         enabled: true,
         actions: actionsPayload
-      });
+      };
+
+      if (editingScheduleId) {
+        await apiClient.put(`/api/schedules/${editingScheduleId}`, payload);
+      } else {
+        await apiClient.post('/api/schedules', payload);
+      }
 
       setModalVisible(false);
+      const wasEditing = !!editingScheduleId;
+      setEditingScheduleId(null);
       setScheduleTime('08:00');
       setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri']);
       
       // Refresh list
       const schedsRes = await apiClient.get('/api/schedules');
       setSchedules(schedsRes.data);
-      Alert.alert('Success', `Automation rule created for ${targetIds.length} switch(es)!`);
+      Alert.alert('Success', wasEditing ? 'Schedule updated successfully!' : `Automation rule created for ${targetIds.length} switch(es)!`);
     } catch (error) {
-      console.error('Failed to create schedule:', error);
+      console.error('Failed to save schedule:', error);
       Alert.alert('Error', error.response?.data?.detail || 'Failed to save schedule');
     } finally {
       setIsSaving(false);
@@ -519,6 +587,9 @@ const normalizeTimeInput = (raw) => {
               <View style={styles.cardBottomRow}>
                 {renderDaysList(item.days)}
                 <View style={styles.cardActions}>
+                  <TouchableOpacity onPress={() => handleOpenEditModal(item)} style={[styles.cardActionBtn, { marginRight: 10 }]} activeOpacity={0.7}>
+                    <MaterialCommunityIcons name="pencil-outline" size={19} color={TOKENS.accent} />
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleRunScheduleManually(item.id)} style={[styles.cardActionBtn, { marginRight: 10 }]} activeOpacity={0.7}>
                     <MaterialCommunityIcons name="play-circle-outline" size={20} color={TOKENS.accent} />
                   </TouchableOpacity>
@@ -740,17 +811,19 @@ const normalizeTimeInput = (raw) => {
                 </View>
               </View>
 
-              {/* Full Width Prominent Create Schedule Button */}
+              {/* Full Width Prominent Create/Edit Schedule Button */}
               <TouchableOpacity
                 style={[styles.createRuleBtn, (isSaving || selectedDeviceIds.length === 0) && styles.createRuleBtnDisabled]}
-                onPress={handleCreateSchedule}
+                onPress={handleSaveSchedule}
                 disabled={isSaving || selectedDeviceIds.length === 0}
                 activeOpacity={0.85}
               >
                 {isSaving ? (
                   <ActivityIndicator size="small" color={TOKENS.bg} />
                 ) : (
-                  <Text style={styles.createRuleBtnText}>Create Schedule</Text>
+                  <Text style={styles.createRuleBtnText}>
+                    {editingScheduleId ? 'Save Changes' : 'Create Schedule'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </ScrollView>

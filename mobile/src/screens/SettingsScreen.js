@@ -61,6 +61,9 @@ export default function SettingsScreen({ navigation }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
@@ -511,38 +514,53 @@ export default function SettingsScreen({ navigation }) {
           <View style={styles.card}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Current Password</Text>
-              <TextInput
-                style={styles.input}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder="Enter current password"
-                placeholderTextColor={TOKENS.textSecondary}
-                secureTextEntry
-              />
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Enter current password"
+                  placeholderTextColor={TOKENS.textSecondary}
+                  secureTextEntry={!showCurrentPassword}
+                />
+                <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={{ padding: 4 }} activeOpacity={0.7}>
+                  <MaterialCommunityIcons name={showCurrentPassword ? "eye-off" : "eye"} size={20} color={TOKENS.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>New Password</Text>
-              <TextInput
-                style={styles.input}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="New password (min 6 chars)"
-                placeholderTextColor={TOKENS.textSecondary}
-                secureTextEntry
-              />
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="New password (min 6 chars)"
+                  placeholderTextColor={TOKENS.textSecondary}
+                  secureTextEntry={!showNewPassword}
+                />
+                <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={{ padding: 4 }} activeOpacity={0.7}>
+                  <MaterialCommunityIcons name={showNewPassword ? "eye-off" : "eye"} size={20} color={TOKENS.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Confirm New Password</Text>
-              <TextInput
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Re-enter new password"
-                placeholderTextColor={TOKENS.textSecondary}
-                secureTextEntry
-              />
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Re-enter new password"
+                  placeholderTextColor={TOKENS.textSecondary}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={{ padding: 4 }} activeOpacity={0.7}>
+                  <MaterialCommunityIcons name={showConfirmPassword ? "eye-off" : "eye"} size={20} color={TOKENS.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.buttonRow}>
@@ -702,6 +720,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    color: TOKENS.textPrimary,
+    fontSize: 14,
+    height: 44
+  },
+  passwordInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: TOKENS.surfaceLow,
+    borderWidth: 1,
+    borderColor: TOKENS.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44
+  },
+  passwordInput: {
+    flex: 1,
     color: TOKENS.textPrimary,
     fontSize: 14,
     height: 44
