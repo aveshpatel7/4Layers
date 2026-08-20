@@ -1,142 +1,139 @@
-# Project: SmartNest
+# Project: SmartNest / 4Layers IoT Usage Analytics & Automated Warranty Validation
 
 ## Architecture
-SmartNest is a multi-tier IoT smart switchboard ecosystem composed of:
-1. **ESP32 Firmware**: Dual-core FreeRTOS architecture. Core 0 hosts the high-priority Local HTTP Web Server (`/state`, `/control`) and Wi-Fi stack. Core 1 runs the MQTT client task (TLS communication with Cloud Broker) and system/queue processing tasks.
-2. **React Native Mobile App**: Cross-platform control UI. Local-first architecture prioritizing direct LAN HTTP control when on local Wi-Fi, with fallback to Cloud MQTT/REST. Offline status warning triggers only when both Local LAN and Cloud reachability fail.
-3. **FastAPI Backend & MQTT Broker**: Cloud coordination layer. Normalizes device control payloads, manages device registration and heartbeat state, and brokers commands between clients and hardware.
-
-```
-+-------------------------------------------------------------------------+
-|                           SmartNest Architecture                        |
-+-------------------------------------------------------------------------+
-|                                                                         |
-|   +-----------------------+              +--------------------------+   |
-|   |  React Native App     |              |     FastAPI Backend      |   |
-|   |  (Local-First UI)     |              |     (Cloud Services)     |   |
-|   +-----------+-----------+              +------------+-------------+   |
-|               |                                       |                 |
-|     Local LAN | Fast HTTP Ping / Control              | MQTT TLS        |
-|     (Core 0)  | (/state, /control)                    | (Core 1)        |
-|               v                                       v                 |
-|   +-----------------------------------------------------------------+   |
-|   |                     ESP32 Dual-Core Firmware                    |   |
-|   |   Core 0: Web Server (Priority 5, <5ms local control)           |   |
-|   |   Core 1: MQTT Client (Priority 2), Command Queue Buffer        |   |
-|   |           mbedTLS Dynamic Buffer, Free Heap Monitoring (>40KB)  |   |
-|   +-----------------------------------------------------------------+   |
-+-------------------------------------------------------------------------+
-```
-
----
+SmartNest/4Layers is a multi-tier IoT smart home ecosystem comprising:
+1. **ESP32 Firmware Layer (`4layers_ESP_IDF_Firmware/main/main.cpp`)**:
+   - FreeRTOS dual-core multitasking (Core 0: Web server; Core 1: System/GPIO debounce, command queue, MQTT TLS client, NVS commit).
+   - Tracks boot count and crash/brownout reasons via NVS and ESP reset reason.
+   - Measures channel actuations and cumulative active ON durations.
+   - Publishes periodic telemetry JSON to `home/device/{node_id}/telemetry`.
+2. **Backend Services Layer (`backend/`)**:
+   - FastAPI REST API + SQLAlchemy ORM supporting both SQLite and PostgreSQL.
+   - MQTT service (`backend/mqtt.py`) subscribing to `home/device/+/telemetry` and `status` to ingest metrics.
+   - Dynamic auto-migration at startup (`backend/main.py`) ensuring zero downtime and database cross-compatibility.
+   - Warranty Evaluation Engine (`backend/routes/admin.py`):
+     - `VOID` if `total_toggle_count > 100,000` OR `crash_count > 50` (hardware abuse/power surge).
+     - `EXPIRED` if `(now - activated_at) > 365 days`.
+     - `ACTIVE` if within 1 year and thresholds not breached.
+     - User profiling flag `is_heavy_user` (sum of ON hours across all user devices > 5000 hours).
+   - Analytics endpoint: `GET /api/admin/analytics/usage` with pagination (`page`, `limit`), search (`q`), and warranty filter (`warranty_status`).
+3. **Glassmorphic Admin Console UI Layer (`backend/admin_ui.py`)**:
+   - Single-page application rendered by FastAPI admin endpoint.
+   - Dedicated "Usage & Warranty Report" tab (`#tab-warranty`).
+   - Summary KPI cards (Active, Expired, Void warranties, Total Heavy Users).
+   - Glassmorphic data table with sorting, search, pagination, and color-coded status badges.
+   - One-click CSV export button generating timestamped legal warranty report.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| F1 | TLS Heap Optimization & Task Stacks | Reduce task stacks (`webserver_task`, `mqtt_task` to 4KB), call `espClient.stop()` before connect, log `ESP.getFreeHeap()`, enable `CONFIG_MBEDTLS_DYNAMIC_BUFFER=y` to prevent `rc=-2` (-29184). | M1 | R1 |
-| F2 | Core 0 Non-Blocking Starvation Prevention | Ensure 15s MQTT reconnect backoff runs non-blocking on Core 1 so Core 0 webserver responds in < 20ms at all times. | M1 | R1 |
-| F3 | Robust MQTT JSON & Raw Error Logging | Graceful `deserializeJson` handling with verbatim raw payload logging to Serial on `DeserializationError::InvalidInput`. | M1 | R2 |
-| F4 | Bulk Action FreeRTOS Command Queueing | Static FreeRTOS `command_queue` (depth 16) to buffer and sequentially execute rapid toggles without "Bulk action already in progress! Ignoring command" drops. | M1 | R3 |
-| F5 | Mobile Local-First Offline Gating | `DashboardScreen.js` shows "Switchboard Offline" ONLY if both Local LAN ping (`/state`) and Cloud connection fail when on Wi-Fi. | M2 | R4 |
-| F6 | Mobile `/state` Schema Parser & Multi-Node Fallback | Fix mobile `/state` parser for `channel_1..5` and `speed`, iterate all cached devices in offline catch block. | M2 | R4 |
-| F7 | Mobile Local LAN Control Priority & Debug Logging | Prioritize direct `sendLocalControlCommand` when local IP is reachable; emit `[LOCAL DEBUG]` console logs. | M2 | R4 |
-| F8 | Backend MQTT Payload Normalization | Ensure `backend/mqtt.py` & `backend/routes/devices.py` publish consistent JSON schema (`channel`, `status`: "ON"/"OFF", `speed`, `value`) for single and bulk control. | M3 | R5 |
-| F9 | Backend Inactivity Timeout & Route Fixes | Adjust heartbeat offline timeout to 3 min; fix `models.Device` query in `voice_assistant.py` (join `Home`). | M3 | R5 |
-| F10 | Comprehensive Test Suite & Acceptance Verification | Requirement-driven test suite (Tiers 1-4) covering all firmware, mobile, and backend acceptance criteria. | M4 | AC |
-
----
+| 1 | Device Schema Extension | Add `activated_at`, `warranty_status`, `total_toggle_count`, `total_on_duration_seconds`, `crash_count`, `boot_count` to `Device` | M1 | ORIGINAL_REQUEST §R1 |
+| 2 | DeviceTelemetry Model | Create `DeviceTelemetry` model to store timestamped telemetry snapshots | M1 | ORIGINAL_REQUEST §R1 |
+| 3 | Cross-DB Startup Migration | Add startup column verification & alteration in `backend/main.py` and `backend/migrations/ddl.sql` for SQLite & PostgreSQL | M1 | ORIGINAL_REQUEST §R1 |
+| 4 | Pydantic Schema Updates | Update device and telemetry schemas in `backend/schemas.py` | M1 | ORIGINAL_REQUEST §R1 |
+| 5 | NVS Boot Counter & Crash Tracker | Read/write persistent `boot_count` and detect `esp_reset_reason()` crashes in ESP32 firmware | M2 | ORIGINAL_REQUEST §R2 |
+| 6 | Channel Toggle & Active Duration Tracking | Track cumulative actuations and active ON duration in seconds/hours per channel in ESP32 firmware | M2 | ORIGINAL_REQUEST §R2 |
+| 7 | Periodic MQTT Telemetry Publisher | Periodically publish JSON payload `{"channel": X, "toggles": Y, "on_hours": Z, "boot_count": B, "crash_count": C}` to `home/device/{node_id}/telemetry` | M2 | ORIGINAL_REQUEST §R2 |
+| 8 | Telemetry Ingestion Service | Parse telemetry JSON in `backend/mqtt.py` and persist metrics to DB models | M3 | ORIGINAL_REQUEST §R3 |
+| 9 | Automated Warranty Rule Engine | Evaluate `VOID`, `EXPIRED`, `ACTIVE` rules with strict precedence (abuse > time) | M3 | ORIGINAL_REQUEST §R3 |
+| 10 | Usage Analytics API Endpoint | Implement `GET /api/admin/analytics/usage` with pagination, search, warranty filter, and summary counts | M3 | ORIGINAL_REQUEST §R3 |
+| 11 | User Profiling `is_heavy_user` | Calculate user-level cumulative ON hours across all devices (>5000 hrs = true) | M3 | ORIGINAL_REQUEST §R3 |
+| 12 | Admin Console Warranty Tab | Add "Usage & Warranty Report" navigation item and glassmorphic UI section in `backend/admin_ui.py` | M4 | ORIGINAL_REQUEST §R4 |
+| 13 | Interactive Table & Badges | Render glassmorphic data table with green (`ACTIVE`), red (`VOID`), grey (`EXPIRED`), and orange (`Heavy User`) badges | M4 | ORIGINAL_REQUEST §R4 |
+| 14 | One-Click CSV Export | Client-side/server-side CSV export button downloading complete formatted warranty report | M4 | ORIGINAL_REQUEST §R4 |
+| 15 | E2E Opaque-Box Test Suite | Comprehensive 4-tier E2E test suite verifying backend, firmware telemetry parsing, warranty engine, and UI report | M5 / Test Track | ORIGINAL_REQUEST Acceptance Criteria |
+| 16 | Adversarial Hardening & Audit | Adversarial edge-case verification and non-bypassable Forensic Integrity Audit | M5 / Audit | Orchestration Pattern |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | ESP32 Firmware Fixes | `4layers_ESP_IDF_Firmware/main/main.cpp`, `sdkconfig.defaults`, `4layers_V12_5_Firmware/4layers_V12_5_Firmware.ino` | Survey Complete | DONE (Gate PASS, FreeRTOS queue & TLS heap verified) |
-| M2 | Mobile App Local-First Resilience | `mobile/src/screens/DashboardScreen.js`, `mobile/src/services/localControl.js` | M1 Contract | DONE (Gate PASS, local-first gating verified) |
-| M3 | Backend Schema Consistency | `backend/mqtt.py`, `backend/routes/devices.py`, `backend/main.py`, `backend/routes/voice_assistant.py`, `mock_device.py` | M1 Contract | DONE (Gate PASS, 128 tests passed) |
-| M4 | E2E Integration & Verification | `backend/tests/`, test runners, end-to-end multi-tier verification | M1, M2, M3 | IN_PROGRESS (sub_orch_m4_e2e) |
-
----
+| M1 | Database Schema & Data Models | `backend/models.py`, `backend/main.py`, `backend/migrations/ddl.sql`, `backend/schemas.py` | none | PLANNED |
+| M2 | ESP32 Firmware Telemetry & Boot Tracking | `4layers_ESP_IDF_Firmware/main/main.cpp` | none | PLANNED |
+| M3 | Backend Analytics & Warranty Evaluation Engine | `backend/routes/admin.py`, `backend/routes/devices.py`, `backend/mqtt.py` | M1 | PLANNED |
+| M4 | Glassmorphic Admin Console & CSV Export | `backend/admin_ui.py` | M3 | PLANNED |
+| M5 | E2E Testing, Adversarial Hardening & Forensic Audit | `backend/tests/test_warranty_analytics.py`, `TEST_INFRA.md`, full suite verification | M1, M2, M3, M4 | PLANNED |
 
 ## Interface Contracts
 
-### 1. ESP32 Local HTTP Interface (Core 0)
-- **`GET /state`**:
-  - Response (JSON 200 OK):
-    ```json
+### 1. ESP32 Firmware -> MQTT Telemetry Topic
+- **Topic**: `home/device/{node_id}/telemetry`
+- **Payload Schema**:
+```json
+{
+  "node_id": "SN-001A2B3C",
+  "channel": 1,
+  "toggles": 12450,
+  "on_duration_seconds": 36000,
+  "on_hours": 10.0,
+  "boot_count": 42,
+  "crash_count": 2,
+  "rssi": -65,
+  "uptime_seconds": 3600
+}
+```
+
+### 2. Backend Usage Analytics API
+- **Endpoint**: `GET /api/admin/analytics/usage`
+- **Headers**: `Authorization: Bearer <admin_jwt_token>`
+- **Query Params**:
+  - `page`: int (default: 1)
+  - `page_size` or `limit`: int (default: 50, max: 200)
+  - `search` or `q`: str (optional, matches email, name, node_id, mac_address)
+  - `filter_warranty` or `warranty_status`: str (optional: `ACTIVE`, `VOID`, `EXPIRED`, `UNKNOWN`)
+- **Response Schema**:
+```json
+{
+  "total_records": 100,
+  "page": 1,
+  "page_size": 50,
+  "total_pages": 2,
+  "summary": {
+    "total_devices": 100,
+    "active_count": 80,
+    "expired_count": 15,
+    "void_count": 5,
+    "heavy_user_count": 12
+  },
+  "items": [
     {
-      "node_id": "4L-NODE-123",
-      "local_ip": "192.168.1.50",
-      "channel_1": "ON",
-      "channel_2": "OFF",
-      "channel_3": "OFF",
-      "channel_4": "OFF",
-      "channel_5": "ON",
-      "speed": 3,
-      "all_state": "MIXED"
+      "user_id": 1,
+      "user_email": "user@smartnest.io",
+      "user_name": "John Doe",
+      "is_heavy_user": false,
+      "user_total_on_hours": 1240.5,
+      "device_id": 10,
+      "node_id": "SN-001A2B3C",
+      "device_name": "Living Room Light",
+      "device_type": "switch_4ch",
+      "channel": 1,
+      "total_toggle_count": 12450,
+      "total_on_duration_seconds": 36000,
+      "total_on_hours": 10.0,
+      "crash_count": 2,
+      "boot_count": 42,
+      "activated_at": "2026-01-15T08:30:00Z",
+      "warranty_status": "ACTIVE",
+      "warranty_reason": "Within 1 year (217 days remaining), counters within normal limits"
     }
-    ```
-- **`GET /control?channel={1..6}&status={ON|OFF}&speed={1..5}`**:
-  - Query parameters:
-    - `channel`: integer `1..6` (1..4: relays, 5: fan, 6: master)
-    - `state` or `status`: string `"ON"` | `"OFF"`
-    - `speed`: integer `1..5` (for channel 5)
-  - Response: JSON 200 OK `{"success": true, "channel": 1, "state": "ON"}`
+  ]
+}
+```
 
-### 2. Cloud MQTT Control Interface (Core 1)
-- **Topic**: `home/device/{node_id}/control`
-- **Payload Schema**:
-  ```json
-  {
-    "channel": 1,
-    "status": "ON"
-  }
-  ```
-  For Fan (Channel 5):
-  ```json
-  {
-    "channel": 5,
-    "status": "ON",
-    "speed": 3
-  }
-  ```
-  For Bulk/Master (Channel 6):
-  ```json
-  {
-    "channel": 6,
-    "status": "ON"
-  }
-  ```
-
-### 3. Cloud MQTT Telemetry / Heartbeat Interface
-- **Topic**: `home/device/{node_id}/status`
-- **Payload Schema**:
-  ```json
-  {
-    "node_id": "4L-NODE-123",
-    "local_ip": "192.168.1.50",
-    "free_heap": 48210,
-    "channel_1": "ON",
-    "channel_2": "OFF",
-    "channel_3": "OFF",
-    "channel_4": "OFF",
-    "channel_5": "ON",
-    "speed": 3
-  }
-  ```
-
----
+### 3. Warranty Rule Decision Matrix
+| Condition | Evaluated Status | Priority |
+|-----------|------------------|----------|
+| `total_toggle_count > 100,000` OR `crash_count > 50` | `VOID` | 1 (Highest - hardware abuse / electrical surge) |
+| `(current_date - activated_at) > 365 days` | `EXPIRED` | 2 (Time expiration) |
+| Otherwise | `ACTIVE` | 3 (Normal active coverage) |
 
 ## Code Layout
-- **ESP32 Firmware**:
-  - `4layers_ESP_IDF_Firmware/main/main.cpp` — Main ESP-IDF application entry, FreeRTOS tasks, MQTT & webserver callbacks.
-  - `4layers_ESP_IDF_Firmware/sdkconfig.defaults` — ESP-IDF build defaults (mbedTLS dynamic buffer).
-  - `4layers_V12_5_Firmware/4layers_V12_5_Firmware.ino` — Arduino reference firmware.
-- **Mobile Application**:
-  - `mobile/src/screens/DashboardScreen.js` — Main dashboard screen, status evaluation, local ping fallback.
-  - `mobile/src/services/localControl.js` — Local LAN HTTP ping and control service.
-- **FastAPI Backend**:
-  - `backend/mqtt.py` — MQTT client management, publish_control_message payload formatting.
-  - `backend/routes/devices.py` — REST endpoints for device control and bulk control.
-  - `backend/main.py` — Background tasks, heartbeat checker.
-  - `backend/routes/voice_assistant.py` — Voice assistant route querying device ownership.
-  - `mock_device.py` — Hardware simulator for testing.
-  - `backend/tests/` — Automated test suite.
+- `backend/models.py`: Database tables and enum definitions (`Device`, `DeviceTelemetry`, `WarrantyStatus`).
+- `backend/schemas.py`: Pydantic models for analytics and device schemas.
+- `backend/main.py`: Startup DB table initialization and automatic migration.
+- `backend/migrations/ddl.sql`: Initial PostgreSQL schema definitions.
+- `4layers_ESP_IDF_Firmware/main/main.cpp`: ESP32 firmware source with NVS boot count, toggle/duration tracking, and MQTT telemetry.
+- `backend/mqtt.py`: MQTT listener & telemetry processor.
+- `backend/routes/admin.py`: Admin API router with `/api/admin/analytics/usage`.
+- `backend/routes/devices.py`: Device API router.
+- `backend/admin_ui.py`: Embedded Admin Console HTML/CSS/JS with Usage & Warranty tab.
+- `backend/tests/`: Pytest test suite and E2E validation.

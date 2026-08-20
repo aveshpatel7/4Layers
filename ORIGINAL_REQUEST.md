@@ -1,51 +1,52 @@
 # Original User Request
 
-## Initial Request — 2026-08-17T14:45:01Z
+## 2026-08-20T17:42:30Z
 
-Fix the "Switchboard Offline" flicker, SSL/TLS handshake failures (rc=-2), MQTT JSON parsing crashes, and bulk action drops across the ESP32 firmware, React Native mobile app, and FastAPI backend.
+Build an end-to-end IoT Usage Analytics & Automated Warranty Validation system for the SmartNest/4Layers ecosystem.
 
 Working directory: c:\Users\andyk\Desktop\SmartNest
 Integrity mode: development
 
 ## Requirements
 
-### R1. ESP32 Firmware: SSL/TLS Heap Optimization & Stack Allocation
-- Optimize heap allocation on ESP32 to prevent TLS handshake failure (`rc=-2`, error `-29184: SSL - An invalid SSL record was received`).
-- Reduce stack sizes of tasks (`webserver_task` and `mqtt_task`) to safe sizes (e.g. 4KB) while maintaining stability.
-- Free up memory before `client.connect()` and log `ESP.getFreeHeap()` during connection attempts.
-- Maintain strict non-blocking 15s retry logic on Core 1 so the Local Web Server on Core 0 never starves or freezes.
+### R1. Database Schema & Data Models (backend/models.py & migrations)
+- Extend the `Device` model with `activated_at` (DateTime, defaults to first provision/creation date) and `warranty_status` (Enum: `ACTIVE`, `VOID`, `EXPIRED`, `UNKNOWN`).
+- Extend telemetry/state tracking in `DeviceTelemetry` or channel models with `total_toggle_count`, `total_on_duration_seconds` (or hours), and `crash_count` (Integer).
+- Add support for recording cumulative boot counts and brownout/crash counters per physical board.
 
-### R2. ESP32 Firmware: Robust MQTT JSON Handling & Raw Error Logging
-- Ensure `deserializeJson` in MQTT callback handles malformed or unexpected payloads gracefully without crashing or silently dropping.
-- If JSON deserialization fails (`DeserializationError::InvalidInput`), print the exact raw payload string to the Serial Monitor for diagnostics.
+### R2. ESP32 Firmware Telemetry & Boot Tracking (4layers_ESP_IDF_Firmware/main/main.cpp)
+- Persist `boot_count` in non-volatile storage (NVS) using ESP32 Preferences/NVS API; increment on each boot and publish in telemetry JSON payload.
+- Measure cumulative channel toggles and calculate active ON duration per channel.
+- Periodically publish telemetry payload including `{"channel": X, "toggles": Y, "on_hours": Z, "boot_count": B}` to MQTT topic.
 
-### R3. ESP32 Firmware: Bulk Action Queueing
-- Replace the dropping of commands during in-flight bulk actions with a FreeRTOS Queue mechanism.
-- If a bulk action is executing, buffer incoming channel toggle requests into the queue and process them sequentially upon completion.
+### R3. Backend Analytics & Warranty Evaluation Engine (backend/routes/admin.py & backend/routes/devices.py)
+- Ingest and aggregate firmware telemetry (cumulative toggles, active ON hours, and crash/boot counts).
+- Implement warranty rule engine:
+  - `VOID` if `total_toggle_count > 100,000` OR `crash_count > 50` (hardware abuse / unstable power).
+  - `EXPIRED` if `activated_at` is older than 1 year (365 days) from current date.
+  - `ACTIVE` if within 1 year and thresholds are not breached.
+- Expose `GET /api/admin/analytics/usage` endpoint supporting pagination (`page`, `page_size`, `search`, `filter_warranty`), returning aggregated rows: User Email, Device ID, Switch/Channel Name, Toggle Count, ON Hours, Crash Count, Activated Date, and Warranty Status.
+- Add user profiling flag `is_heavy_user` (True if total ON Hours > 5000 across user's devices) for subscription monetization targeting.
 
-### R4. Mobile App: Local-First Status & Offline Resilience
-- In `DashboardScreen.js`, do not flag devices as "Offline" solely based on Cloud/MQTT disconnection if the phone is connected to Wi-Fi and a valid `local_ip` is known.
-- Attempt a fast local HTTP ping (`/state`) first. Only display the "Switchboard Offline" warning if both Cloud AND Local LAN pings fail.
-- Prioritize direct Local LAN HTTP control (`sendLocalControlCommand`) for all control toggles and adjustments when local IP is reachable.
-
-### R5. Backend: Command Payload Schema Consistency
-- Verify all MQTT control payloads published by `backend/mqtt.py` and `backend/routes/devices.py` adhere strictly to the JSON schema expected by the firmware (`channel`, `status`/`state`, `speed`, `action`).
-
----
+### R4. Glassmorphic Admin Console: Usage & Warranty Report (backend/admin_ui.py)
+- Add a new dedicated tab/section: **"Usage & Warranty Report"** in the Admin Console.
+- Render interactive glassmorphic data table displaying: User | Device | Channel | Toggles | Total ON Hours | Crashes | Activated On | Warranty Status Badge.
+- Color-code Warranty Status: Green badge (`ACTIVE`), Red badge (`VOID`), Grey badge (`EXPIRED`).
+- Add a one-click **"Export Warranty Report (CSV)"** button that generates and downloads a clean, legally-formatted CSV report containing all aggregated fields and calculated status.
 
 ## Acceptance Criteria
 
-### ESP32 Firmware Stability
-- [ ] ESP32 boots, connects to Wi-Fi, and maintains free heap above 40KB during SSL connection attempts.
-- [ ] Serial logs report free heap and do not encounter SSL record error `-29184`.
-- [ ] Malformed MQTT messages log raw payload without crashing.
-- [ ] Rapid consecutive channel toggles are queued and processed without "Bulk action already in progress! Ignoring command" drops.
-- [ ] Local web server on Core 0 responds to `/state` and `/control` in < 20ms even when Cloud MQTT is reconnecting.
+### Backend & Database Integrity
+- [ ] `models.py` schema compiles and loads cleanly with SQLite and PostgreSQL compatibility.
+- [ ] `GET /api/admin/analytics/usage` returns 200 OK with correct schema, pagination metadata, and warranty classification.
+- [ ] Warranty rule engine correctly marks records with >100,000 toggles or >50 crashes as `VOID`, >365 days as `EXPIRED`, and normal records as `ACTIVE`.
+- [ ] `is_heavy_user` flag correctly evaluates to true when cumulative usage exceeds 5000 ON hours.
 
-### Mobile App Local-First Resilience
-- [ ] When Cloud is simulated disconnected or offline, app continues controlling devices over Local LAN if on same Wi-Fi.
-- [ ] "Switchboard Offline" warning only appears when both Local LAN ping and Cloud connection fail.
-- [ ] Browser console logs `[LOCAL DEBUG]` verifying local HTTP requests and states.
+### ESP32 Firmware Telemetry
+- [ ] ESP32 firmware reads, increments, and commits `boot_count` to NVS without memory leaks.
+- [ ] Periodic telemetry publishing includes channel toggles, ON duration, and boot count in MQTT JSON payload.
 
-### Backend Payload Conformance
-- [ ] Backend control and bulk-control endpoints generate valid, well-formed JSON payloads matching ESP32 firmware expectations.
+### Admin Console & Reporting
+- [ ] Admin UI renders the "Usage & Warranty Report" tab with real-time aggregated data.
+- [ ] CSV Export button downloads valid CSV file matching table data with timestamps and status headers.
+- [ ] `python -m py_compile` passes with zero errors on all modified backend files.
