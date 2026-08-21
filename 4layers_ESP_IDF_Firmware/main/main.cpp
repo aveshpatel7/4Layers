@@ -356,12 +356,6 @@ void save_code(const char *key, uint32_t val)
 
 void sendChannelState(int channel, bool status, int val = -1) 
 {
-    // Cloud-originated commands are not echoed back; see suppress_status_echo.
-    if (suppress_status_echo) 
-    {
-        return;
-    }
-    
     StaticJsonDocument<200> doc;
     doc["channel"] = channel;
     
@@ -702,7 +696,7 @@ void execute_command_direct(const switch_command_t *cmd)
     }
     else if (cmd->type == CMD_BULK_ALL_ON)
     {
-        Serial.printf("%s Command: Master -> ON (Staggered Bulk Action via Queue)\n", cmd->source);
+        Serial.printf("%s Command: Master -> ON (300ms Staggered Bulk Action via Queue)\n", cmd->source);
         
         portENTER_CRITICAL(&state_mux); 
         switch_state_ch1 = 1; 
@@ -711,7 +705,7 @@ void execute_command_direct(const switch_command_t *cmd)
         digitalWrite(relay1, HIGH); 
         sendChannelState(1, true); 
         save_state_to_nvs("R1", 1); 
-        vTaskDelay(pdMS_TO_TICKS(60)); 
+        vTaskDelay(pdMS_TO_TICKS(300)); 
         esp_task_wdt_reset();
 
         portENTER_CRITICAL(&state_mux); 
@@ -721,7 +715,7 @@ void execute_command_direct(const switch_command_t *cmd)
         digitalWrite(relay2, HIGH); 
         sendChannelState(2, true); 
         save_state_to_nvs("R2", 1); 
-        vTaskDelay(pdMS_TO_TICKS(60)); 
+        vTaskDelay(pdMS_TO_TICKS(300)); 
         esp_task_wdt_reset();
 
         portENTER_CRITICAL(&state_mux); 
@@ -731,7 +725,7 @@ void execute_command_direct(const switch_command_t *cmd)
         digitalWrite(relay3, HIGH); 
         sendChannelState(3, true); 
         save_state_to_nvs("R3", 1); 
-        vTaskDelay(pdMS_TO_TICKS(60)); 
+        vTaskDelay(pdMS_TO_TICKS(300)); 
         esp_task_wdt_reset();
 
         portENTER_CRITICAL(&state_mux); 
@@ -741,7 +735,7 @@ void execute_command_direct(const switch_command_t *cmd)
         digitalWrite(relay4, HIGH); 
         sendChannelState(4, true); 
         save_state_to_nvs("R4", 1); 
-        vTaskDelay(pdMS_TO_TICKS(60)); 
+        vTaskDelay(pdMS_TO_TICKS(300)); 
         esp_task_wdt_reset();
 
         bool f_pow; 
@@ -759,7 +753,7 @@ void execute_command_direct(const switch_command_t *cmd)
     }
     else if (cmd->type == CMD_BULK_ALL_OFF)
     {
-        Serial.printf("%s Command: Master -> OFF (Staggered Bulk Action via Queue)\n", cmd->source);
+        Serial.printf("%s Command: Master -> OFF (300ms Staggered Bulk Action via Queue)\n", cmd->source);
 
         portENTER_CRITICAL(&state_mux); 
         switch_state_ch1 = 0; 
@@ -768,7 +762,7 @@ void execute_command_direct(const switch_command_t *cmd)
         digitalWrite(relay1, LOW); 
         sendChannelState(1, false); 
         save_state_to_nvs("R1", 0); 
-        vTaskDelay(pdMS_TO_TICKS(60)); 
+        vTaskDelay(pdMS_TO_TICKS(300)); 
         esp_task_wdt_reset();
 
         portENTER_CRITICAL(&state_mux); 
@@ -778,7 +772,7 @@ void execute_command_direct(const switch_command_t *cmd)
         digitalWrite(relay2, LOW); 
         sendChannelState(2, false); 
         save_state_to_nvs("R2", 0); 
-        vTaskDelay(pdMS_TO_TICKS(60)); 
+        vTaskDelay(pdMS_TO_TICKS(300)); 
         esp_task_wdt_reset();
 
         portENTER_CRITICAL(&state_mux); 
@@ -788,7 +782,7 @@ void execute_command_direct(const switch_command_t *cmd)
         digitalWrite(relay3, LOW); 
         sendChannelState(3, false); 
         save_state_to_nvs("R3", 0); 
-        vTaskDelay(pdMS_TO_TICKS(60)); 
+        vTaskDelay(pdMS_TO_TICKS(300)); 
         esp_task_wdt_reset();
 
         portENTER_CRITICAL(&state_mux); 
@@ -798,7 +792,7 @@ void execute_command_direct(const switch_command_t *cmd)
         digitalWrite(relay4, LOW); 
         sendChannelState(4, false); 
         save_state_to_nvs("R4", 0); 
-        vTaskDelay(pdMS_TO_TICKS(60)); 
+        vTaskDelay(pdMS_TO_TICKS(300)); 
         esp_task_wdt_reset();
 
         Serial.println("⚙️ [SYSTEM] Bulk OFF -> Fan OFF");

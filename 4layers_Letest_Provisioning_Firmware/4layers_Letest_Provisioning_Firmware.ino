@@ -707,16 +707,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
   else if (channel == 6) {
     for (int i = 0; i < 4; i++) {
       relayStates[i] = turnOn;
+      digitalWrite(relayPins[i], turnOn ? HIGH : LOW);
+      preferences.putBool((String("R") + (i + 1)).c_str(), turnOn);
       sendChannelState(i + 1, turnOn);
+      delay(300);
     }
     fanEnabled = turnOn;
+    applyFan();
     sendChannelState(5, fanEnabled, fanSpeed);
-    
     sendChannelState(6, turnOn);
   }
 
   // Write changes to physical pins & save to memory
   applyHardware();
+}
+
 // --- Non-Blocking Reconnect to MQTT Broker ---
 unsigned long lastMqttReconnectAttempt = 0;
 
