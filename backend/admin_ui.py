@@ -503,9 +503,27 @@ ADMIN_HTML = """<!DOCTYPE html>
                         </div>
                     </div>
 
-                    <!-- Clean Search Toolbar -->
-                    <div class="analytics-filter-toolbar">
-                        <div class="analytics-search-wrap" style="flex: 1;">
+                    <!-- Hardware Segmentation & Search Toolbar -->
+                    <div class="analytics-filter-toolbar" style="display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 15px;">
+                        <div class="segment-tabs-container" id="cost-segment-tabs">
+                            <button class="segment-tab-btn green active" data-segment="with_boards" id="btn-seg-with-boards" title="Show only accounts with connected hardware boards">
+                                <i class="fa-solid fa-microchip"></i>
+                                <span>Hardware Owners</span>
+                                <span class="badge green" id="badge-count-with-boards" style="font-size: 11px; padding: 2px 7px;">0</span>
+                            </button>
+                            <button class="segment-tab-btn" data-segment="without_boards" id="btn-seg-without-boards" title="Show accounts with 0 hardware boards">
+                                <i class="fa-solid fa-user-slash"></i>
+                                <span>Without Hardware</span>
+                                <span class="badge gray" id="badge-count-without-boards" style="font-size: 11px; padding: 2px 7px;">0</span>
+                            </button>
+                            <button class="segment-tab-btn" data-segment="all" id="btn-seg-all" title="Show all registered accounts">
+                                <i class="fa-solid fa-users"></i>
+                                <span>All Accounts</span>
+                                <span class="badge purple" id="badge-count-all" style="font-size: 11px; padding: 2px 7px;">0</span>
+                            </button>
+                        </div>
+
+                        <div class="analytics-search-wrap" style="flex: 1; min-width: 250px;">
                             <i class="fa-solid fa-magnifying-glass search-icon"></i>
                             <input type="text" id="cost-search-input" class="analytics-search-input" placeholder="Search by user email, username, or phone...">
                         </div>
@@ -627,6 +645,49 @@ ADMIN_CSS = """/* 4Layers Admin Console - Glassmorphic Dark Theme System */
     --radius-lg: 16px;
     --radius-md: 10px;
     --font-mono: 'JetBrains Mono', monospace;
+}
+
+.segment-tabs-container {
+    display: inline-flex;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid var(--border-color);
+    padding: 4px;
+    border-radius: 12px;
+    align-items: center;
+}
+
+.segment-tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.segment-tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.segment-tab-btn.active {
+    background: rgba(59, 130, 246, 0.2);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.segment-tab-btn.active.green {
+    background: rgba(0, 230, 118, 0.15);
+    color: #00E676;
+    border: 1px solid rgba(0, 230, 118, 0.4);
 }
 
 .login-overlay {
@@ -2223,6 +2284,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     let costCurrentPage = 1;
     let costTotalPages = 1;
     let costTotalRecords = 0;
+    let costCurrentSegment = 'with_boards'; // 'with_boards' | 'without_boards' | 'all'
     const costTableBody = document.getElementById('cost-table-body');
     const costSearchInput = document.getElementById('cost-search-input');
     const costPrevBtn = document.getElementById('cost-prev-btn');
@@ -2231,6 +2293,39 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     const costPaginationInfo = document.getElementById('cost-pagination-info');
     const btnExportCostPdf = document.getElementById('btn-export-cost-pdf');
     const btnExportCostCsv = document.getElementById('btn-export-cost-csv');
+
+    // Segment Tab Buttons
+    const segBtnWithBoards = document.getElementById('btn-seg-with-boards');
+    const segBtnWithoutBoards = document.getElementById('btn-seg-without-boards');
+    const segBtnAll = document.getElementById('btn-seg-all');
+    const badgeWithBoards = document.getElementById('badge-count-with-boards');
+    const badgeWithoutBoards = document.getElementById('badge-count-without-boards');
+    const badgeAll = document.getElementById('badge-count-all');
+
+    function updateSegmentTabsUI() {
+        [segBtnWithBoards, segBtnWithoutBoards, segBtnAll].forEach(btn => {
+            if (!btn) return;
+            const seg = btn.getAttribute('data-segment');
+            if (seg === costCurrentSegment) {
+                btn.classList.add('active');
+                if (seg === 'with_boards') btn.classList.add('green');
+            } else {
+                btn.classList.remove('active', 'green');
+            }
+        });
+    }
+
+    [segBtnWithBoards, segBtnWithoutBoards, segBtnAll].forEach(btn => {
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            const targetSeg = btn.getAttribute('data-segment');
+            if (costCurrentSegment !== targetSeg) {
+                costCurrentSegment = targetSeg;
+                updateSegmentTabsUI();
+                fetchCostAnalytics(1, false);
+            }
+        });
+    });
 
     async function fetchCostAnalytics(page = 1, isSilent = false) {
         costCurrentPage = page;
@@ -2249,13 +2344,18 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         const search = costSearchInput ? costSearchInput.value.trim() : '';
 
         try {
-            const url = `/api/admin/analytics/cost?page=${costCurrentPage}&page_size=15&search=${encodeURIComponent(search)}`;
+            const url = `/api/admin/analytics/cost?page=${costCurrentPage}&page_size=15&search=${encodeURIComponent(search)}&segment=${encodeURIComponent(costCurrentSegment)}`;
             const res = await authFetch(url);
             if (res.ok) {
                 const data = await res.json();
                 const summary = data.summary || {};
                 const pagination = data.pagination || {};
                 const users = data.records || [];
+
+                // Update Segment Tab Badges
+                if (badgeWithBoards) badgeWithBoards.textContent = summary.count_with_boards ?? 0;
+                if (badgeWithoutBoards) badgeWithoutBoards.textContent = summary.count_without_boards ?? 0;
+                if (badgeAll) badgeAll.textContent = summary.total_users ?? 0;
 
                 // Update Top Metric Cards
                 const costInrEl = document.getElementById('stat-cost-total-inr');
@@ -2278,17 +2378,21 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 if (costPaginationInfo) {
                     const startRec = users.length > 0 ? (costCurrentPage - 1) * pagination.page_size + 1 : 0;
                     const endRec = (costCurrentPage - 1) * pagination.page_size + users.length;
-                    costPaginationInfo.textContent = `Showing ${startRec} to ${endRec} of ${costTotalRecords} users`;
+                    const segLabel = costCurrentSegment === 'with_boards' ? 'hardware owners' : (costCurrentSegment === 'without_boards' ? 'unpaired accounts' : 'users');
+                    costPaginationInfo.textContent = `Showing ${startRec} to ${endRec} of ${costTotalRecords} ${segLabel}`;
                 }
                 if (costPrevBtn) costPrevBtn.disabled = costCurrentPage <= 1;
                 if (costNextBtn) costNextBtn.disabled = costCurrentPage >= costTotalPages;
 
                 if (users.length === 0) {
+                    const emptyMsg = costCurrentSegment === 'with_boards'
+                        ? 'No accounts with active hardware boards found.'
+                        : (costCurrentSegment === 'without_boards' ? 'No accounts without hardware found.' : 'No user accounts matched your search criteria.');
                     costTableBody.innerHTML = `
                         <tr>
                             <td colspan="6" class="text-center" style="padding: 48px; color: var(--text-secondary);">
                                 <i class="fa-solid fa-folder-open fa-2x" style="margin-bottom: 10px; color: #64748b;"></i>
-                                <div>No user accounts matched your search criteria.</div>
+                                <div>${emptyMsg}</div>
                             </td>
                         </tr>
                     `;
@@ -2297,15 +2401,32 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
                 costTableBody.innerHTML = users.map(u => {
                     const avatarLetter = (u.username || u.email || 'U')[0].toUpperCase();
-                    const devBadge = u.total_devices > 0 
+                    const hasHw = u.total_devices > 0;
+                    const devBadge = hasHw 
                         ? `<span class="badge blue" style="font-size: 11px; padding: 3px 8px;"><i class="fa-solid fa-microchip"></i> ${u.total_devices} Board${u.total_devices !== 1 ? 's' : ''}</span>`
-                        : `<span class="badge gray" style="font-size: 11px; padding: 3px 8px;">0 Boards</span>`;
+                        : `<span class="badge gray" style="font-size: 11px; padding: 3px 8px; opacity: 0.7;"><i class="fa-solid fa-ban"></i> No Hardware</span>`;
+
+                    const costDisplay = hasHw
+                        ? `<span style="color: #00E676; font-weight: 700; font-size: 13.5px;">₹ ${Number(u.estimated_cost_inr).toFixed(4)}</span>`
+                        : `<span style="color: #64748b; font-weight: 500; font-size: 13px;">₹ 0.0000</span>`;
+
+                    const mqttDisplay = hasHw
+                        ? `<span style="color: #8b5cf6; font-weight: 600;">${Number(u.total_mqtt_messages).toLocaleString()}</span>`
+                        : `<span style="color: #64748b;">0</span>`;
+
+                    const minsDisplay = hasHw
+                        ? `<span style="color: #38bdf8; font-weight: 600;">${Number(u.total_connection_minutes).toLocaleString()} mins</span>`
+                        : `<span style="color: #64748b;">0 mins</span>`;
+
+                    const apiDisplay = hasHw
+                        ? `<span style="color: #cbd5e1; font-weight: 600;">${Number(u.total_api_requests).toLocaleString()}</span>`
+                        : `<span style="color: #64748b;">0</span>`;
 
                     return `
-                        <tr>
+                        <tr style="${!hasHw ? 'opacity: 0.85;' : ''}">
                             <td>
                                 <div style="display: flex; align-items: center; gap: 10px;">
-                                    <div class="user-avatar-circle" style="width: 32px; height: 32px; font-size: 12px; font-weight: 700;">${avatarLetter}</div>
+                                    <div class="user-avatar-circle" style="width: 32px; height: 32px; font-size: 12px; font-weight: 700; ${!hasHw ? 'background: rgba(100, 116, 139, 0.2); color: #94a3b8;' : ''}">${avatarLetter}</div>
                                     <div>
                                         <div style="font-weight: 700; color: #f8fafc; font-size: 13px;">${escapeHtml(u.email)}</div>
                                         <div style="font-size: 11px; color: var(--text-secondary);">@${escapeHtml(u.username)} &bull; ${escapeHtml(u.phone)}</div>
@@ -2313,10 +2434,10 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </td>
                             <td style="text-align: right;">${devBadge}</td>
-                            <td style="text-align: right; font-weight: 600; color: #8b5cf6;">${Number(u.total_mqtt_messages).toLocaleString()}</td>
-                            <td style="text-align: right; font-weight: 600; color: #38bdf8;">${Number(u.total_connection_minutes).toLocaleString()} mins</td>
-                            <td style="text-align: right; font-weight: 600; color: #cbd5e1;">${Number(u.total_api_requests).toLocaleString()}</td>
-                            <td style="text-align: right; font-weight: 700; font-size: 13.5px; color: #00E676;">₹ ${Number(u.estimated_cost_inr).toFixed(4)}</td>
+                            <td style="text-align: right;">${mqttDisplay}</td>
+                            <td style="text-align: right;">${minsDisplay}</td>
+                            <td style="text-align: right;">${apiDisplay}</td>
+                            <td style="text-align: right;">${costDisplay}</td>
                         </tr>
                     `;
                 }).join('');
@@ -2361,7 +2482,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 btnExportCostPdf.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating PDF Report...`;
                 const search = costSearchInput ? costSearchInput.value.trim() : '';
                 const token = getAdminToken();
-                const exportUrl = `/api/admin/analytics/cost/export-pdf?search=${encodeURIComponent(search)}`;
+                const exportUrl = `/api/admin/analytics/cost/export-pdf?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(costCurrentSegment)}`;
 
                 const response = await fetch(exportUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -2372,7 +2493,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     const downloadUrl = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = downloadUrl;
-                    a.download = `4Layers_Cost_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+                    const segSuffix = costCurrentSegment === 'with_boards' ? 'Hardware_Owners' : (costCurrentSegment === 'without_boards' ? 'No_Hardware' : 'All_Accounts');
+                    a.download = `4Layers_Cost_Report_${segSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -2398,7 +2520,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 btnExportCostCsv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating CSV...`;
                 const search = costSearchInput ? costSearchInput.value.trim() : '';
                 const token = getAdminToken();
-                const exportUrl = `/api/admin/analytics/cost/export-csv?search=${encodeURIComponent(search)}`;
+                const exportUrl = `/api/admin/analytics/cost/export-csv?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(costCurrentSegment)}`;
 
                 const response = await fetch(exportUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -2409,7 +2531,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     const downloadUrl = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = downloadUrl;
-                    a.download = `4Layers_Cost_Audit_${new Date().toISOString().slice(0, 10)}.csv`;
+                    const segSuffix = costCurrentSegment === 'with_boards' ? 'Hardware_Owners' : (costCurrentSegment === 'without_boards' ? 'No_Hardware' : 'All_Accounts');
+                    a.download = `4Layers_Cost_Audit_${segSuffix}_${new Date().toISOString().slice(0, 10)}.csv`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

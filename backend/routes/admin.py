@@ -953,8 +953,8 @@ def generate_cost_report_pdf(records: list, summary: dict) -> bytes:
     return buffer.getvalue()
 
 
-def _collect_cost_analytics_data(db: Session, search: Optional[str] = None):
-    """Internal helper to aggregate user-level cost, MQTT volume, and connection minutes."""
+def _collect_cost_analytics_data(db: Session, search: Optional[str] = None, segment: Optional[str] = "all"):
+    """Internal helper to aggregate user-level cost, MQTT volume, and connection minutes with hardware segmentation."""
     users = db.query(models.User).all()
     devices = db.query(models.Device).join(models.Home, models.Device.home_id == models.Home.id, isouter=True)\
                                      .join(models.User, models.Home.owner_id == models.User.id, isouter=True).all()
@@ -970,12 +970,15 @@ def _collect_cost_analytics_data(db: Session, search: Optional[str] = None):
                 user_devices_map[owner_id] = []
             user_devices_map[owner_id].append(d)
 
-    records = []
+    all_matched_records = []
     total_fleet_devices = set()
     total_fleet_mqtt = 0
     total_fleet_minutes = 0
     total_fleet_api = 0
     total_fleet_cost = 0.0
+
+    count_with_boards = 0
+    count_without_boards = 0
 
     for u in users:
         uid = str(u.id)
@@ -996,6 +999,10 @@ def _collect_cost_analytics_data(db: Session, search: Optional[str] = None):
             total_toggles += (d.total_toggle_count or 0)
 
         total_devices_count = len(base_nodes)
+        if total_devices_count > 0:
+            count_with_boards += 1
+        else:
+            count_without_boards += 1
 
         # Count telemetry & history snapshots from DeviceHistory table
         telemetry_rows_count = 0
@@ -1031,7 +1038,8 @@ def _collect_cost_analytics_data(db: Session, search: Optional[str] = None):
             "total_mqtt_messages": mqtt_messages,
             "total_connection_minutes": conn_minutes,
             "total_api_requests": api_requests,
-            "estimated_cost_inr": cost_inr
+            "estimated_cost_inr": cost_inr,
+            "has_hardware": total_devices_count > 0
         }
 
         # Search Filtering
@@ -1040,25 +1048,37 @@ def _collect_cost_analytics_data(db: Session, search: Optional[str] = None):
             if not (st in u.email.lower() or st in u.username.lower() or st in (record["phone"].lower())):
                 continue
 
-        records.append(record)
+        all_matched_records.append(record)
         total_fleet_mqtt += mqtt_messages
         total_fleet_minutes += conn_minutes
         total_fleet_api += api_requests
         total_fleet_cost += cost_inr
 
+    # Segmentation filtering
+    filtered_records = []
+    if segment == "with_boards":
+        filtered_records = [r for r in all_matched_records if r["total_devices"] > 0]
+    elif segment == "without_boards":
+        filtered_records = [r for r in all_matched_records if r["total_devices"] == 0]
+    else:
+        filtered_records = all_matched_records
+
     # Prioritize active hardware users first, then highest cost
-    records.sort(key=lambda r: (r["total_devices"], r["estimated_cost_inr"], r["total_mqtt_messages"]), reverse=True)
+    filtered_records.sort(key=lambda r: (r["total_devices"], r["estimated_cost_inr"], r["total_mqtt_messages"]), reverse=True)
 
     summary = {
-        "total_users": len(records) if search else len(users),
+        "total_users": len(all_matched_records),
+        "count_with_boards": count_with_boards,
+        "count_without_boards": count_without_boards,
         "total_devices": len(total_fleet_devices),
         "total_mqtt_messages": total_fleet_mqtt,
         "total_connection_minutes": total_fleet_minutes,
         "total_api_requests": total_fleet_api,
-        "total_estimated_cost_inr": round(total_fleet_cost, 4)
+        "total_estimated_cost_inr": round(total_fleet_cost, 4),
+        "current_segment": segment or "all"
     }
 
-    return records, summary
+    return filtered_records, summary
 
 
 @router.get("/analytics/cost")
@@ -1066,14 +1086,15 @@ def get_cost_analytics(
     page: int = Query(1, ge=1),
     page_size: int = Query(15, ge=1, le=100),
     search: Optional[str] = None,
+    segment: Optional[str] = Query("all"),
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
     """
     Enterprise Cost Analytics API: Aggregates MQTT message traffic, connection minutes, API calls,
-    and estimated Cloud expenses per user without warranty or switch clutter.
+    and estimated Cloud expenses per user with Hardware vs No-Hardware filtering.
     """
-    records, summary = _collect_cost_analytics_data(db, search)
+    records, summary = _collect_cost_analytics_data(db, search, segment)
 
     total_records = len(records)
     total_pages = max(1, math.ceil(total_records / page_size))
@@ -1097,16 +1118,18 @@ def get_usage_analytics_alias(
     page: int = Query(1, ge=1),
     page_size: int = Query(15, ge=1, le=100),
     search: Optional[str] = None,
+    segment: Optional[str] = Query("all"),
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
     """Alias for backwards compatibility."""
-    return get_cost_analytics(page, page_size, search, db, admin)
+    return get_cost_analytics(page, page_size, search, segment, db, admin)
 
 
 @router.get("/analytics/cost/export-pdf")
 def export_cost_report_pdf(
     search: Optional[str] = None,
+    segment: Optional[str] = Query("all"),
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
@@ -1114,7 +1137,7 @@ def export_cost_report_pdf(
     Generates and streams a professional PDF report containing all user cost analytics,
     fleet KPIs, and corporate branding.
     """
-    records, summary = _collect_cost_analytics_data(db, search)
+    records, summary = _collect_cost_analytics_data(db, search, segment)
     pdf_bytes = generate_cost_report_pdf(records, summary)
 
     filename = f"4Layers_Cost_Report_{datetime.datetime.utcnow().strftime('%Y%m%d')}.pdf"
@@ -1134,6 +1157,7 @@ def export_cost_report_pdf(
 @router.get("/analytics/usage/export")
 def export_cost_report_csv(
     search: Optional[str] = None,
+    segment: Optional[str] = Query("all"),
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
@@ -1143,7 +1167,7 @@ def export_cost_report_csv(
     import csv
     import io
 
-    records, summary = _collect_cost_analytics_data(db, search)
+    records, summary = _collect_cost_analytics_data(db, search, segment)
 
     output = io.StringIO()
     writer = csv.writer(output)
