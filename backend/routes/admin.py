@@ -15,6 +15,7 @@ import uuid
 import logging
 import math
 import os
+import re
 
 from backend.database import get_db
 from backend import models, mqtt, auth
@@ -421,123 +422,166 @@ def list_all_devices(
     admin: dict = Depends(get_current_admin)
 ):
     """List all registered ESP32 physical hardware boards grouped by base node_id with pagination & filtering."""
-    devices = db.query(models.Device).all()
-    
-    # Group devices by base_node_id (strip _1, _2 suffixes and extra hyphen spaces)
-    grouped_nodes = {}
-    for d in devices:
-        raw_id = d.node_id or str(d.id)[:8]
-        base_id = re.sub(r'\s*-\s*', '-', raw_id.split('_')[0].strip())
-        if base_id not in grouped_nodes:
-            grouped_nodes[base_id] = []
-        grouped_nodes[base_id].append(d)
+    try:
+        devices = db.query(models.Device).all()
+        
+        # Group devices by base_node_id (strip _1, _2 suffixes and extra hyphen spaces)
+        grouped_nodes = {}
+        for d in devices:
+            raw_id = d.node_id or str(d.id)[:8]
+            base_id = re.sub(r'\s*-\s*', '-', raw_id.split('_')[0].strip())
+            if base_id not in grouped_nodes:
+                grouped_nodes[base_id] = []
+            grouped_nodes[base_id].append(d)
 
-    node_list = []
-    now_utc = datetime.datetime.utcnow()
-    three_min_ago = now_utc - datetime.timedelta(minutes=3)
+        node_list = []
+        now_utc = datetime.datetime.utcnow()
+        three_min_ago = now_utc - datetime.timedelta(minutes=3)
 
-    for base_id, node_devs in grouped_nodes.items():
-        first_dev = node_devs[0]
-        home = db.query(models.Home).filter(models.Home.id == first_dev.home_id).first() if first_dev.home_id else None
-        owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
+        for base_id, node_devs in grouped_nodes.items():
+            first_dev = node_devs[0]
+            home = db.query(models.Home).filter(models.Home.id == first_dev.home_id).first() if first_dev.home_id else None
+            owner = db.query(models.User).filter(models.User.id == home.owner_id).first() if home else None
 
-        # Consider online if is_online flag is set OR last_seen is within the last 3 minutes
-        is_online = any(dev.is_online or (dev.last_seen and dev.last_seen > three_min_ago) for dev in node_devs)
-
-        merged_state = {}
-        for dev in node_devs:
-            st = dev.current_state or {}
-            if isinstance(st, str):
+            # Safe is_online evaluation
+            def check_online(dev):
+                if getattr(dev, 'is_online', False):
+                    return True
+                ls = getattr(dev, 'last_seen', None)
+                if ls is None:
+                    return False
                 try:
-                    import json
-                    st = json.loads(st)
+                    if isinstance(ls, str):
+                        ls_clean = ls.replace('Z', '+00:00')
+                        ls_dt = datetime.datetime.fromisoformat(ls_clean)
+                        if ls_dt.tzinfo is not None:
+                            return ls_dt > (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=3))
+                        return ls_dt > three_min_ago
+                    elif isinstance(ls, datetime.datetime):
+                        if ls.tzinfo is not None:
+                            return ls > (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=3))
+                        return ls > three_min_ago
                 except Exception:
-                    st = {}
-            merged_state.update(st)
+                    pass
+                return False
 
-        ota_cached = OTA_STATUS_CACHE.get(base_id) or OTA_STATUS_CACHE.get(f"4L-NODE-{base_id}") or OTA_STATUS_CACHE.get(base_id.replace("4L-NODE-", ""))
-        cached_ver = ota_cached.get("version") if ota_cached and str(ota_cached.get("status", "")).upper() in ("COMPLETED", "SUCCESS") else None
-        firmware_version = merged_state.get("fw_version") or merged_state.get("version") or cached_ver or "v2.0.5"
+            is_online = any(check_online(dev) for dev in node_devs)
 
-        # Correctly resolve real local IP from device records or telemetry
-        detected_ip = None
-        for dev in node_devs:
-            dev_ip = getattr(dev, 'local_ip', None)
-            if dev_ip and dev_ip not in ("0.0.0.0", "127.0.0.1") and not dev_ip.startswith("4L-"):
-                detected_ip = dev_ip
-                break
-        if not detected_ip:
-            raw_ip = merged_state.get("local_ip") or merged_state.get("ip")
-            if raw_ip and not str(raw_ip).startswith("4L-"):
-                detected_ip = str(raw_ip)
-
-        ip_address = detected_ip or "N/A"
-        
-        # Real RSSI from telemetry
-        rssi = merged_state.get("rssi")
-        if rssi is None:
+            merged_state = {}
             for dev in node_devs:
-                if dev.current_state and isinstance(dev.current_state, dict) and "rssi" in dev.current_state:
-                    rssi = dev.current_state["rssi"]
+                st = dev.current_state or {}
+                if isinstance(st, str):
+                    try:
+                        import json
+                        st = json.loads(st)
+                    except Exception:
+                        st = {}
+                if isinstance(st, dict):
+                    merged_state.update(st)
+
+            ota_cached = OTA_STATUS_CACHE.get(base_id) or OTA_STATUS_CACHE.get(f"4L-NODE-{base_id}") or OTA_STATUS_CACHE.get(base_id.replace("4L-NODE-", ""))
+            cached_ver = ota_cached.get("version") if ota_cached and str(ota_cached.get("status", "")).upper() in ("COMPLETED", "SUCCESS") else None
+            firmware_version = merged_state.get("fw_version") or merged_state.get("version") or cached_ver or "v2.0.5"
+
+            # Correctly resolve real local IP from device records or telemetry
+            detected_ip = None
+            for dev in node_devs:
+                dev_ip = getattr(dev, 'local_ip', None)
+                if dev_ip and dev_ip not in ("0.0.0.0", "127.0.0.1") and not dev_ip.startswith("4L-"):
+                    detected_ip = dev_ip
                     break
-        if rssi is None:
-            rssi = -55 if is_online else None
+            if not detected_ip:
+                raw_ip = merged_state.get("local_ip") or merged_state.get("ip")
+                if raw_ip and not str(raw_ip).startswith("4L-"):
+                    detected_ip = str(raw_ip)
 
-        last_seen_times = [dev.last_seen for dev in node_devs if dev.last_seen]
-        latest_last_seen = max(last_seen_times).isoformat() if last_seen_times else None
+            ip_address = detected_ip or "N/A"
+            
+            # Real RSSI from telemetry
+            rssi = merged_state.get("rssi")
+            if rssi is None:
+                for dev in node_devs:
+                    if dev.current_state and isinstance(dev.current_state, dict) and "rssi" in dev.current_state:
+                        rssi = dev.current_state["rssi"]
+                        break
+            if rssi is None:
+                rssi = -55 if is_online else None
 
-        node_item = {
-            "id": str(first_dev.id),
-            "device_id": base_id,
-            "node_id": base_id,
-            "mac_address": first_dev.mac_address or "N/A",
-            "name": f"ESP32 Hardware Board ({base_id})",
-            "device_type": f"{len(node_devs)}-Channel Relay Board",
-            "switch_count": len(node_devs),
-            "is_online": is_online,
-            "owner_email": owner_email,
-            "owner_username": owner_username,
-            "firmware_version": firmware_version,
-            "ip_address": ip_address,
-            "rssi": rssi if rssi is not None else "--",
-            "current_state": merged_state,
-            "last_seen": latest_last_seen
-        }
+            last_seen_times = []
+            for dev in node_devs:
+                if dev.last_seen:
+                    if isinstance(dev.last_seen, str):
+                        last_seen_times.append(dev.last_seen)
+                    elif hasattr(dev.last_seen, 'isoformat'):
+                        last_seen_times.append(dev.last_seen.isoformat())
+            latest_last_seen = max(last_seen_times) if last_seen_times else None
 
-        # Apply search filter
-        if search and search.strip():
-            search_str = search.strip().lower()
-            match_search = (
-                search_str in base_id.lower() or
-                search_str in (first_dev.mac_address or "").lower() or
-                search_str in owner_email.lower() or
-                search_str in owner_username.lower()
-            )
-            if not match_search:
-                continue
+            owner_email = owner.email if owner else "Unassigned"
+            owner_username = owner.username if owner else "Unassigned"
 
-        # Apply online filter
-        if online and online.lower() != "all":
-            if online.lower() in ("online", "true") and not is_online:
-                continue
-            elif online.lower() in ("offline", "false") and is_online:
-                continue
+            node_item = {
+                "id": str(first_dev.id),
+                "device_id": base_id,
+                "node_id": base_id,
+                "mac_address": first_dev.mac_address or "N/A",
+                "name": f"ESP32 Hardware Board ({base_id})",
+                "device_type": f"{len(node_devs)}-Channel Relay Board",
+                "switch_count": len(node_devs),
+                "is_online": is_online,
+                "owner_email": owner_email,
+                "owner_username": owner_username,
+                "firmware_version": firmware_version,
+                "ip_address": ip_address,
+                "rssi": rssi if rssi is not None else "--",
+                "current_state": merged_state,
+                "last_seen": latest_last_seen
+            }
 
-        node_list.append(node_item)
+            # Apply search filter
+            if search and search.strip():
+                search_str = search.strip().lower()
+                match_search = (
+                    search_str in base_id.lower() or
+                    search_str in (first_dev.mac_address or "").lower() or
+                    search_str in owner_email.lower() or
+                    search_str in owner_username.lower()
+                )
+                if not match_search:
+                    continue
+
+            # Apply online filter
+            if online and online.lower() != "all":
+                if online.lower() in ("online", "true") and not is_online:
+                    continue
+                elif online.lower() in ("offline", "false") and is_online:
+                    continue
+
+            node_list.append(node_item)
+            
+        total_records = len(node_list)
+        total_pages = max(1, math.ceil(total_records / limit))
+        actual_page = min(page, total_pages)
         
-    total_records = len(node_list)
-    total_pages = max(1, math.ceil(total_records / limit))
-    actual_page = min(page, total_pages)
-    
-    offset = (actual_page - 1) * limit
-    paginated_nodes = node_list[offset:offset + limit]
+        offset = (actual_page - 1) * limit
+        paginated_nodes = node_list[offset:offset + limit]
 
-    return {
-        "data": paginated_nodes,
-        "total_records": total_records,
-        "total_pages": total_pages,
-        "current_page": actual_page
-    }
+        return {
+            "data": paginated_nodes,
+            "records": paginated_nodes,
+            "total_records": total_records,
+            "total_pages": total_pages,
+            "current_page": actual_page
+        }
+    except Exception as e:
+        logger.exception(f"Error in list_all_devices: {e}")
+        return {
+            "data": [],
+            "records": [],
+            "total_records": 0,
+            "total_pages": 1,
+            "current_page": 1,
+            "error": str(e)
+        }
 
 import asyncio
 from fastapi import BackgroundTasks
