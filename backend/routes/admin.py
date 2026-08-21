@@ -3,7 +3,7 @@
 Provides endpoints for User Management, Live Device Monitoring, and MQTT/Firmware OTA Operations.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
@@ -997,11 +997,12 @@ def _collect_cost_analytics_data(db: Session, search: Optional[str] = None):
 
         total_devices_count = len(base_nodes)
 
-        # Count telemetry snapshots from DeviceTelemetry table
+        # Count telemetry & history snapshots from DeviceHistory table
         telemetry_rows_count = 0
         if dev_ids:
             try:
-                telemetry_rows_count = db.query(models.DeviceTelemetry).filter(models.DeviceTelemetry.device_id.in_(dev_ids)).count()
+                if hasattr(models, "DeviceHistory"):
+                    telemetry_rows_count = db.query(models.DeviceHistory).filter(models.DeviceHistory.device_id.in_(dev_ids)).count()
             except Exception:
                 telemetry_rows_count = 0
 
@@ -1017,6 +1018,9 @@ def _collect_cost_analytics_data(db: Session, search: Optional[str] = None):
 
         # Calculate API requests count
         api_requests = total_toggles + (total_devices_count * 12)
+
+        # Cost Formula: (messages * 0.0001) + (minutes * 0.00005)
+        cost_inr = round((mqtt_messages * 0.0001) + (conn_minutes * 0.00005), 4)
 
         record = {
             "user_id": uid,
