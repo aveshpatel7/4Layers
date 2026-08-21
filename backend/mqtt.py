@@ -198,7 +198,19 @@ def on_message(client, userdata, msg):
                         logger.info("LWT Offline handled: Marked %d channel devices OFFLINE for node %s.", len(all_chan_devices), base_node_id)
                     return
 
-                # Target node determination for normal status updates
+                # Keep ALL sibling channels on this base node online whenever any packet arrives
+                sibling_devices = db.query(models.Device).filter(
+                    (models.Device.node_id == base_node_id) | 
+                    (models.Device.node_id.like(f"{base_node_id}_%"))
+                ).all()
+                for sib in sibling_devices:
+                    sib.last_seen = datetime.utcnow()
+                    sib.is_online = True
+                    if incoming_local_ip:
+                        sib.local_ip = incoming_local_ip
+                    db.add(sib)
+
+                # Target node determination for channel-specific updates
                 target_node_id = raw_node_id
                 if "channel" in state_data:
                     target_node_id = f"{base_node_id}_{state_data['channel']}"
@@ -250,9 +262,10 @@ def on_message(client, userdata, msg):
                         )
                         db.add(telemetry_row)
 
-                    clean_state = {
-                        "status": state_data.get("status", "OFF")
-                    }
+                    clean_state = {}
+                    if "status" in state_data:
+                        raw_st = state_data.get("status")
+                        clean_state["status"] = normalize_status(raw_st)
                     if "value" in state_data:
                         clean_state["value"] = state_data["value"]
                     elif "speed" in state_data:
@@ -264,7 +277,7 @@ def on_message(client, userdata, msg):
                     
                     if previous_state != new_state or was_offline or incoming_local_ip or is_telemetry:
                         # Increment toggle counter on real state change
-                        if previous_state.get("status") != clean_state.get("status") and clean_state.get("status") in ["ON", "OFF"]:
+                        if "status" in clean_state and previous_state.get("status") != clean_state.get("status") and clean_state.get("status") in ["ON", "OFF"]:
                             device.total_toggle_count = (device.total_toggle_count or 0) + 1
 
                         device.current_state = new_state
@@ -278,7 +291,7 @@ def on_message(client, userdata, msg):
                             device_id=device.id,
                             change_type="telemetry_snapshot" if is_telemetry else "status_confirmed",
                             previous_state=previous_state,
-                            new_state=clean_state
+                            new_state=new_state
                         )
                         db.add(history_entry)
 
