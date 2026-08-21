@@ -46,8 +46,8 @@ ADMIN_HTML = """<!DOCTYPE html>
                     <span>Firmware & OTA Center</span>
                 </button>
                 <button class="nav-item" data-tab="analytics">
-                    <i class="fa-solid fa-shield-heart"></i>
-                    <span>Usage & Warranty</span>
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Cost Analytics</span>
                 </button>
             </nav>
 
@@ -439,39 +439,39 @@ ADMIN_HTML = """<!DOCTYPE html>
                 </div>
             </section>
 
-            <!-- TAB 5: USAGE & WARRANTY REPORT -->
+            <!-- TAB 5: COST ANALYTICS -->
             <section id="tab-analytics" class="tab-pane">
                 <div class="metrics-grid" style="margin-bottom: 20px;">
                     <div class="metric-card">
                         <div class="metric-icon green">
-                            <i class="fa-solid fa-microchip"></i>
+                            <i class="fa-solid fa-indian-rupee-sign"></i>
                         </div>
                         <div class="metric-info">
-                            <span class="metric-label">Active Hardware Boards</span>
-                            <h3 id="stat-active-warranties">--</h3>
-                            <span class="metric-sub green" id="stat-sub-switches">-- Active Channels</span>
+                            <span class="metric-label">Total Fleet Cost (₹)</span>
+                            <h3 id="stat-cost-total-inr">₹ 0.0000</h3>
+                            <span class="metric-sub green">MQTT & Cloud Uptime</span>
                         </div>
                     </div>
 
                     <div class="metric-card">
-                        <div class="metric-icon red">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="metric-icon blue">
+                            <i class="fa-solid fa-tower-broadcast"></i>
                         </div>
                         <div class="metric-info">
-                            <span class="metric-label">Voided Boards</span>
-                            <h3 id="stat-void-warranties">--</h3>
-                            <span class="metric-sub red">>100k Toggles / >50 Crashes</span>
+                            <span class="metric-label">Total MQTT Messages</span>
+                            <h3 id="stat-cost-total-mqtt">--</h3>
+                            <span class="metric-sub blue">Telemetry & Status Packets</span>
                         </div>
                     </div>
 
                     <div class="metric-card">
-                        <div class="metric-icon gray">
-                            <i class="fa-solid fa-calendar-xmark"></i>
+                        <div class="metric-icon orange">
+                            <i class="fa-solid fa-stopwatch"></i>
                         </div>
                         <div class="metric-info">
-                            <span class="metric-label">Expired Boards</span>
-                            <h3 id="stat-expired-warranties">--</h3>
-                            <span class="metric-sub">> 1 Year Operational</span>
+                            <span class="metric-label">Connected Minutes</span>
+                            <h3 id="stat-cost-total-mins">--</h3>
+                            <span class="metric-sub orange">Active Device Uptime</span>
                         </div>
                     </div>
 
@@ -480,9 +480,9 @@ ADMIN_HTML = """<!DOCTYPE html>
                             <i class="fa-solid fa-users"></i>
                         </div>
                         <div class="metric-info">
-                            <span class="metric-label">Registered Users</span>
-                            <h3 id="stat-heavy-users">--</h3>
-                            <span class="metric-sub purple" id="stat-sub-heavy">-- Heavy Users</span>
+                            <span class="metric-label">Accounts Audited</span>
+                            <h3 id="stat-cost-total-users">--</h3>
+                            <span class="metric-sub purple" id="stat-sub-boards-count">-- Hardware Boards</span>
                         </div>
                     </div>
                 </div>
@@ -490,56 +490,57 @@ ADMIN_HTML = """<!DOCTYPE html>
                 <div class="panel-card">
                     <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
                         <div>
-                            <h3><i class="fa-solid fa-file-shield"></i> User Accounts & Hardware Usage Audit</h3>
-                            <p class="card-desc" style="margin-top: 4px;">User profile activity tracking, physical board hardware telemetry, switch runtime audits, and instant data extraction.</p>
+                            <h3><i class="fa-solid fa-file-invoice-dollar"></i> Cloud & MQTT Cost Analytics</h3>
+                            <p class="card-desc" style="margin-top: 4px;">Real-time IoT cloud infrastructure expense estimation, message ingestion volume, and billing audit.</p>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button class="btn btn-accent" id="btn-export-warranty-csv">
-                                <i class="fa-solid fa-file-arrow-down"></i> Export Full Fleet Audit (CSV)
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button class="btn btn-accent" id="btn-export-cost-pdf" style="background: #00E676; color: #000; font-weight: 700; border-color: #00E676;">
+                                <i class="fa-solid fa-file-pdf"></i> Export Cost Report (PDF)
+                            </button>
+                            <button class="btn btn-outline" id="btn-export-cost-csv">
+                                <i class="fa-solid fa-file-csv"></i> Export CSV
                             </button>
                         </div>
                     </div>
 
-                    <!-- Modern Search & Filter Toolbar -->
+                    <!-- Clean Search Toolbar -->
                     <div class="analytics-filter-toolbar">
-                        <div class="analytics-search-wrap">
+                        <div class="analytics-search-wrap" style="flex: 1;">
                             <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                            <input type="text" id="warranty-search-input" class="analytics-search-input" placeholder="Search by user email, username, phone, or board Node ID...">
-                        </div>
-                        <div class="analytics-select-group">
-                            <div class="custom-select-wrap">
-                                <i class="fa-solid fa-filter select-icon"></i>
-                                <select id="warranty-hardware-filter" class="analytics-filter-select">
-                                    <option value="ACTIVE_BOARDS_ONLY">Hardware Owners Only</option>
-                                    <option value="ALL_ACCOUNTS">All User Accounts</option>
-                                </select>
-                            </div>
-                            <div class="custom-select-wrap">
-                                <i class="fa-solid fa-shield-halved select-icon"></i>
-                                <select id="warranty-status-filter" class="analytics-filter-select">
-                                    <option value="ALL">All Warranty Status</option>
-                                    <option value="ACTIVE">Active Boards (Valid)</option>
-                                    <option value="VOID">Void Boards (Abused)</option>
-                                    <option value="EXPIRED">Expired Boards (>1 Year)</option>
-                                </select>
-                            </div>
+                            <input type="text" id="cost-search-input" class="analytics-search-input" placeholder="Search by user email, username, or phone...">
                         </div>
                     </div>
 
-                    <!-- User Account Cards Container -->
-                    <div id="usage-warranty-cards-container" style="display: flex; flex-direction: column; gap: 16px;">
-                        <div class="text-center" style="padding: 40px; color: var(--text-secondary);">
-                            <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
-                            <div>Loading user accounts and hardware warranty analytics...</div>
-                        </div>
+                    <!-- Clean Enterprise Cost Table -->
+                    <div class="table-responsive" style="margin-top: 14px;">
+                        <table class="data-table" id="cost-analytics-table">
+                            <thead>
+                                <tr>
+                                    <th style="min-width: 220px;">User Email</th>
+                                    <th style="text-align: right; min-width: 110px;">Total Devices</th>
+                                    <th style="text-align: right; min-width: 130px;">MQTT Messages</th>
+                                    <th style="text-align: right; min-width: 130px;">Connected Mins</th>
+                                    <th style="text-align: right; min-width: 100px;">API Calls</th>
+                                    <th style="text-align: right; min-width: 120px;">Est. Cost (₹)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cost-table-body">
+                                <tr>
+                                    <td colspan="6" class="text-center" style="padding: 40px; color: var(--text-secondary);">
+                                        <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
+                                        <div>Loading cost analytics...</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
                     <div class="pagination-footer" style="margin-top: 20px;">
-                        <div class="pagination-info" id="warranty-pagination-info">Showing 0 to 0 of 0 users</div>
+                        <div class="pagination-info" id="cost-pagination-info">Showing 0 to 0 of 0 users</div>
                         <div class="pagination-controls">
-                            <button class="pagination-btn" id="warranty-prev-btn" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
-                            <span id="warranty-page-num" class="pagination-page">Page 1 of 1</span>
-                            <button class="pagination-btn" id="warranty-next-btn" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+                            <button class="pagination-btn" id="cost-prev-btn" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
+                            <span id="cost-page-num" class="pagination-page">Page 1 of 1</span>
+                            <button class="pagination-btn" id="cost-next-btn" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
                         </div>
                     </div>
                 </div>
@@ -1204,7 +1205,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         users: { title: "Users & Activity Monitor", subtitle: "Manage registered user accounts, active sessions, and linked devices" },
         nodes: { title: "MQTT Nodes Monitor", subtitle: "Real-time status, firmware versions, and WiFi signal strength" },
         flasher: { title: "Firmware & OTA Center", subtitle: "Remote MQTT OTA updates and WebSerial browser USB flashing" },
-        analytics: { title: "IoT Usage & Warranty Validation Report", subtitle: "Comprehensive appliance runtime analysis, cycle stress audits, and legal warranty status classification" }
+        analytics: { title: "Cost Analytics", subtitle: "Real-time IoT cloud infrastructure expense estimation and user usage billing audit" }
     };
 
     let currentActiveTab = 'overview';
@@ -1221,7 +1222,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 activeTitle.textContent = tabMeta[targetTab].title;
                 activeSubtitle.textContent = tabMeta[targetTab].subtitle;
             }
-            if (targetTab === 'analytics') fetchUsageAnalytics(warrantyCurrentPage, false);
+            if (targetTab === 'analytics') fetchCostAnalytics(costCurrentPage, false);
             else if (targetTab === 'users') fetchUsers(userCurrentPage, false);
             else if (targetTab === 'nodes') fetchDevices(nodeCurrentPage, false);
             else if (targetTab === 'overview') fetchStats(false);
@@ -2218,39 +2219,37 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     });
 
-    /* --- Usage Analytics & Warranty Validation Controller (User & Board Hierarchy) --- */
-    let warrantyCurrentPage = 1;
-    let warrantyTotalPages = 1;
-    let warrantyTotalRecords = 0;
-    const warrantyCardsContainer = document.getElementById('usage-warranty-cards-container');
-    const warrantySearchInput = document.getElementById('warranty-search-input');
-    const warrantyStatusFilter = document.getElementById('warranty-status-filter');
-    const warrantyHardwareFilter = document.getElementById('warranty-hardware-filter');
-    const warrantyPrevBtn = document.getElementById('warranty-prev-btn');
-    const warrantyNextBtn = document.getElementById('warranty-next-btn');
-    const warrantyPageNum = document.getElementById('warranty-page-num');
-    const warrantyPaginationInfo = document.getElementById('warranty-pagination-info');
-    const btnExportWarrantyCsv = document.getElementById('btn-export-warranty-csv');
+    /* --- Cost Analytics & PDF Export Controller --- */
+    let costCurrentPage = 1;
+    let costTotalPages = 1;
+    let costTotalRecords = 0;
+    const costTableBody = document.getElementById('cost-table-body');
+    const costSearchInput = document.getElementById('cost-search-input');
+    const costPrevBtn = document.getElementById('cost-prev-btn');
+    const costNextBtn = document.getElementById('cost-next-btn');
+    const costPageNum = document.getElementById('cost-page-num');
+    const costPaginationInfo = document.getElementById('cost-pagination-info');
+    const btnExportCostPdf = document.getElementById('btn-export-cost-pdf');
+    const btnExportCostCsv = document.getElementById('btn-export-cost-csv');
 
-    async function fetchUsageAnalytics(page = 1, isSilent = false) {
-        warrantyCurrentPage = page;
-        if (!warrantyCardsContainer) return;
+    async function fetchCostAnalytics(page = 1, isSilent = false) {
+        costCurrentPage = page;
+        if (!costTableBody) return;
         if (!isSilent) {
-            warrantyCardsContainer.innerHTML = `
-                <div class="text-center" style="padding: 40px; color: var(--text-secondary);">
-                    <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
-                    <div>Loading user accounts and hardware warranty analytics...</div>
-                </div>
+            costTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center" style="padding: 40px; color: var(--text-secondary);">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
+                        <div>Loading cost analytics and cloud usage...</div>
+                    </td>
+                </tr>
             `;
         }
 
-        const search = warrantySearchInput ? warrantySearchInput.value.trim() : '';
-        const filterVal = warrantyStatusFilter ? warrantyStatusFilter.value : 'ALL';
-        const hwFilter = warrantyHardwareFilter ? warrantyHardwareFilter.value : 'ACTIVE_BOARDS_ONLY';
-        const hardwareOnly = (hwFilter === 'ACTIVE_BOARDS_ONLY');
+        const search = costSearchInput ? costSearchInput.value.trim() : '';
 
         try {
-            const url = `/api/admin/analytics/usage?page=${warrantyCurrentPage}&page_size=10&search=${encodeURIComponent(search)}&filter_warranty=${encodeURIComponent(filterVal)}&hardware_only=${hardwareOnly}`;
+            const url = `/api/admin/analytics/cost?page=${costCurrentPage}&page_size=15&search=${encodeURIComponent(search)}`;
             const res = await authFetch(url);
             if (res.ok) {
                 const data = await res.json();
@@ -2258,285 +2257,172 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 const pagination = data.pagination || {};
                 const users = data.records || [];
 
-                // Update Metric Cards
-                const activeEl = document.getElementById('stat-active-warranties');
-                const subSwitchesEl = document.getElementById('stat-sub-switches');
-                const voidEl = document.getElementById('stat-void-warranties');
-                const expEl = document.getElementById('stat-expired-warranties');
-                const usersEl = document.getElementById('stat-heavy-users');
-                const subHeavyEl = document.getElementById('stat-sub-heavy');
+                // Update Top Metric Cards
+                const costInrEl = document.getElementById('stat-cost-total-inr');
+                const mqttMsgsEl = document.getElementById('stat-cost-total-mqtt');
+                const connMinsEl = document.getElementById('stat-cost-total-mins');
+                const usersCountEl = document.getElementById('stat-cost-total-users');
+                const subBoardsEl = document.getElementById('stat-sub-boards-count');
 
-                if (activeEl) activeEl.textContent = `${summary.active_warranties ?? 0} Boards`;
-                if (subSwitchesEl) subSwitchesEl.textContent = `${summary.total_switches ?? 0} Active Channels`;
-                if (voidEl) voidEl.textContent = `${summary.void_warranties ?? 0} Boards`;
-                if (expEl) expEl.textContent = `${summary.expired_warranties ?? 0} Boards`;
-                if (usersEl) usersEl.textContent = `${summary.total_users ?? 0} Users`;
-                if (subHeavyEl) subHeavyEl.textContent = `${summary.heavy_users_count ?? 0} Heavy Users (>5000h)`;
+                if (costInrEl) costInrEl.textContent = `₹ ${(summary.total_estimated_cost_inr || 0).toFixed(4)}`;
+                if (mqttMsgsEl) mqttMsgsEl.textContent = Number(summary.total_mqtt_messages || 0).toLocaleString();
+                if (connMinsEl) connMinsEl.textContent = `${Number(summary.total_connection_minutes || 0).toLocaleString()} mins`;
+                if (usersCountEl) usersCountEl.textContent = `${summary.total_users || 0} Accounts`;
+                if (subBoardsEl) subBoardsEl.textContent = `${summary.total_devices || 0} Hardware Boards`;
 
-                warrantyTotalRecords = pagination.total_records || 0;
-                warrantyTotalPages = pagination.total_pages || 1;
-                warrantyCurrentPage = pagination.page || 1;
+                costTotalRecords = pagination.total_records || 0;
+                costTotalPages = pagination.total_pages || 1;
+                costCurrentPage = pagination.page || 1;
 
-                if (warrantyPageNum) warrantyPageNum.textContent = `Page ${warrantyCurrentPage} of ${warrantyTotalPages}`;
-                if (warrantyPaginationInfo) {
-                    const startRec = users.length > 0 ? (warrantyCurrentPage - 1) * pagination.page_size + 1 : 0;
-                    const endRec = (warrantyCurrentPage - 1) * pagination.page_size + users.length;
-                    warrantyPaginationInfo.textContent = `Showing ${startRec} to ${endRec} of ${warrantyTotalRecords} user accounts`;
+                if (costPageNum) costPageNum.textContent = `Page ${costCurrentPage} of ${costTotalPages}`;
+                if (costPaginationInfo) {
+                    const startRec = users.length > 0 ? (costCurrentPage - 1) * pagination.page_size + 1 : 0;
+                    const endRec = (costCurrentPage - 1) * pagination.page_size + users.length;
+                    costPaginationInfo.textContent = `Showing ${startRec} to ${endRec} of ${costTotalRecords} users`;
                 }
-                if (warrantyPrevBtn) warrantyPrevBtn.disabled = warrantyCurrentPage <= 1;
-                if (warrantyNextBtn) warrantyNextBtn.disabled = warrantyCurrentPage >= warrantyTotalPages;
+                if (costPrevBtn) costPrevBtn.disabled = costCurrentPage <= 1;
+                if (costNextBtn) costNextBtn.disabled = costCurrentPage >= costTotalPages;
 
                 if (users.length === 0) {
-                    warrantyCardsContainer.innerHTML = `
-                        <div class="text-center" style="padding: 48px; background: rgba(30, 41, 59, 0.4); border-radius: var(--radius-lg); border: 1px dashed var(--border-color); color: var(--text-secondary);">
-                            <i class="fa-solid fa-folder-open fa-2x" style="margin-bottom: 10px; color: #64748b;"></i>
-                            <div>No user accounts or hardware boards matched your criteria.</div>
-                        </div>
+                    costTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center" style="padding: 48px; color: var(--text-secondary);">
+                                <i class="fa-solid fa-folder-open fa-2x" style="margin-bottom: 10px; color: #64748b;"></i>
+                                <div>No user accounts matched your search criteria.</div>
+                            </td>
+                        </tr>
                     `;
                     return;
                 }
 
-                warrantyCardsContainer.innerHTML = users.map(u => {
+                costTableBody.innerHTML = users.map(u => {
                     const avatarLetter = (u.username || u.email || 'U')[0].toUpperCase();
-                    const heavyBadge = u.is_heavy_user ? `<span class="badge purple" style="font-size: 10px;" title="Heavy Appliance User: >5000 hrs"><i class="fa-solid fa-crown"></i> Heavy User</span>` : '';
-                    const boards = u.hardware_boards || [];
-
-                    const boardsHtml = boards.map((b, bIdx) => {
-                        let badgeClass = 'green';
-                        let iconClass = 'fa-shield-halved';
-                        if (b.warranty_status === 'VOID') {
-                            badgeClass = 'red';
-                            iconClass = 'fa-triangle-exclamation';
-                        } else if (b.warranty_status === 'EXPIRED') {
-                            badgeClass = 'gray';
-                            iconClass = 'fa-calendar-xmark';
-                        }
-
-                        const statusPulse = b.is_online ? `<span class="status-indicator online"></span> <span style="color: #00E676; font-size: 12px; font-weight: 600;">Online</span>` : `<span class="status-indicator offline"></span> <span style="color: #94a3b8; font-size: 12px;">Offline</span>`;
-                        const actDateFormatted = b.activated_at ? new Date(b.activated_at).toLocaleDateString() : 'N/A';
-
-                        const switchesList = b.switches || [];
-                        const switchesHtml = switchesList.map(s => {
-                            const isChOn = (s.current_state && (s.current_state.status === 'ON' || s.current_state.state === 'ON'));
-                            const icon = s.device_type === 'fan' ? 'fa-fan' : (s.switch_channel.includes('Master') ? 'fa-power-off' : 'fa-lightbulb');
-                            return `
-                                <div class="switch-channel-card ${isChOn ? 'on' : ''}">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <div style="font-weight: 600; font-size: 12.5px; color: #f8fafc; display: flex; align-items: center; gap: 6px;">
-                                            <i class="fa-solid ${icon}" style="color: ${isChOn ? '#00E676' : '#94a3b8'};"></i>
-                                            ${escapeHtml(s.switch_channel)}
-                                        </div>
-                                        <span style="font-size: 10.5px; font-weight: 700; color: ${isChOn ? '#00E676' : '#94a3b8'};">${isChOn ? 'ON' : 'OFF'}</span>
-                                    </div>
-                                    <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(s.device_name)}</div>
-                                    <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.05);">
-                                        <span style="color: #cbd5e1;"><i class="fa-solid fa-rotate"></i> <strong>${Number(s.toggles).toLocaleString()}</strong></span>
-                                        <span style="color: #38bdf8;"><i class="fa-solid fa-clock"></i> <strong>${s.on_hours}h</strong></span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('');
-
-                        return `
-                            <div class="hardware-board-strip">
-                                <div class="hardware-board-header">
-                                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            ${statusPulse}
-                                        </div>
-                                        <div style="font-weight: 600; font-size: 13.5px; color: #ffffff;">${escapeHtml(b.board_name)}</div>
-                                        <span class="badge blue font-mono" style="font-size: 11px;">${escapeHtml(b.base_node_id)}</span>
-                                        <span style="font-size: 11px; color: var(--text-secondary);">IP: <code style="color: #38bdf8;">${escapeHtml(b.local_ip)}</code></span>
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <span class="badge ${badgeClass}" style="font-size: 11.5px; padding: 4px 10px;">
-                                            <i class="fa-solid ${iconClass}"></i> Warranty: ${b.warranty_status}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="board-stats-row">
-                                    <div class="board-stat-item">
-                                        <span class="stat-lbl">Cumulative Cycles</span>
-                                        <span class="stat-val" style="color: ${b.total_board_toggles > 100000 ? '#ef4444' : '#00E676'};">${Number(b.total_board_toggles).toLocaleString()}</span>
-                                    </div>
-                                    <div class="board-stat-item">
-                                        <span class="stat-lbl">Active Runtime</span>
-                                        <span class="stat-val" style="color: #38bdf8;">${b.total_board_on_hours} hrs</span>
-                                    </div>
-                                    <div class="board-stat-item">
-                                        <span class="stat-lbl">Power Restarts</span>
-                                        <span class="stat-val" style="color: #94a3b8;">${b.boot_count} boots</span>
-                                    </div>
-                                    <div class="board-stat-item">
-                                        <span class="stat-lbl">Brownout Crashes</span>
-                                        <span class="stat-val" style="color: ${b.crash_count > 50 ? '#ef4444' : (b.crash_count > 0 ? '#f59e0b' : '#94a3b8')};">${b.crash_count}</span>
-                                    </div>
-                                    <div class="board-stat-item">
-                                        <span class="stat-lbl">Activated On</span>
-                                        <span class="stat-val" style="font-size: 12px; color: var(--text-secondary);">${actDateFormatted}</span>
-                                    </div>
-                                </div>
-
-                                <div style="margin-top: 10px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                        <div style="font-size: 12px; font-weight: 600; color: #cbd5e1;">
-                                            <i class="fa-solid fa-toggle-on" style="color: var(--accent-blue);"></i> 6 Switch Channels & Appliances (${switchesList.length} Connected)
-                                        </div>
-                                    </div>
-                                    <div class="switch-channels-grid">
-                                        ${switchesHtml}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
+                    const devBadge = u.total_devices > 0 
+                        ? `<span class="badge blue" style="font-size: 11px; padding: 3px 8px;"><i class="fa-solid fa-microchip"></i> ${u.total_devices} Board${u.total_devices !== 1 ? 's' : ''}</span>`
+                        : `<span class="badge gray" style="font-size: 11px; padding: 3px 8px;">0 Boards</span>`;
 
                     return `
-                        <div class="user-analytics-card" id="user-card-${u.user_id}">
-                            <div class="user-card-header">
-                                <div style="display: flex; align-items: center; gap: 14px;">
-                                    <div class="user-avatar-circle">${avatarLetter}</div>
+                        <tr>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div class="user-avatar-circle" style="width: 32px; height: 32px; font-size: 12px; font-weight: 700;">${avatarLetter}</div>
                                     <div>
-                                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                            <span style="font-size: 15px; font-weight: 700; color: var(--text-primary);">${escapeHtml(u.email)}</span>
-                                            ${heavyBadge}
-                                        </div>
-                                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
-                                            <strong>@${escapeHtml(u.username)}</strong> &bull; Phone: ${escapeHtml(u.phone)}
-                                        </div>
+                                        <div style="font-weight: 700; color: #f8fafc; font-size: 13px;">${escapeHtml(u.email)}</div>
+                                        <div style="font-size: 11px; color: var(--text-secondary);">@${escapeHtml(u.username)} &bull; ${escapeHtml(u.phone)}</div>
                                     </div>
                                 </div>
-
-                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                                    <span class="badge blue" style="font-size: 11px;"><i class="fa-solid fa-microchip"></i> ${u.total_boards_count} Hardware Board${u.total_boards_count !== 1 ? 's' : ''}</span>
-                                    <span class="badge gray" style="font-size: 11px;"><i class="fa-solid fa-sliders"></i> ${u.total_switches_count} Switches</span>
-                                    <span class="badge green" style="font-size: 11px;"><i class="fa-solid fa-clock"></i> ${u.total_user_on_hours}h Total ON</span>
-                                    <button class="btn btn-outline btn-sm btn-export-user-csv" data-user-id="${u.user_id}" data-user-email="${escapeHtml(u.email)}" style="font-size: 11.5px; padding: 6px 12px;">
-                                        <i class="fa-solid fa-file-csv"></i> Extract User Data (CSV)
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="user-card-body" style="margin-top: 6px;">
-                                ${boards.length > 0 ? boardsHtml : '<div style="padding: 16px; color: var(--text-secondary); font-size: 12.5px;">No physical hardware boards linked to this account yet.</div>'}
-                            </div>
-                        </div>
+                            </td>
+                            <td style="text-align: right;">${devBadge}</td>
+                            <td style="text-align: right; font-weight: 600; color: #8b5cf6;">${Number(u.total_mqtt_messages).toLocaleString()}</td>
+                            <td style="text-align: right; font-weight: 600; color: #38bdf8;">${Number(u.total_connection_minutes).toLocaleString()} mins</td>
+                            <td style="text-align: right; font-weight: 600; color: #cbd5e1;">${Number(u.total_api_requests).toLocaleString()}</td>
+                            <td style="text-align: right; font-weight: 700; font-size: 13.5px; color: #00E676;">₹ ${Number(u.estimated_cost_inr).toFixed(4)}</td>
+                        </tr>
                     `;
                 }).join('');
 
-                // Attach Per-User CSV Download Handlers
-                document.querySelectorAll('.btn-export-user-csv').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        const userId = btn.getAttribute('data-user-id');
-                        const userEmail = btn.getAttribute('data-user-email') || 'User';
-                        try {
-                            btn.disabled = true;
-                            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Exporting...`;
-                            const token = getAdminToken();
-                            const res = await fetch(`/api/admin/analytics/usage/export?user_id=${encodeURIComponent(userId)}`, {
-                                headers: { 'Authorization': `Bearer ${token}` }
-                            });
-                            if (res.ok) {
-                                const blob = await res.blob();
-                                const downloadUrl = window.URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = downloadUrl;
-                                a.download = `4Layers_Audit_${userEmail.split('@')[0]}_${new Date().toISOString().slice(0,10)}.csv`;
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                window.URL.revokeObjectURL(downloadUrl);
-                                logTerminal(`Exported warranty audit report for ${userEmail}.`, 'success');
-                            } else {
-                                alert("Failed to export user CSV report.");
-                            }
-                        } catch (err) {
-                            alert(`Export error: ${err.message}`);
-                        } finally {
-                            btn.disabled = false;
-                            btn.innerHTML = `<i class="fa-solid fa-file-csv"></i> Extract User Data (CSV)`;
-                        }
-                    });
-                });
-
             } else {
                 if (!isSilent) {
-                    warrantyCardsContainer.innerHTML = `<div class="text-center" style="padding: 30px; color: var(--accent-red);">Failed to load usage analytics (HTTP ${res.status}).</div>`;
+                    costTableBody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--accent-red);">Failed to load cost analytics (HTTP ${res.status}).</td></tr>`;
                 }
             }
         } catch (err) {
-            if (!isSilent && warrantyCardsContainer) {
-                warrantyCardsContainer.innerHTML = `<div class="text-center" style="padding: 30px; color: var(--accent-red);">Error: ${err.message}</div>`;
+            if (!isSilent && costTableBody) {
+                costTableBody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--accent-red);">Error: ${err.message}</td></tr>`;
             }
         }
     }
 
-    if (warrantySearchInput) {
+    if (costSearchInput) {
         let debounceTimer;
-        warrantySearchInput.addEventListener('input', () => {
+        costSearchInput.addEventListener('input', () => {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => fetchUsageAnalytics(1, false), 300);
+            debounceTimer = setTimeout(() => fetchCostAnalytics(1, false), 300);
         });
     }
 
-    if (warrantyStatusFilter) {
-        warrantyStatusFilter.addEventListener('change', () => fetchUsageAnalytics(1, false));
-    }
-
-    if (warrantyHardwareFilter) {
-        warrantyHardwareFilter.addEventListener('change', () => fetchUsageAnalytics(1, false));
-    }
-
-    if (warrantyPrevBtn) {
-        warrantyPrevBtn.addEventListener('click', () => {
-            if (warrantyCurrentPage > 1) fetchUsageAnalytics(warrantyCurrentPage - 1, false);
+    if (costPrevBtn) {
+        costPrevBtn.addEventListener('click', () => {
+            if (costCurrentPage > 1) fetchCostAnalytics(costCurrentPage - 1, false);
         });
     }
 
-    if (warrantyNextBtn) {
-        warrantyNextBtn.addEventListener('click', () => {
-            if (warrantyCurrentPage < warrantyTotalPages) fetchUsageAnalytics(warrantyCurrentPage + 1, false);
+    if (costNextBtn) {
+        costNextBtn.addEventListener('click', () => {
+            if (costCurrentPage < costTotalPages) fetchCostAnalytics(costCurrentPage + 1, false);
         });
     }
 
-    if (btnExportWarrantyCsv) {
-        btnExportWarrantyCsv.addEventListener('click', async () => {
+    // Export PDF Button Handler
+    if (btnExportCostPdf) {
+        btnExportCostPdf.addEventListener('click', async () => {
             try {
-                btnExportWarrantyCsv.disabled = true;
-                btnExportWarrantyCsv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Fleet CSV...`;
-                const search = warrantySearchInput ? warrantySearchInput.value.trim() : '';
-                const filterVal = warrantyStatusFilter ? warrantyStatusFilter.value : 'ALL';
-                
+                btnExportCostPdf.disabled = true;
+                btnExportCostPdf.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating PDF Report...`;
+                const search = costSearchInput ? costSearchInput.value.trim() : '';
                 const token = getAdminToken();
-                const exportUrl = `/api/admin/analytics/usage/export?search=${encodeURIComponent(search)}&filter_warranty=${encodeURIComponent(filterVal)}`;
-                
+                const exportUrl = `/api/admin/analytics/cost/export-pdf?search=${encodeURIComponent(search)}`;
+
                 const response = await fetch(exportUrl, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (response.ok) {
                     const blob = await response.blob();
                     const downloadUrl = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = downloadUrl;
-                    a.download = `4Layers_Fleet_Warranty_Audit_${new Date().toISOString().slice(0,10)}.csv`;
+                    a.download = `4Layers_Cost_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(downloadUrl);
-                    logTerminal("Exported Full Fleet Warranty Audit CSV report successfully.", "success");
+                    logTerminal("Exported 4Layers Cost & Usage PDF Report successfully.", "success");
                 } else {
-                    alert("Failed to export CSV. Please ensure you are logged in.");
+                    alert("Failed to generate PDF Report. Please check authorization.");
                 }
-            } catch (e) {
-                alert(`Export Error: ${e.message}`);
+            } catch (err) {
+                alert(`PDF Export Error: ${err.message}`);
             } finally {
-                btnExportWarrantyCsv.disabled = false;
-                btnExportWarrantyCsv.innerHTML = `<i class="fa-solid fa-file-arrow-down"></i> Export Full Fleet Audit (CSV)`;
+                btnExportCostPdf.disabled = false;
+                btnExportCostPdf.innerHTML = `<i class="fa-solid fa-file-pdf"></i> Export Cost Report (PDF)`;
+            }
+        });
+    }
+
+    // Export CSV Button Handler
+    if (btnExportCostCsv) {
+        btnExportCostCsv.addEventListener('click', async () => {
+            try {
+                btnExportCostCsv.disabled = true;
+                btnExportCostCsv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating CSV...`;
+                const search = costSearchInput ? costSearchInput.value.trim() : '';
+                const token = getAdminToken();
+                const exportUrl = `/api/admin/analytics/cost/export-csv?search=${encodeURIComponent(search)}`;
+
+                const response = await fetch(exportUrl, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `4Layers_Cost_Audit_${new Date().toISOString().slice(0, 10)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(downloadUrl);
+                    logTerminal("Exported Cost Audit CSV report successfully.", "success");
+                } else {
+                    alert("Failed to export CSV report.");
+                }
+            } catch (err) {
+                alert(`CSV Export Error: ${err.message}`);
+            } finally {
+                btnExportCostCsv.disabled = false;
+                btnExportCostCsv.innerHTML = `<i class="fa-solid fa-file-csv"></i> Export CSV`;
             }
         });
     }
@@ -2555,7 +2441,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 fetchStats(isSilent),
                 fetchUsers(userCurrentPage, isSilent),
                 fetchDevices(nodeCurrentPage, isSilent),
-                fetchUsageAnalytics(warrantyCurrentPage, isSilent)
+                fetchCostAnalytics(costCurrentPage, isSilent)
             ]);
         } finally {
             isLoadingAllData = false;
@@ -2584,7 +2470,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => {
         if (!getAdminToken()) return;
         if (currentActiveTab === 'analytics') {
-            fetchUsageAnalytics(warrantyCurrentPage, true);
+            fetchCostAnalytics(costCurrentPage, true);
         } else if (currentActiveTab === 'users') {
             fetchUsers(userCurrentPage, true);
         } else if (currentActiveTab === 'nodes') {
