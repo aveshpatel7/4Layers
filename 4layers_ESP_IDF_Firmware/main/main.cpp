@@ -63,6 +63,7 @@ MrY=
 -----END CERTIFICATE-----
 )EOF";
 
+const char* FIRMWARE_VERSION = "v2.0.6";
 char NODE_ID[32];
 char command_topic[100]; 
 char status_topic[100];  
@@ -358,6 +359,8 @@ void sendChannelState(int channel, bool status, int val = -1)
 {
     StaticJsonDocument<200> doc;
     doc["channel"] = channel;
+    doc["fw_version"] = FIRMWARE_VERSION;
+    doc["version"] = FIRMWARE_VERSION;
     
     if (status) 
     {
@@ -445,6 +448,8 @@ void publishTelemetry()
         doc["crash_count"] = board_crash_count;
         doc["rssi"] = WiFi.RSSI();
         doc["uptime"] = (uint32_t)(now_ms / 1000);
+        doc["fw_version"] = FIRMWARE_VERSION;
+        doc["version"] = FIRMWARE_VERSION;
 
         char buffer[256];
         serializeJson(doc, buffer);

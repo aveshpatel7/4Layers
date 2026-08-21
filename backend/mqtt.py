@@ -119,27 +119,37 @@ def on_message(client, userdata, msg):
             else:
                 base_node_id = raw_node_id
 
-            # Extract local_ip if present in payload
+            # Extract local_ip and firmware version if present in payload
             incoming_local_ip = state_data.get("local_ip") or state_data.get("ip")
+            incoming_fw_ver = state_data.get("fw_version") or state_data.get("version") or state_data.get("firmware_version")
 
             # Update database in callback thread
             db: Session = SessionLocal()
             try:
-                # If local_ip is provided in telemetry/status, update all sibling channel devices
-                if incoming_local_ip:
+                # If local_ip or firmware version is provided in telemetry/status, update all sibling channel devices
+                if incoming_local_ip or incoming_fw_ver:
                     sibling_devices = db.query(models.Device).filter(
                         (models.Device.node_id == base_node_id) | 
                         (models.Device.node_id.like(f"{base_node_id}_%"))
                     ).all()
                     for sib in sibling_devices:
-                        sib.local_ip = incoming_local_ip
+                        if incoming_local_ip:
+                            sib.local_ip = incoming_local_ip
                         cur = sib.current_state or {}
-                        sib.current_state = {**cur, "local_ip": incoming_local_ip}
+                        updates = {}
+                        if incoming_local_ip:
+                            updates["local_ip"] = incoming_local_ip
+                        if incoming_fw_ver:
+                            updates["fw_version"] = incoming_fw_ver
+                            updates["version"] = incoming_fw_ver
+                        if updates:
+                            sib.current_state = {**cur, **updates}
                         sib.last_seen = datetime.utcnow()
                         sib.is_online = True
                         db.add(sib)
                     db.commit()
-                    logger.info("Updated local_ip=%s for %d channels on node %s", incoming_local_ip, len(sibling_devices), base_node_id)
+                    if incoming_local_ip:
+                        logger.info("Updated local_ip=%s for %d channels on node %s", incoming_local_ip, len(sibling_devices), base_node_id)
                     if is_telemetry and "status" not in state_data:
                         return
 
@@ -154,6 +164,9 @@ def on_message(client, userdata, msg):
                         sib.is_online = True
                         if incoming_local_ip:
                             sib.local_ip = incoming_local_ip
+                        cur = sib.current_state or {}
+                        if incoming_fw_ver:
+                            sib.current_state = {**cur, "fw_version": incoming_fw_ver, "version": incoming_fw_ver}
                         db.add(sib)
                     db.commit()
                     logger.debug("Heartbeat refreshed %d channels for node %s", len(sibling_devices), base_node_id)

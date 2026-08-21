@@ -455,9 +455,9 @@ def list_all_devices(
                     st = {}
             merged_state.update(st)
 
-        owner_email = owner.email if owner else "Unassigned"
-        owner_username = owner.username if owner else "Unassigned"
-        firmware_version = merged_state.get("fw_version") or merged_state.get("version") or "v1.0.0"
+        ota_cached = OTA_STATUS_CACHE.get(base_id) or OTA_STATUS_CACHE.get(f"4L-NODE-{base_id}") or OTA_STATUS_CACHE.get(base_id.replace("4L-NODE-", ""))
+        cached_ver = ota_cached.get("version") if ota_cached and str(ota_cached.get("status", "")).upper() in ("COMPLETED", "SUCCESS") else None
+        firmware_version = merged_state.get("fw_version") or merged_state.get("version") or cached_ver or "v2.0.5"
 
         # Correctly resolve real local IP from device records or telemetry
         detected_ip = None
