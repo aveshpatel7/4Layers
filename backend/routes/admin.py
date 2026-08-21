@@ -740,6 +740,7 @@ def get_switch_label(device: models.Device) -> str:
 def generate_cost_report_pdf(records: list, summary: dict) -> bytes:
     """
     Generates a professional, enterprise-grade PDF report for IoT cloud and MQTT costs.
+    Supports both Single User Invoice Statement (when 1 record) and Fleet Audit Report.
     Features 4Layers Tech Green (#00E676) accents, structured table, summary box, and page numbering.
     """
     import io
@@ -771,16 +772,11 @@ def generate_cost_report_pdf(records: list, summary: dict) -> bytes:
             self.saveState()
             self.setFont("Helvetica", 8)
             self.setFillColor(colors.HexColor("#64748b"))
-            
-            # Bottom Divider Line
             self.setStrokeColor(colors.HexColor("#e2e8f0"))
             self.setLineWidth(0.5)
             self.line(36, 42, 576, 42)
-            
-            # Footer text
-            footer_text = "Confidential - For internal business use only. | 4Layers Cloud Technologies"
+            footer_text = "Confidential - 4Layers Cloud Technologies | For internal business & billing records."
             self.drawString(36, 30, footer_text)
-            
             page_str = f"Page {self._pageNumber} of {page_count}"
             self.drawRightString(576, 30, page_str)
             self.restoreState()
@@ -796,165 +792,208 @@ def generate_cost_report_pdf(records: list, summary: dict) -> bytes:
     )
 
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=16,
-        leading=20,
-        textColor=colors.HexColor('#0f172a')
-    )
-    brand_style = ParagraphStyle(
-        'BrandText',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=12,
-        leading=14,
-        textColor=colors.HexColor('#00E676')
-    )
-    sub_style = ParagraphStyle(
-        'SubText',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.HexColor('#64748b')
-    )
-    th_style = ParagraphStyle(
-        'TableHeader',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=9,
-        leading=11,
-        textColor=colors.white,
-        alignment=1
-    )
-    td_style = ParagraphStyle(
-        'TableCell',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.HexColor('#1e293b')
-    )
-    td_right_style = ParagraphStyle(
-        'TableCellRight',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.HexColor('#1e293b'),
-        alignment=2
-    )
-    td_cost_style = ParagraphStyle(
-        'TableCellCost',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.HexColor('#047857'),
-        alignment=2
-    )
+    title_style = ParagraphStyle('DocTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=15, leading=19, textColor=colors.HexColor('#0f172a'))
+    brand_style = ParagraphStyle('BrandText', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, leading=14, textColor=colors.HexColor('#00E676'))
+    sub_style = ParagraphStyle('SubText', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, leading=11, textColor=colors.HexColor('#64748b'))
+    th_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=11, textColor=colors.white, alignment=1)
+    td_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, leading=11, textColor=colors.HexColor('#1e293b'))
+    td_right_style = ParagraphStyle('TableCellRight', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, leading=11, textColor=colors.HexColor('#1e293b'), alignment=2)
+    td_cost_style = ParagraphStyle('TableCellCost', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#047857'), alignment=2)
 
     elements = []
-
-    # Header Banner Table
     gen_time_str = datetime.datetime.now().strftime("%d %b %Y, %I:%M %p")
-    header_data = [
-        [
-            Paragraph("<b>4Layers</b><br/><font size=8 color=\"#64748b\">SMART CLOUD IOT</font>", brand_style),
-            Paragraph(f"<b>4Layers IoT - Cost & Usage Report</b><br/><font size=8 color=\"#64748b\">Generated: {gen_time_str} IST | Scope: Fleet Infrastructure Audit</font>", title_style)
+    is_single_user = len(records) == 1
+
+    if is_single_user:
+        u = records[0]
+        # ==========================================
+        # SINGLE USER INVOICE / USAGE STATEMENT
+        # ==========================================
+        header_data = [
+            [
+                Paragraph("<b>4Layers</b><br/><font size=8 color=\"#64748b\">SMART CLOUD IOT</font>", brand_style),
+                Paragraph(f"<b>IoT Usage & Cloud Expense Statement</b><br/><font size=8 color=\"#64748b\">Statement Date: {gen_time_str} | Account Statement</font>", title_style)
+            ]
         ]
-    ]
-    header_table = Table(header_data, colWidths=[110, 430])
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-    ]))
-    elements.append(header_table)
-    elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#00E676'), spaceBefore=4, spaceAfter=14))
+        header_table = Table(header_data, colWidths=[110, 430])
+        header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 6)]))
+        elements.append(header_table)
+        elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#00E676'), spaceBefore=4, spaceAfter=14))
 
-    # KPI Summary Table
-    kpi_data = [
-        [
-            Paragraph(f"<b>TOTAL USERS</b><br/><font size=12 color=\"#0f172a\"><b>{summary.get('total_users', 0)}</b></font>", sub_style),
-            Paragraph(f"<b>HARDWARE BOARDS</b><br/><font size=12 color=\"#0284c7\"><b>{summary.get('total_devices', 0)}</b></font>", sub_style),
-            Paragraph(f"<b>MQTT MESSAGES</b><br/><font size=12 color=\"#8b5cf6\"><b>{summary.get('total_mqtt_messages', 0):,}</b></font>", sub_style),
-            Paragraph(f"<b>CONNECTED MINS</b><br/><font size=12 color=\"#f59e0b\"><b>{summary.get('total_connection_minutes', 0):,}m</b></font>", sub_style),
-            Paragraph(f"<b>EST. TOTAL COST (₹)</b><br/><font size=13 color=\"#047857\"><b>₹ {summary.get('total_estimated_cost_inr', 0.0):.4f}</b></font>", sub_style),
+        # User Account Profile Box
+        user_info_data = [
+            [
+                Paragraph(f"<b>Account Email:</b> {u['email']}<br/><b>Username:</b> @{u['username']}<br/><b>Phone:</b> {u['phone']}", sub_style),
+                Paragraph(f"<b>Account Status:</b> <font color=\"#047857\"><b>Active User</b></font><br/><b>Hardware Linked:</b> {u['total_devices']} Board(s)<br/><b>Billing Currency:</b> INR (₹)", sub_style)
+            ]
         ]
-    ]
-    kpi_table = Table(kpi_data, colWidths=[108, 108, 108, 108, 108])
-    kpi_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
-        ('TOPPADDING', (0,0), (-1,-1), 7),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 7),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-    ]))
-    elements.append(kpi_table)
-    elements.append(Spacer(1, 14))
+        user_info_table = Table(user_info_data, colWidths=[270, 270])
+        user_info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f1f5f9')),
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
+            ('TOPPADDING', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ]))
+        elements.append(user_info_table)
+        elements.append(Spacer(1, 12))
 
-    # Main Data Table
-    table_headers = [
-        Paragraph("User Email / Account", th_style),
-        Paragraph("Devices", th_style),
-        Paragraph("MQTT Msgs", th_style),
-        Paragraph("Connected Mins", th_style),
-        Paragraph("API Calls", th_style),
-        Paragraph("Est. Cost (₹)", th_style),
-    ]
-
-    table_rows = [table_headers]
-    for r in records:
-        table_rows.append([
-            Paragraph(f"<b>{r['email']}</b><br/><font size=7.5 color=\"#64748b\">@{r['username']}</font>", td_style),
-            Paragraph(str(r['total_devices']), td_right_style),
-            Paragraph(f"{r['total_mqtt_messages']:,}", td_right_style),
-            Paragraph(f"{r['total_connection_minutes']:,}m", td_right_style),
-            Paragraph(f"{r['total_api_requests']:,}", td_right_style),
-            Paragraph(f"₹ {r['estimated_cost_inr']:.4f}", td_cost_style),
-        ])
-
-    data_table = Table(table_rows, colWidths=[180, 55, 75, 85, 65, 80], repeatRows=1)
-    data_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f172a')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (0,-1), 'LEFT'),
-        ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.HexColor('#ffffff'), colors.HexColor('#f8fafc')]),
-    ]))
-    elements.append(data_table)
-
-    # Summary Formula Box at Bottom
-    elements.append(Spacer(1, 14))
-    summary_box_data = [
-        [
-            Paragraph("<b>Cost Calculation Formula:</b> (MQTT Messages × ₹0.0001) + (Connected Minutes × ₹0.00005)<br/><font size=7.5 color=\"#64748b\">Cloud broker message ingestion rate + background TLS keep-alive session billing.</font>", sub_style),
-            Paragraph(f"<b>Fleet Grand Total:</b> <font size=11 color=\"#047857\"><b>₹ {summary.get('total_estimated_cost_inr', 0.0):.4f}</b></font>", td_cost_style)
+        # KPI Metric Cards
+        kpi_data = [
+            [
+                Paragraph(f"<b>HARDWARE BOARDS</b><br/><font size=12 color=\"#0284c7\"><b>{u['total_devices']}</b></font>", sub_style),
+                Paragraph(f"<b>MQTT MESSAGES</b><br/><font size=12 color=\"#8b5cf6\"><b>{u['total_mqtt_messages']:,}</b></font>", sub_style),
+                Paragraph(f"<b>CONNECTED MINS</b><br/><font size=12 color=\"#f59e0b\"><b>{u['total_connection_minutes']:,}m</b></font>", sub_style),
+                Paragraph(f"<b>API REQUESTS</b><br/><font size=12 color=\"#64748b\"><b>{u['total_api_requests']:,}</b></font>", sub_style),
+                Paragraph(f"<b>TOTAL EXPENSE</b><br/><font size=13 color=\"#047857\"><b>₹ {u['estimated_cost_inr']:.4f}</b></font>", sub_style),
+            ]
         ]
-    ]
-    summary_box_table = Table(summary_box_data, colWidths=[360, 180])
-    summary_box_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#ecfdf5')),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#a7f3d0')),
-        ('TOPPADDING', (0,0), (-1,-1), 7),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 7),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    elements.append(summary_box_table)
+        kpi_table = Table(kpi_data, colWidths=[108, 108, 108, 108, 108])
+        kpi_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')),
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
+            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('TOPPADDING', (0,0), (-1,-1), 7),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ]))
+        elements.append(kpi_table)
+        elements.append(Spacer(1, 14))
+
+        # Itemized Bill Breakdown
+        mqtt_subtotal = round(u['total_mqtt_messages'] * 0.0001, 4)
+        conn_subtotal = round(u['total_connection_minutes'] * 0.00005, 4)
+
+        bill_data = [
+            [
+                Paragraph("Billable Service / Resource", th_style),
+                Paragraph("Metered Volume", th_style),
+                Paragraph("Unit Rate (INR)", th_style),
+                Paragraph("Subtotal (INR)", th_style)
+            ],
+            [
+                Paragraph("<b>MQTT Telemetry & Status Traffic</b><br/><font size=7.5 color=\"#64748b\">Live device telemetry ingestion, switch state updates</font>", td_style),
+                Paragraph(f"{u['total_mqtt_messages']:,} packets", td_right_style),
+                Paragraph("₹ 0.0001 / msg", td_right_style),
+                Paragraph(f"₹ {mqtt_subtotal:.4f}", td_cost_style),
+            ],
+            [
+                Paragraph("<b>TLS Persistent Session Uptime</b><br/><font size=7.5 color=\"#64748b\">Cloud broker keep-alive connection & health checks</font>", td_style),
+                Paragraph(f"{u['total_connection_minutes']:,} minutes", td_right_style),
+                Paragraph("₹ 0.00005 / min", td_right_style),
+                Paragraph(f"₹ {conn_subtotal:.4f}", td_cost_style),
+            ],
+            [
+                Paragraph("<b>Total Estimated Cloud Cost</b>", td_style),
+                Paragraph("", td_style),
+                Paragraph("", td_style),
+                Paragraph(f"<b>₹ {u['estimated_cost_inr']:.4f}</b>", td_cost_style),
+            ]
+        ]
+        bill_table = Table(bill_data, colWidths=[240, 100, 100, 100])
+        bill_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f172a')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('TOPPADDING', (0,0), (-1,-1), 7),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#ecfdf5')),
+        ]))
+        elements.append(bill_table)
+    else:
+        # ==========================================
+        # FLEET / MULTI-USER AUDIT REPORT
+        # ==========================================
+        header_data = [
+            [
+                Paragraph("<b>4Layers</b><br/><font size=8 color=\"#64748b\">SMART CLOUD IOT</font>", brand_style),
+                Paragraph(f"<b>4Layers IoT - Cost & Usage Report</b><br/><font size=8 color=\"#64748b\">Generated: {gen_time_str} IST | Scope: Fleet Infrastructure Audit</font>", title_style)
+            ]
+        ]
+        header_table = Table(header_data, colWidths=[110, 430])
+        header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 6)]))
+        elements.append(header_table)
+        elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#00E676'), spaceBefore=4, spaceAfter=14))
+
+        # KPI Summary Table
+        kpi_data = [
+            [
+                Paragraph(f"<b>TOTAL USERS</b><br/><font size=12 color=\"#0f172a\"><b>{summary.get('total_users', 0)}</b></font>", sub_style),
+                Paragraph(f"<b>HARDWARE BOARDS</b><br/><font size=12 color=\"#0284c7\"><b>{summary.get('total_devices', 0)}</b></font>", sub_style),
+                Paragraph(f"<b>MQTT MESSAGES</b><br/><font size=12 color=\"#8b5cf6\"><b>{summary.get('total_mqtt_messages', 0):,}</b></font>", sub_style),
+                Paragraph(f"<b>CONNECTED MINS</b><br/><font size=12 color=\"#f59e0b\"><b>{summary.get('total_connection_minutes', 0):,}m</b></font>", sub_style),
+                Paragraph(f"<b>EST. TOTAL COST (₹)</b><br/><font size=13 color=\"#047857\"><b>₹ {summary.get('total_estimated_cost_inr', 0.0):.4f}</b></font>", sub_style),
+            ]
+        ]
+        kpi_table = Table(kpi_data, colWidths=[108, 108, 108, 108, 108])
+        kpi_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')),
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
+            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('TOPPADDING', (0,0), (-1,-1), 7),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ]))
+        elements.append(kpi_table)
+        elements.append(Spacer(1, 14))
+
+        # Main Data Table
+        table_headers = [
+            Paragraph("User Email / Account", th_style),
+            Paragraph("Devices", th_style),
+            Paragraph("MQTT Msgs", th_style),
+            Paragraph("Connected Mins", th_style),
+            Paragraph("API Calls", th_style),
+            Paragraph("Est. Cost (₹)", th_style),
+        ]
+        table_rows = [table_headers]
+        for r in records:
+            table_rows.append([
+                Paragraph(f"<b>{r['email']}</b><br/><font size=7.5 color=\"#64748b\">@{r['username']}</font>", td_style),
+                Paragraph(str(r['total_devices']), td_right_style),
+                Paragraph(f"{r['total_mqtt_messages']:,}", td_right_style),
+                Paragraph(f"{r['total_connection_minutes']:,}m", td_right_style),
+                Paragraph(f"{r['total_api_requests']:,}", td_right_style),
+                Paragraph(f"₹ {r['estimated_cost_inr']:.4f}", td_cost_style),
+            ])
+
+        data_table = Table(table_rows, colWidths=[180, 55, 75, 85, 65, 80], repeatRows=1)
+        data_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f172a')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (0,-1), 'LEFT'),
+            ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('TOPPADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.HexColor('#ffffff'), colors.HexColor('#f8fafc')]),
+        ]))
+        elements.append(data_table)
+
+        # Summary Box
+        elements.append(Spacer(1, 14))
+        summary_box_data = [
+            [
+                Paragraph("<b>Cost Calculation Formula:</b> (MQTT Messages × ₹0.0001) + (Connected Minutes × ₹0.00005)<br/><font size=7.5 color=\"#64748b\">Cloud broker message ingestion rate + background TLS keep-alive session billing.</font>", sub_style),
+                Paragraph(f"<b>Fleet Grand Total:</b> <font size=11 color=\"#047857\"><b>₹ {summary.get('total_estimated_cost_inr', 0.0):.4f}</b></font>", td_cost_style)
+            ]
+        ]
+        summary_box_table = Table(summary_box_data, colWidths=[360, 180])
+        summary_box_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#ecfdf5')),
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#a7f3d0')),
+            ('TOPPADDING', (0,0), (-1,-1), 7),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+        elements.append(summary_box_table)
 
     doc.build(elements, canvasmaker=NumberedCanvas)
     return buffer.getvalue()
 
 
-def _collect_cost_analytics_data(db: Session, search: Optional[str] = None, segment: Optional[str] = "all"):
-    """Internal helper to aggregate user-level cost, MQTT volume, and connection minutes with hardware segmentation."""
+def _collect_cost_analytics_data(db: Session, search: Optional[str] = None, segment: Optional[str] = "all", user_id: Optional[str] = None):
+    """Internal helper to aggregate user-level cost, MQTT volume, and connection minutes with hardware segmentation and user_id filter."""
     users = db.query(models.User).all()
     devices = db.query(models.Device).join(models.Home, models.Device.home_id == models.Home.id, isouter=True)\
                                      .join(models.User, models.Home.owner_id == models.User.id, isouter=True).all()
@@ -982,6 +1021,11 @@ def _collect_cost_analytics_data(db: Session, search: Optional[str] = None, segm
 
     for u in users:
         uid = str(u.id)
+        
+        # User ID Filter
+        if user_id and uid != str(user_id):
+            continue
+
         u_devs = user_devices_map.get(uid, [])
 
         base_nodes = set()
@@ -1087,6 +1131,7 @@ def get_cost_analytics(
     page_size: int = Query(15, ge=1, le=100),
     search: Optional[str] = None,
     segment: Optional[str] = Query("all"),
+    user_id: Optional[str] = None,
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
@@ -1094,7 +1139,7 @@ def get_cost_analytics(
     Enterprise Cost Analytics API: Aggregates MQTT message traffic, connection minutes, API calls,
     and estimated Cloud expenses per user with Hardware vs No-Hardware filtering.
     """
-    records, summary = _collect_cost_analytics_data(db, search, segment)
+    records, summary = _collect_cost_analytics_data(db, search, segment, user_id)
 
     total_records = len(records)
     total_pages = max(1, math.ceil(total_records / page_size))
@@ -1119,28 +1164,40 @@ def get_usage_analytics_alias(
     page_size: int = Query(15, ge=1, le=100),
     search: Optional[str] = None,
     segment: Optional[str] = Query("all"),
+    user_id: Optional[str] = None,
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
     """Alias for backwards compatibility."""
-    return get_cost_analytics(page, page_size, search, segment, db, admin)
+    return get_cost_analytics(page, page_size, search, segment, user_id, db, admin)
 
 
 @router.get("/analytics/cost/export-pdf")
 def export_cost_report_pdf(
     search: Optional[str] = None,
     segment: Optional[str] = Query("all"),
+    user_id: Optional[str] = None,
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
     """
-    Generates and streams a professional PDF report containing all user cost analytics,
-    fleet KPIs, and corporate branding.
+    Generates and streams a professional PDF report containing either:
+    1. Single User Cloud Usage & Expense Invoice (when user_id is provided)
+    2. Fleet Cost & Usage Audit Report (when user_id is omitted)
     """
-    records, summary = _collect_cost_analytics_data(db, search, segment)
+    records, summary = _collect_cost_analytics_data(db, search, segment, user_id)
+    if not records:
+        raise HTTPException(status_code=404, detail="No analytics records found for the requested criteria.")
+
     pdf_bytes = generate_cost_report_pdf(records, summary)
 
-    filename = f"4Layers_Cost_Report_{datetime.datetime.utcnow().strftime('%Y%m%d')}.pdf"
+    if user_id and len(records) == 1:
+        u = records[0]
+        user_tag = (u.get("username") or u.get("email") or "user").split("@")[0]
+        filename = f"4Layers_Invoice_{user_tag}_{datetime.datetime.utcnow().strftime('%Y%m%d')}.pdf"
+    else:
+        seg_tag = segment if segment in ("with_boards", "without_boards") else "Fleet"
+        filename = f"4Layers_Cost_Report_{seg_tag}_{datetime.datetime.utcnow().strftime('%Y%m%d')}.pdf"
 
     return Response(
         content=pdf_bytes,
@@ -1158,16 +1215,18 @@ def export_cost_report_pdf(
 def export_cost_report_csv(
     search: Optional[str] = None,
     segment: Optional[str] = Query("all"),
+    user_id: Optional[str] = None,
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
     """
     Generates downloadable CSV report for cost analytics and accounting records.
+    Supports single-user extraction or fleet-wide audit.
     """
     import csv
     import io
 
-    records, summary = _collect_cost_analytics_data(db, search, segment)
+    records, summary = _collect_cost_analytics_data(db, search, segment, user_id)
 
     output = io.StringIO()
     writer = csv.writer(output)

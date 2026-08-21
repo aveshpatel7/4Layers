@@ -535,16 +535,17 @@ ADMIN_HTML = """<!DOCTYPE html>
                             <thead>
                                 <tr>
                                     <th style="min-width: 220px;">User Email</th>
-                                    <th style="text-align: right; min-width: 110px;">Total Devices</th>
-                                    <th style="text-align: right; min-width: 130px;">MQTT Messages</th>
-                                    <th style="text-align: right; min-width: 130px;">Connected Mins</th>
-                                    <th style="text-align: right; min-width: 100px;">API Calls</th>
-                                    <th style="text-align: right; min-width: 120px;">Est. Cost (₹)</th>
+                                    <th style="text-align: right; min-width: 100px;">Total Devices</th>
+                                    <th style="text-align: right; min-width: 120px;">MQTT Messages</th>
+                                    <th style="text-align: right; min-width: 120px;">Connected Mins</th>
+                                    <th style="text-align: right; min-width: 90px;">API Calls</th>
+                                    <th style="text-align: right; min-width: 110px;">Est. Cost (₹)</th>
+                                    <th style="text-align: center; min-width: 130px;">Export</th>
                                 </tr>
                             </thead>
                             <tbody id="cost-table-body">
                                 <tr>
-                                    <td colspan="6" class="text-center" style="padding: 40px; color: var(--text-secondary);">
+                                    <td colspan="7" class="text-center" style="padding: 40px; color: var(--text-secondary);">
                                         <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
                                         <div>Loading cost analytics...</div>
                                     </td>
@@ -2327,13 +2328,57 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    async function downloadReportFile(url, fallbackFilename, btnElement, loadingHtml, defaultHtml) {
+        try {
+            if (btnElement) {
+                btnElement.disabled = true;
+                btnElement.innerHTML = loadingHtml;
+            }
+            const token = getAdminToken();
+            if (!token) {
+                showLoginModal("Please log in to export reports.");
+                return;
+            }
+
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = fallbackFilename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+                logTerminal(`Exported ${fallbackFilename} successfully.`, 'success');
+            } else if (response.status === 401 || response.status === 403) {
+                clearAdminToken();
+                showLoginModal("Session expired or unauthorized. Please log in again.");
+            } else {
+                const errorText = await response.text();
+                alert(`Export Failed (HTTP ${response.status}): ${errorText.substring(0, 150)}`);
+            }
+        } catch (err) {
+            alert(`Export Error: ${err.message}`);
+        } finally {
+            if (btnElement) {
+                btnElement.disabled = false;
+                btnElement.innerHTML = defaultHtml;
+            }
+        }
+    }
+
     async function fetchCostAnalytics(page = 1, isSilent = false) {
         costCurrentPage = page;
         if (!costTableBody) return;
         if (!isSilent) {
             costTableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center" style="padding: 40px; color: var(--text-secondary);">
+                    <td colspan="7" class="text-center" style="padding: 40px; color: var(--text-secondary);">
                         <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
                         <div>Loading cost analytics and cloud usage...</div>
                     </td>
@@ -2390,7 +2435,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                         : (costCurrentSegment === 'without_boards' ? 'No accounts without hardware found.' : 'No user accounts matched your search criteria.');
                     costTableBody.innerHTML = `
                         <tr>
-                            <td colspan="6" class="text-center" style="padding: 48px; color: var(--text-secondary);">
+                            <td colspan="7" class="text-center" style="padding: 48px; color: var(--text-secondary);">
                                 <i class="fa-solid fa-folder-open fa-2x" style="margin-bottom: 10px; color: #64748b;"></i>
                                 <div>${emptyMsg}</div>
                             </td>
@@ -2438,18 +2483,52 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                             <td style="text-align: right;">${minsDisplay}</td>
                             <td style="text-align: right;">${apiDisplay}</td>
                             <td style="text-align: right;">${costDisplay}</td>
+                            <td style="text-align: center;">
+                                <div style="display: inline-flex; gap: 6px; align-items: center;">
+                                    <button class="btn btn-outline btn-sm btn-export-user-pdf" data-user-id="${u.user_id}" data-user-email="${escapeHtml(u.email)}" style="font-size: 11px; padding: 4px 8px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" title="Export Individual PDF Invoice for ${escapeHtml(u.email)}">
+                                        <i class="fa-solid fa-file-pdf"></i> PDF
+                                    </button>
+                                    <button class="btn btn-outline btn-sm btn-export-user-csv" data-user-id="${u.user_id}" data-user-email="${escapeHtml(u.email)}" style="font-size: 11px; padding: 4px 8px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Export CSV Data for ${escapeHtml(u.email)}">
+                                        <i class="fa-solid fa-file-csv"></i> CSV
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     `;
                 }).join('');
 
+                // Attach Individual User PDF Export Handlers
+                document.querySelectorAll('.btn-export-user-pdf').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const userId = btn.getAttribute('data-user-id');
+                        const userEmail = (btn.getAttribute('data-user-email') || 'user').split('@')[0];
+                        const url = `/api/admin/analytics/cost/export-pdf?user_id=${encodeURIComponent(userId)}`;
+                        const filename = `4Layers_Invoice_${userEmail}_${new Date().toISOString().slice(0, 10)}.pdf`;
+                        downloadReportFile(url, filename, btn, '<i class="fa-solid fa-spinner fa-spin"></i>', '<i class="fa-solid fa-file-pdf"></i> PDF');
+                    });
+                });
+
+                // Attach Individual User CSV Export Handlers
+                document.querySelectorAll('.btn-export-user-csv').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const userId = btn.getAttribute('data-user-id');
+                        const userEmail = (btn.getAttribute('data-user-email') || 'user').split('@')[0];
+                        const url = `/api/admin/analytics/cost/export-csv?user_id=${encodeURIComponent(userId)}`;
+                        const filename = `4Layers_Usage_${userEmail}_${new Date().toISOString().slice(0, 10)}.csv`;
+                        downloadReportFile(url, filename, btn, '<i class="fa-solid fa-spinner fa-spin"></i>', '<i class="fa-solid fa-file-csv"></i> CSV');
+                    });
+                });
+
             } else {
                 if (!isSilent) {
-                    costTableBody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--accent-red);">Failed to load cost analytics (HTTP ${res.status}).</td></tr>`;
+                    costTableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 30px; color: var(--accent-red);">Failed to load cost analytics (HTTP ${res.status}).</td></tr>`;
                 }
             }
         } catch (err) {
             if (!isSilent && costTableBody) {
-                costTableBody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--accent-red);">Error: ${err.message}</td></tr>`;
+                costTableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 30px; color: var(--accent-red);">Error: ${err.message}</td></tr>`;
             }
         }
     }
@@ -2474,79 +2553,25 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Export PDF Button Handler
+    // Export Fleet PDF Button Handler
     if (btnExportCostPdf) {
-        btnExportCostPdf.addEventListener('click', async () => {
-            try {
-                btnExportCostPdf.disabled = true;
-                btnExportCostPdf.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating PDF Report...`;
-                const search = costSearchInput ? costSearchInput.value.trim() : '';
-                const token = getAdminToken();
-                const exportUrl = `/api/admin/analytics/cost/export-pdf?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(costCurrentSegment)}`;
-
-                const response = await fetch(exportUrl, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const downloadUrl = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = downloadUrl;
-                    const segSuffix = costCurrentSegment === 'with_boards' ? 'Hardware_Owners' : (costCurrentSegment === 'without_boards' ? 'No_Hardware' : 'All_Accounts');
-                    a.download = `4Layers_Cost_Report_${segSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(downloadUrl);
-                    logTerminal("Exported 4Layers Cost & Usage PDF Report successfully.", "success");
-                } else {
-                    alert("Failed to generate PDF Report. Please check authorization.");
-                }
-            } catch (err) {
-                alert(`PDF Export Error: ${err.message}`);
-            } finally {
-                btnExportCostPdf.disabled = false;
-                btnExportCostPdf.innerHTML = `<i class="fa-solid fa-file-pdf"></i> Export Cost Report (PDF)`;
-            }
+        btnExportCostPdf.addEventListener('click', () => {
+            const search = costSearchInput ? costSearchInput.value.trim() : '';
+            const exportUrl = `/api/admin/analytics/cost/export-pdf?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(costCurrentSegment)}`;
+            const segSuffix = costCurrentSegment === 'with_boards' ? 'Hardware_Owners' : (costCurrentSegment === 'without_boards' ? 'No_Hardware' : 'All_Accounts');
+            const filename = `4Layers_Cost_Report_${segSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
+            downloadReportFile(exportUrl, filename, btnExportCostPdf, '<i class="fa-solid fa-spinner fa-spin"></i> Generating PDF...', '<i class="fa-solid fa-file-pdf"></i> Export Cost Report (PDF)');
         });
     }
 
-    // Export CSV Button Handler
+    // Export Fleet CSV Button Handler
     if (btnExportCostCsv) {
-        btnExportCostCsv.addEventListener('click', async () => {
-            try {
-                btnExportCostCsv.disabled = true;
-                btnExportCostCsv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating CSV...`;
-                const search = costSearchInput ? costSearchInput.value.trim() : '';
-                const token = getAdminToken();
-                const exportUrl = `/api/admin/analytics/cost/export-csv?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(costCurrentSegment)}`;
-
-                const response = await fetch(exportUrl, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const downloadUrl = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = downloadUrl;
-                    const segSuffix = costCurrentSegment === 'with_boards' ? 'Hardware_Owners' : (costCurrentSegment === 'without_boards' ? 'No_Hardware' : 'All_Accounts');
-                    a.download = `4Layers_Cost_Audit_${segSuffix}_${new Date().toISOString().slice(0, 10)}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(downloadUrl);
-                    logTerminal("Exported Cost Audit CSV report successfully.", "success");
-                } else {
-                    alert("Failed to export CSV report.");
-                }
-            } catch (err) {
-                alert(`CSV Export Error: ${err.message}`);
-            } finally {
-                btnExportCostCsv.disabled = false;
-                btnExportCostCsv.innerHTML = `<i class="fa-solid fa-file-csv"></i> Export CSV`;
-            }
+        btnExportCostCsv.addEventListener('click', () => {
+            const search = costSearchInput ? costSearchInput.value.trim() : '';
+            const exportUrl = `/api/admin/analytics/cost/export-csv?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(costCurrentSegment)}`;
+            const segSuffix = costCurrentSegment === 'with_boards' ? 'Hardware_Owners' : (costCurrentSegment === 'without_boards' ? 'No_Hardware' : 'All_Accounts');
+            const filename = `4Layers_Cost_Audit_${segSuffix}_${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadReportFile(exportUrl, filename, btnExportCostCsv, '<i class="fa-solid fa-spinner fa-spin"></i> Generating CSV...', '<i class="fa-solid fa-file-csv"></i> Export CSV');
         });
     }
 
