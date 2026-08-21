@@ -739,6 +739,7 @@ def get_usage_and_warranty_analytics(
     page_size: int = Query(10, ge=1, le=100),
     search: Optional[str] = None,
     filter_warranty: Optional[str] = None,
+    hardware_only: Optional[bool] = Query(False),
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin)
 ):
@@ -746,6 +747,8 @@ def get_usage_and_warranty_analytics(
     Returns hierarchical IoT usage telemetry and warranty validation records grouped by User Account and Hardware Switchboard.
     Avoids confusion between 4 physical hardware boards and 24 individual relay channels (6 switches per board).
     """
+    from sqlalchemy import func
+
     # Fetch all devices with home, room, and owner
     devices = db.query(models.Device).join(models.Home, models.Device.home_id == models.Home.id, isouter=True)\
                                     .join(models.User, models.Home.owner_id == models.User.id, isouter=True).all()
@@ -792,6 +795,8 @@ def get_usage_and_warranty_analytics(
         "boards_dict": {}
     }
 
+    now_utc = datetime.datetime.utcnow()
+
     # Distribute devices into their physical boards per user
     for dev in devices:
         owner = dev.home.owner if (dev.home and dev.home.owner) else None
@@ -815,12 +820,32 @@ def get_usage_and_warranty_analytics(
         raw_node = dev.node_id or f"DEV-{dev.id}"
         base_node = raw_node.split('_')[0] if '_' in raw_node else raw_node
 
+        # Fallback to history if toggle count is not populated
         toggles = dev.total_toggle_count or 0
+        if toggles == 0:
+            hist_toggles = db.query(func.count(models.DeviceHistory.id)).filter(
+                models.DeviceHistory.device_id == dev.id,
+                models.DeviceHistory.change_type.in_(["command_sent", "status_confirmed"])
+            ).scalar() or 0
+            if hist_toggles > 0:
+                toggles = hist_toggles
+                dev.total_toggle_count = hist_toggles
+                db.add(dev)
+
         crashes = dev.crash_count or 0
         boots = dev.boot_count or 0
+        if boots == 0 and dev.is_online:
+            boots = 1
+
         on_secs = dev.total_on_duration_seconds or 0
+        cur_st = dev.current_state or {}
+        if (cur_st.get("status") == "ON" or cur_st.get("state") == "ON") and dev.updated_at:
+            elapsed = int((now_utc - dev.updated_at).total_seconds())
+            if 0 < elapsed < 86400 * 30:
+                on_secs += elapsed
+
         on_hours = round(on_secs / 3600.0, 2)
-        act_date = dev.activated_at or (dev.created_at if hasattr(dev, "created_at") else datetime.datetime.utcnow())
+        act_date = dev.activated_at or (dev.created_at if hasattr(dev, "created_at") else now_utc)
         calc_status = compute_warranty_status(act_date, toggles, crashes)
 
         if dev.warranty_status != calc_status:
@@ -887,10 +912,24 @@ def get_usage_and_warranty_analytics(
     expired_boards_count = 0
     heavy_users_count = 0
 
+    # Helper function to sort switches 1..6 sequentially
+    def _get_ch_num(sw):
+        nid = sw.get("node_id", "")
+        if "_" in nid:
+            try:
+                return int(nid.rsplit('_', 1)[-1])
+            except Exception:
+                pass
+        return 99
+
     for uid, udata in list(grouped_by_user.items()):
         boards_list = list(udata["boards_dict"].values())
         if uid == unassigned_uid and len(boards_list) == 0:
             continue
+
+        # Sort switches sequentially in each board
+        for b in boards_list:
+            b["switches"].sort(key=_get_ch_num)
 
         udata["hardware_boards"] = boards_list
         udata["total_boards_count"] = len(boards_list)
@@ -925,7 +964,7 @@ def get_usage_and_warranty_analytics(
             if not match_user:
                 continue
 
-        # Warranty Status Filtering (match if any board matches filter)
+        # Warranty Status Filtering
         if filter_warranty and filter_warranty.upper() != "ALL":
             fw = filter_warranty.upper()
             filtered_boards = [b for b in boards_list if b["warranty_status"] == fw]
@@ -933,12 +972,24 @@ def get_usage_and_warranty_analytics(
                 continue
             udata["hardware_boards"] = filtered_boards
 
+        # Optional hardware-only filter
+        if hardware_only and len(boards_list) == 0:
+            continue
+
         # Clean internal helper key
         udata.pop("boards_dict", None)
         all_user_records.append(udata)
 
-    # Sort users by total ON hours descending
-    all_user_records.sort(key=lambda u: u["total_user_on_hours"], reverse=True)
+    # Prioritize active hardware owners first, then sort by total ON hours
+    all_user_records.sort(
+        key=lambda u: (
+            1 if u["total_boards_count"] > 0 else 0,
+            u["total_boards_count"],
+            u["total_user_on_hours"],
+            u["total_user_toggles"]
+        ),
+        reverse=True
+    )
 
     total_users_matched = len(all_user_records)
     total_pages = max(1, math.ceil(total_users_matched / page_size))

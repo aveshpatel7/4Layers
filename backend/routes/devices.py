@@ -259,9 +259,37 @@ def control_device(
 
     # 1. Log "command_sent" in the database history log and update database state immediately
     # to prevent race conditions when the frontend refreshes state before MQTT roundtrip completes.
+    prev_status = previous_state.get("status") or previous_state.get("state")
+    req_status = requested_state.get("status") or requested_state.get("state")
+
+    now = datetime.datetime.utcnow()
+
+    # Track toggle cycles if state changed
+    if req_status and prev_status != req_status:
+        device.total_toggle_count = (device.total_toggle_count or 0) + 1
+        if req_status == "OFF" and prev_status == "ON":
+            # Accumulate on duration
+            if device.updated_at:
+                elapsed_sec = int((now - device.updated_at).total_seconds())
+                if 0 < elapsed_sec < 86400:
+                    device.total_on_duration_seconds = (device.total_on_duration_seconds or 0) + elapsed_sec
+
     updated_state = dict(previous_state)
     updated_state.update(requested_state)
     device.current_state = updated_state
+    device.updated_at = now
+    device.last_seen = now
+
+    # Re-evaluate warranty status
+    act_date = device.activated_at or device.created_at or now
+    toggles_val = device.total_toggle_count or 0
+    crashes_val = device.crash_count or 0
+    if toggles_val > 100000 or crashes_val > 50:
+        device.warranty_status = models.WarrantyStatus.VOID.value
+    elif (now - act_date).days > 365:
+        device.warranty_status = models.WarrantyStatus.EXPIRED.value
+    else:
+        device.warranty_status = models.WarrantyStatus.ACTIVE.value
 
     history_entry = models.DeviceHistory(
         device_id=device.id,
@@ -270,6 +298,7 @@ def control_device(
         new_state=requested_state
     )
     db.add(history_entry)
+    db.add(device)
     db.commit()
 
     # 2. Publish MQTT control message

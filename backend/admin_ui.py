@@ -505,7 +505,11 @@ ADMIN_HTML = """<!DOCTYPE html>
                             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
                             <input type="text" id="warranty-search-input" placeholder="Search by user email, username, phone, or board Node ID..." class="form-input" style="padding-left: 36px; width: 100%;">
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <select id="warranty-hardware-filter" class="form-select" style="min-width: 190px;">
+                                <option value="ACTIVE_BOARDS_ONLY">Hardware Owners Only</option>
+                                <option value="ALL_ACCOUNTS">All User Accounts</option>
+                            </select>
                             <select id="warranty-status-filter" class="form-select" style="min-width: 170px;">
                                 <option value="ALL">All Warranty Status</option>
                                 <option value="ACTIVE">Active Boards (Valid)</option>
@@ -1091,9 +1095,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         analytics: { title: "IoT Usage & Warranty Validation Report", subtitle: "Comprehensive appliance runtime analysis, cycle stress audits, and legal warranty status classification" }
     };
 
+    let currentActiveTab = 'overview';
+
     navItems.forEach(button => {
         button.addEventListener('click', () => {
             const targetTab = button.getAttribute('data-tab');
+            currentActiveTab = targetTab;
             navItems.forEach(b => b.classList.remove('active'));
             tabPanes.forEach(p => p.classList.remove('active'));
             button.classList.add('active');
@@ -1102,6 +1109,10 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 activeTitle.textContent = tabMeta[targetTab].title;
                 activeSubtitle.textContent = tabMeta[targetTab].subtitle;
             }
+            if (targetTab === 'analytics') fetchUsageAnalytics(warrantyCurrentPage, false);
+            else if (targetTab === 'users') fetchUsers(userCurrentPage, false);
+            else if (targetTab === 'nodes') fetchDevices(nodeCurrentPage, false);
+            else if (targetTab === 'overview') fetchStats(false);
         });
     });
 
@@ -1115,7 +1126,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         liveTerminal.scrollTop = liveTerminal.scrollHeight;
     }
 
-    async function fetchStats() {
+    async function fetchStats(isSilent = false) {
         try {
             const res = await authFetch('/api/admin/stats');
             if (res.ok) {
@@ -1124,16 +1135,18 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('stat-active-users').textContent = `${data.active_users} active accounts`;
                 document.getElementById('stat-online-devices').textContent = data.online_devices;
                 document.getElementById('stat-total-devices').textContent = `${data.total_devices} registered boards`;
-                logTerminal(`Fetched Dashboard Stats: ${data.active_users} Active Users, ${data.online_devices} Online Nodes.`, 'success');
+                if (!isSilent) logTerminal(`Fetched Dashboard Stats: ${data.active_users} Active Users, ${data.online_devices} Online Nodes.`, 'success');
             }
         } catch (err) {
-            logTerminal(`Failed to fetch stats: ${err.message}`, 'warn');
+            if (!isSilent) logTerminal(`Failed to fetch stats: ${err.message}`, 'warn');
         }
     }
 
-    async function fetchUsers(page = 1) {
+    async function fetchUsers(page = 1, isSilent = false) {
         userCurrentPage = page;
-        usersTableBody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding: 24px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading users data...</td></tr>`;
+        if (!isSilent && usersTableBody) {
+            usersTableBody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding: 24px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading users data...</td></tr>`;
+        }
         
         const search = userSearchInput ? userSearchInput.value.trim() : '';
         const status = userStatusFilter ? userStatusFilter.value : 'all';
@@ -1150,10 +1163,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
                 renderUsers(allUsers);
                 updateUsersPaginationUI();
-                logTerminal(`Loaded ${allUsers.length} users (Page ${userCurrentPage} of ${userTotalPages}, Total: ${userTotalRecords}).`, 'info');
+                if (!isSilent) logTerminal(`Loaded ${allUsers.length} users (Page ${userCurrentPage} of ${userTotalPages}, Total: ${userTotalRecords}).`, 'info');
             }
         } catch (err) {
-            usersTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">Error loading users: ${err.message}</td></tr>`;
+            if (!isSilent && usersTableBody) {
+                usersTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">Error loading users: ${err.message}</td></tr>`;
+            }
         }
     }
 
@@ -1252,9 +1267,11 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     const otaPendingRebootNodes = new Map(); // nodeId -> { startTime: timestamp, notified: bool }
 
-    async function fetchDevices(page = 1) {
+    async function fetchDevices(page = 1, isSilent = false) {
         nodeCurrentPage = page;
-        nodesTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px;"><i class="fa-solid fa-spinner fa-spin"></i> Scanning active MQTT nodes...</td></tr>`;
+        if (!isSilent && nodesTableBody) {
+            nodesTableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 24px;"><i class="fa-solid fa-spinner fa-spin"></i> Scanning active MQTT nodes...</td></tr>`;
+        }
 
         const search = nodeSearchInput ? nodeSearchInput.value.trim() : '';
         const online = nodeOnlineFilter ? nodeOnlineFilter.value : 'all';
@@ -1272,7 +1289,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 renderDevices(allDevices);
                 populateOtaDropdown(allDevices);
                 updateNodesPaginationUI();
-                logTerminal(`Loaded ${allDevices.length} nodes (Page ${nodeCurrentPage} of ${nodeTotalPages}, Total: ${nodeTotalRecords}).`, 'info');
+                if (!isSilent) logTerminal(`Loaded ${allDevices.length} nodes (Page ${nodeCurrentPage} of ${nodeTotalPages}, Total: ${nodeTotalRecords}).`, 'info');
 
                 allDevices.forEach(d => {
                     const nodeId = (d.node_id || d.device_id || '').replace(/\\s*-\\s*/g, '-').trim();
@@ -1288,7 +1305,9 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         } catch (err) {
-            nodesTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error loading devices: ${err.message}</td></tr>`;
+            if (!isSilent && nodesTableBody) {
+                nodesTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error loading devices: ${err.message}</td></tr>`;
+            }
         }
     }
 
@@ -2094,27 +2113,32 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     const warrantyCardsContainer = document.getElementById('usage-warranty-cards-container');
     const warrantySearchInput = document.getElementById('warranty-search-input');
     const warrantyStatusFilter = document.getElementById('warranty-status-filter');
+    const warrantyHardwareFilter = document.getElementById('warranty-hardware-filter');
     const warrantyPrevBtn = document.getElementById('warranty-prev-btn');
     const warrantyNextBtn = document.getElementById('warranty-next-btn');
     const warrantyPageNum = document.getElementById('warranty-page-num');
     const warrantyPaginationInfo = document.getElementById('warranty-pagination-info');
     const btnExportWarrantyCsv = document.getElementById('btn-export-warranty-csv');
 
-    async function fetchUsageAnalytics(page = 1) {
+    async function fetchUsageAnalytics(page = 1, isSilent = false) {
         warrantyCurrentPage = page;
         if (!warrantyCardsContainer) return;
-        warrantyCardsContainer.innerHTML = `
-            <div class="text-center" style="padding: 40px; color: var(--text-secondary);">
-                <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
-                <div>Loading user accounts and hardware warranty analytics...</div>
-            </div>
-        `;
+        if (!isSilent) {
+            warrantyCardsContainer.innerHTML = `
+                <div class="text-center" style="padding: 40px; color: var(--text-secondary);">
+                    <i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom: 12px; color: var(--accent-blue);"></i>
+                    <div>Loading user accounts and hardware warranty analytics...</div>
+                </div>
+            `;
+        }
 
         const search = warrantySearchInput ? warrantySearchInput.value.trim() : '';
         const filterVal = warrantyStatusFilter ? warrantyStatusFilter.value : 'ALL';
+        const hwFilter = warrantyHardwareFilter ? warrantyHardwareFilter.value : 'ACTIVE_BOARDS_ONLY';
+        const hardwareOnly = (hwFilter === 'ACTIVE_BOARDS_ONLY');
 
         try {
-            const url = `/api/admin/analytics/usage?page=${warrantyCurrentPage}&page_size=10&search=${encodeURIComponent(search)}&filter_warranty=${encodeURIComponent(filterVal)}`;
+            const url = `/api/admin/analytics/usage?page=${warrantyCurrentPage}&page_size=10&search=${encodeURIComponent(search)}&filter_warranty=${encodeURIComponent(filterVal)}&hardware_only=${hardwareOnly}`;
             const res = await authFetch(url);
             if (res.ok) {
                 const data = await res.json();
@@ -2178,7 +2202,6 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
                         const statusPulse = b.is_online ? `<span class="status-indicator online"></span> <span style="color: #00E676; font-size: 12px; font-weight: 600;">Online</span>` : `<span class="status-indicator offline"></span> <span style="color: #94a3b8; font-size: 12px;">Offline</span>`;
                         const actDateFormatted = b.activated_at ? new Date(b.activated_at).toLocaleDateString() : 'N/A';
-                        const toggleId = `switches-tray-${u.user_id}-${bIdx}`;
 
                         const switchesList = b.switches || [];
                         const switchesHtml = switchesList.map(s => {
@@ -2327,10 +2350,12 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 });
 
             } else {
-                warrantyCardsContainer.innerHTML = `<div class="text-center" style="padding: 30px; color: var(--accent-red);">Failed to load usage analytics (HTTP ${res.status}).</div>`;
+                if (!isSilent) {
+                    warrantyCardsContainer.innerHTML = `<div class="text-center" style="padding: 30px; color: var(--accent-red);">Failed to load usage analytics (HTTP ${res.status}).</div>`;
+                }
             }
         } catch (err) {
-            if (warrantyCardsContainer) {
+            if (!isSilent && warrantyCardsContainer) {
                 warrantyCardsContainer.innerHTML = `<div class="text-center" style="padding: 30px; color: var(--accent-red);">Error: ${err.message}</div>`;
             }
         }
@@ -2340,23 +2365,27 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         let debounceTimer;
         warrantySearchInput.addEventListener('input', () => {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => fetchUsageAnalytics(1), 300);
+            debounceTimer = setTimeout(() => fetchUsageAnalytics(1, false), 300);
         });
     }
 
     if (warrantyStatusFilter) {
-        warrantyStatusFilter.addEventListener('change', () => fetchUsageAnalytics(1));
+        warrantyStatusFilter.addEventListener('change', () => fetchUsageAnalytics(1, false));
+    }
+
+    if (warrantyHardwareFilter) {
+        warrantyHardwareFilter.addEventListener('change', () => fetchUsageAnalytics(1, false));
     }
 
     if (warrantyPrevBtn) {
         warrantyPrevBtn.addEventListener('click', () => {
-            if (warrantyCurrentPage > 1) fetchUsageAnalytics(warrantyCurrentPage - 1);
+            if (warrantyCurrentPage > 1) fetchUsageAnalytics(warrantyCurrentPage - 1, false);
         });
     }
 
     if (warrantyNextBtn) {
         warrantyNextBtn.addEventListener('click', () => {
-            if (warrantyCurrentPage < warrantyTotalPages) fetchUsageAnalytics(warrantyCurrentPage + 1);
+            if (warrantyCurrentPage < warrantyTotalPages) fetchUsageAnalytics(warrantyCurrentPage + 1, false);
         });
     }
 
@@ -2405,12 +2434,17 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     }
 
     let isLoadingAllData = false;
-    async function loadAllData() {
+    async function loadAllData(isSilent = false) {
         if (!getAdminToken()) return;
         if (isLoadingAllData) return;
         isLoadingAllData = true;
         try {
-            await Promise.all([fetchStats(), fetchUsers(userCurrentPage), fetchDevices(nodeCurrentPage), fetchUsageAnalytics(warrantyCurrentPage)]);
+            await Promise.all([
+                fetchStats(isSilent),
+                fetchUsers(userCurrentPage, isSilent),
+                fetchDevices(nodeCurrentPage, isSilent),
+                fetchUsageAnalytics(warrantyCurrentPage, isSilent)
+            ]);
         } finally {
             isLoadingAllData = false;
         }
@@ -2418,7 +2452,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
 
     btnRefresh.addEventListener('click', () => {
         if (getAdminToken()) {
-            loadAllData();
+            loadAllData(false);
         } else {
             showLoginModal();
         }
@@ -2431,13 +2465,21 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         const savedUser = localStorage.getItem(ADMIN_USER_KEY);
         const nameEl = document.getElementById('admin-username-display');
         if (nameEl) nameEl.textContent = `Admin: ${savedUser || 'Qadir'}`;
-        loadAllData();
+        loadAllData(false);
     }
 
+    // Background live refresh: Only update the currently active tab silently without disrupting the UI
     setInterval(() => {
-        if (getAdminToken()) {
-            loadAllData();
+        if (!getAdminToken()) return;
+        if (currentActiveTab === 'analytics') {
+            fetchUsageAnalytics(warrantyCurrentPage, true);
+        } else if (currentActiveTab === 'users') {
+            fetchUsers(userCurrentPage, true);
+        } else if (currentActiveTab === 'nodes') {
+            fetchDevices(nodeCurrentPage, true);
+        } else if (currentActiveTab === 'overview') {
+            fetchStats(true);
         }
-    }, 15000);
+    }, 10000);
 });
 """
