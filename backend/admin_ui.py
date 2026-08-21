@@ -500,22 +500,29 @@ ADMIN_HTML = """<!DOCTYPE html>
                         </div>
                     </div>
 
-                    <div class="table-actions" style="margin: 15px 0; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-                        <div class="search-box" style="flex: 1; min-width: 250px; position: relative;">
-                            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                            <input type="text" id="warranty-search-input" placeholder="Search by user email, username, phone, or board Node ID..." class="form-input" style="padding-left: 36px; width: 100%;">
+                    <!-- Modern Search & Filter Toolbar -->
+                    <div class="analytics-filter-toolbar">
+                        <div class="analytics-search-wrap">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="warranty-search-input" class="analytics-search-input" placeholder="Search by user email, username, phone, or board Node ID...">
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <select id="warranty-hardware-filter" class="form-select" style="min-width: 190px;">
-                                <option value="ACTIVE_BOARDS_ONLY">Hardware Owners Only</option>
-                                <option value="ALL_ACCOUNTS">All User Accounts</option>
-                            </select>
-                            <select id="warranty-status-filter" class="form-select" style="min-width: 170px;">
-                                <option value="ALL">All Warranty Status</option>
-                                <option value="ACTIVE">Active Boards (Valid)</option>
-                                <option value="VOID">Void Boards (Abused)</option>
-                                <option value="EXPIRED">Expired Boards (>1 Year)</option>
-                            </select>
+                        <div class="analytics-select-group">
+                            <div class="custom-select-wrap">
+                                <i class="fa-solid fa-filter select-icon"></i>
+                                <select id="warranty-hardware-filter" class="analytics-filter-select">
+                                    <option value="ACTIVE_BOARDS_ONLY">Hardware Owners Only</option>
+                                    <option value="ALL_ACCOUNTS">All User Accounts</option>
+                                </select>
+                            </div>
+                            <div class="custom-select-wrap">
+                                <i class="fa-solid fa-shield-halved select-icon"></i>
+                                <select id="warranty-status-filter" class="analytics-filter-select">
+                                    <option value="ALL">All Warranty Status</option>
+                                    <option value="ACTIVE">Active Boards (Valid)</option>
+                                    <option value="VOID">Void Boards (Abused)</option>
+                                    <option value="EXPIRED">Expired Boards (>1 Year)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -796,6 +803,111 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .modal-card { background: #1e293b; border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 90%; max-width: 500px; padding: 24px; box-shadow: var(--card-shadow); }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+/* --- Modern Analytics Filter Toolbar & Select Styling --- */
+.analytics-filter-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 16px 0 20px 0;
+    flex-wrap: wrap;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+}
+.analytics-search-wrap {
+    flex: 1;
+    min-width: 260px;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.analytics-search-wrap .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 2;
+}
+.analytics-search-input {
+    width: 100%;
+    height: 40px;
+    background: rgba(2, 6, 23, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #ffffff;
+    padding: 0 14px 0 38px;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+.analytics-search-input:focus {
+    border-color: var(--accent-green);
+    background: rgba(2, 6, 23, 0.9);
+    box-shadow: 0 0 0 2px rgba(0, 230, 118, 0.15);
+}
+.analytics-search-input::placeholder {
+    color: #64748b;
+}
+.analytics-select-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.custom-select-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.custom-select-wrap .select-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #38bdf8;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 2;
+}
+.analytics-filter-select {
+    height: 40px;
+    background: rgba(2, 6, 23, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 0 32px 0 34px;
+    font-size: 12.5px;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 13px;
+    min-width: 175px;
+    box-sizing: border-box;
+}
+.analytics-filter-select:focus {
+    border-color: var(--accent-green);
+    background-color: rgba(2, 6, 23, 0.9);
+    box-shadow: 0 0 0 2px rgba(0, 230, 118, 0.15);
+}
+.analytics-filter-select option {
+    background-color: #0f172a;
+    color: #ffffff;
+    padding: 10px;
+}
 
 /* --- User Account & Hardware Warranty Cards CSS --- */
 .user-analytics-card {
