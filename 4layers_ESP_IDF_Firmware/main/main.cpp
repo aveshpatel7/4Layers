@@ -864,8 +864,14 @@ void process_channel_command(int channel, bool turnOn, int speedVal, const char*
         {
             cmd.type = CMD_FAN_SPEED_SET;
             cmd.channel = 5;
-            cmd.state = (speedVal > 0);
-            cmd.speed = (int8_t)speedVal;
+            // Respect turnOn flag: if explicitly told to turn off, override speed to 0.
+            if (!turnOn) {
+                cmd.state = false;
+                cmd.speed = 0;
+            } else {
+                cmd.state = (speedVal > 0);
+                cmd.speed = (int8_t)speedVal;
+            }
         }
         else
         {

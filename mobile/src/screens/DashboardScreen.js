@@ -611,18 +611,26 @@ export default function DashboardScreen({ navigation }) {
       return;
     }
 
-    const speedVal = (channel === 5 || target.type === 'fan') ? ((typeof target.value === 'number' && !isNaN(target.value)) ? target.value : 1) : null;
+    let speedVal = null;
+    if (channel === 5 || target.type === 'fan') {
+      if (nextStatus) { // Turning ON
+        // If it was previously set to a valid > 0 speed, keep it, otherwise default to 3 or 4
+        speedVal = (typeof target.value === 'number' && !isNaN(target.value) && target.value > 0) ? target.value : 3;
+      } else { // Turning OFF
+        speedVal = 0;
+      }
+    }
 
     // 1. Optimistic State Lock
     const lockNow = Date.now();
-    const lockObj = { time: lockNow, status: nextStatus, value: speedVal || target.value };
+    const lockObj = { time: lockNow, status: nextStatus, value: speedVal !== null ? speedVal : target.value };
     toggleLockRef.current[id] = lockObj;
     toggleLockRef.current[String(id)] = lockObj;
     if (target.node_id) toggleLockRef.current[target.node_id] = lockObj;
 
     // 2. Instant Optimistic UI update for individual device + Master Switch
     setDevices((prev) => {
-      const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus } : d);
+      const updated = prev.map((d) => d.id === id ? { ...d, status: nextStatus, ...(speedVal !== null && { value: speedVal }) } : d);
       return recalculateMasterStatus(updated);
     });
 

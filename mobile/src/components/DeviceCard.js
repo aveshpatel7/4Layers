@@ -51,7 +51,7 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
   }
 
   const isFan = nodeNum === 5 || device?.type === "fan";
-  const hasSettings = isFan && isOnline;
+  const hasSettings = isFan && isOnline && isEnabled;
 
   const handleSwitchToggle = () => {
     if (!isOnline) {
@@ -133,9 +133,9 @@ export default function DeviceCard({ device, onToggle, onIncrease, onDecrease })
             {/* Fan Speed Controls Modal Content (- and + buttons) */}
             {isFan && (() => {
               const rawSpeed = (typeof device?.value === 'number' && !isNaN(device.value)) ? device.value : null;
-              const currentSpeed = (rawSpeed !== null && rawSpeed > 0)
-                ? rawSpeed 
-                : (isEnabled ? (rawSpeed === 0 ? 1 : 4) : 0);
+              const currentSpeed = isEnabled 
+                ? ((rawSpeed !== null && rawSpeed > 0) ? rawSpeed : 3)
+                : 0;
               return (
                 <View style={styles.modalControlGroup}>
                   <View style={styles.levelHeaderRow}>
