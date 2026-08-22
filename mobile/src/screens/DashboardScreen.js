@@ -17,6 +17,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import apiClient from "../api/client";
 import DeviceCard, { LuminaRockerSwitch } from "../components/DeviceCard";
+import HardwareReconnectingCard from "../components/HardwareReconnectingCard";
 import EnergyChart from "../components/EnergyChart";
 import BrandLogo from "../components/BrandLogo";
 import SideDrawer from "../components/SideDrawer";
@@ -69,6 +70,21 @@ export default function DashboardScreen({ navigation }) {
   // Visual Connectivity Feedback Toast State (Subtle Cloud / Offline Notifications)
   const [feedbackToast, setFeedbackToast] = useState(null);
   const toastTimeoutRef = useRef(null);
+  const [isRefreshingOffline, setIsRefreshingOffline] = useState(false);
+
+  const handleManualStatusCheck = async () => {
+    try {
+      setIsRefreshingOffline(true);
+      await Promise.all([
+        fetchDevices(false),
+        initMqttConnection(),
+      ]);
+      showFeedbackToast("Checked live switchboard status", "cloud");
+    } catch (_) {
+    } finally {
+      setIsRefreshingOffline(false);
+    }
+  };
 
   const showFeedbackToast = (text, type = "cloud") => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -871,15 +887,12 @@ export default function DashboardScreen({ navigation }) {
             </View>
           ) : (
             <View>
-              {/* Single Top Offline Warning Banner */}
+              {/* Interactive Hardware Reconnecting & Boot Status HUD */}
               {filteredDevices.length > 0 && filteredDevices.every(d => d.is_online === false) && (
-                <View style={styles.topOfflineWarningBanner}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#EF4444" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.topOfflineWarningTitle}>Switchboard Offline</Text>
-                    <Text style={styles.topOfflineWarningSubtitle}>Hardware is disconnected. Please check power or Wi-Fi.</Text>
-                  </View>
-                </View>
+                <HardwareReconnectingCard
+                  onRefresh={handleManualStatusCheck}
+                  isRefreshing={isRefreshingOffline}
+                />
               )}
 
               <View style={styles.gridContainer}>
