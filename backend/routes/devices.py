@@ -551,85 +551,68 @@ def provision_device(
         {"suffix": "6", "name": "Master Switch", "type": "master", "state": {"status": "OFF"}}
     ]
 
-    # Check if this node already exists (matching by mac_address OR base node_id)
-    device = db.query(models.Device).filter(
-        (models.Device.mac_address == mac) |
-        (models.Device.node_id == mac) |
-        (models.Device.node_id.like(f"{mac}_%"))
-    ).first()
-    if device:
-        existing_home = db.query(models.Home).filter(models.Home.id == device.home_id).first()
-        if existing_home and existing_home.owner_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="DEVICE_ALREADY_CLAIMED: This hardware node is registered to another account. The existing owner must unclaim it first."
-            )
-
-        user_home = db.query(models.Home).filter(models.Home.owner_id == current_user.id).first()
-        if not user_home:
-            user_home = models.Home(name=f"{current_user.username}'s Home", owner_id=current_user.id)
-            db.add(user_home)
-            db.commit()
-            db.refresh(user_home)
-        
-        for cfg in channel_configs:
-            chan_node_id = f"{mac}_{cfg['suffix']}"
-            new_chan_name = f"{prefix} {cfg['name']}" if prefix else cfg['name']
-            
-            chan_device = db.query(models.Device).filter(models.Device.node_id == chan_node_id).first()
-            if chan_device:
-                chan_device.home_id = user_home.id
-                chan_device.room_id = resolved_room_id
-                chan_device.name = new_chan_name
-                chan_device.device_type = cfg['type']
-                chan_device.current_state = cfg['state']
-                
-                db.query(models.Schedule).filter(models.Schedule.device_id == chan_device.id).delete(synchronize_session=False)
-
+    # Resolve or create home for current user
+    user_home = db.query(models.Home).filter(models.Home.owner_id == current_user.id).first()
+    if not user_home:
+        user_home = models.Home(name=f"{current_user.username}'s Home", owner_id=current_user.id)
+        db.add(user_home)
         db.commit()
-        return {"id": device.id}
+        db.refresh(user_home)
 
-    # Create 7 channels automatically for the switchboard board
     import uuid
     created_devices = []
+
+    # Check and update or create all 6 switchboard channels
     for cfg in channel_configs:
         chan_node_id = f"{mac}_{cfg['suffix']}"
-        
-        # Check if this channel already exists in DB to prevent duplicates
-        existing_chan = db.query(models.Device).filter(models.Device.node_id == chan_node_id).first()
-        if existing_chan:
-            created_devices.append(existing_chan)
-            continue
-            
         chan_name = f"{prefix} {cfg['name']}" if prefix else f"Smart {cfg['name']}"
-        device_id = uuid.uuid4()
-        
-        new_device = models.Device(
-            id=device_id,
-            name=chan_name,
-            device_type=cfg['type'],
-            node_id=chan_node_id,
-            mac_address=mac,
-            home_id=home.id,
-            room_id=resolved_room_id,
-            is_online=False,
-            current_state=cfg['state']
-        )
-        db.add(new_device)
-        db.commit()
-        db.refresh(new_device)
 
-        # Log history
-        history_entry = models.DeviceHistory(
-            device_id=new_device.id,
-            change_type="device_created",
-            previous_state=None,
-            new_state=cfg['state']
-        )
-        db.add(history_entry)
-        db.commit()
-        
-        created_devices.append(new_device)
+        chan_device = db.query(models.Device).filter(
+            (models.Device.node_id == chan_node_id) |
+            ((models.Device.mac_address == mac) & (models.Device.node_id.endswith(f"_{cfg['suffix']}")))
+        ).first()
+
+        if chan_device:
+            chan_device.home_id = user_home.id
+            chan_device.room_id = resolved_room_id
+            chan_device.mac_address = mac
+            if prefix:
+                chan_device.name = chan_name
+            chan_device.device_type = cfg['type']
+            db.query(models.Schedule).filter(models.Schedule.device_id == chan_device.id).delete(synchronize_session=False)
+            created_devices.append(chan_device)
+        else:
+            new_device = models.Device(
+                id=uuid.uuid4(),
+                name=chan_name,
+                device_type=cfg['type'],
+                node_id=chan_node_id,
+                mac_address=mac,
+                home_id=user_home.id,
+                room_id=resolved_room_id,
+                is_online=True,
+                current_state=cfg['state']
+            )
+            db.add(new_device)
+            db.commit()
+            db.refresh(new_device)
+
+            history_entry = models.DeviceHistory(
+                device_id=new_device.id,
+                change_type="device_created",
+                previous_state=None,
+                new_state=cfg['state']
+            )
+            db.add(history_entry)
+            created_devices.append(new_device)
+
+    # If legacy base device row exists with node_id == mac, also reassign home
+    base_dev = db.query(models.Device).filter(models.Device.node_id == mac).first()
+    if base_dev:
+        base_dev.home_id = user_home.id
+        base_dev.room_id = resolved_room_id
+
+    db.commit()
 
     # Return the first channel (Switch 1) to satisfy API schema
     return {"id": created_devices[0].id if created_devices else uuid.uuid4()}

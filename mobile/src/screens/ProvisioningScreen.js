@@ -666,6 +666,8 @@ export default function ProvisioningScreen({ route, navigation }) {
     });
     setStatusText(`Connecting to ${selectedDevice.name}...`);
 
+    let decodedMac = '';
+
     try {
       // 1. Connect to BLE device
       connectedDeviceIdRef.current = selectedDevice.id;
@@ -690,7 +692,7 @@ export default function ProvisioningScreen({ route, navigation }) {
         SERVICE_UUID,
         MAC_CHAR_UUID
       );
-      const decodedMac = base64Decode(charMac.value).trim();
+      decodedMac = base64Decode(charMac.value).trim();
       setStatusText(`MAC Address Received: ${decodedMac}`);
 
       // WiFi credentials successfully sent to device
@@ -727,10 +729,10 @@ export default function ProvisioningScreen({ route, navigation }) {
           break; // Success!
         } catch (apiErr) {
           retries--;
+          console.log('[BLEProvisioning] Cloud registry attempt failed, retrying in 2s...', apiErr?.response?.data || apiErr?.message);
           if (retries === 0) {
             throw apiErr; // Out of retries, bubble up error
           }
-          console.log('[BLEProvisioning] Cloud registry attempt failed, retrying in 2s...', apiErr);
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
@@ -776,7 +778,7 @@ export default function ProvisioningScreen({ route, navigation }) {
       // Check if device was actually registered on backend before showing failure dialog (Suppress False Negative)
       try {
         const verifyRes = await apiClient.get('/api/devices');
-        if (Array.isArray(verifyRes.data)) {
+        if (Array.isArray(verifyRes.data) && decodedMac) {
           const isRegistered = verifyRes.data.some(d => 
             d.node_id?.includes(decodedMac) || d.mac_address === decodedMac
           );
