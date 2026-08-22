@@ -312,7 +312,7 @@ def control_device(
     prev_status = previous_state.get("status") or previous_state.get("state")
     req_status = requested_state.get("status") or requested_state.get("state")
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.utcnow().replace(tzinfo=None)
 
     # Track toggle cycles if state changed
     if req_status and prev_status != req_status:
@@ -320,7 +320,8 @@ def control_device(
         if req_status == "OFF" and prev_status == "ON":
             # Accumulate on duration
             if device.updated_at:
-                elapsed_sec = int((now - device.updated_at).total_seconds())
+                upd_at = device.updated_at.replace(tzinfo=None)
+                elapsed_sec = int((now - upd_at).total_seconds())
                 if 0 < elapsed_sec < 86400:
                     device.total_on_duration_seconds = (device.total_on_duration_seconds or 0) + elapsed_sec
 
@@ -331,7 +332,7 @@ def control_device(
     device.last_seen = now
 
     # Re-evaluate warranty status
-    act_date = device.activated_at or device.created_at or now
+    act_date = device.activated_at.replace(tzinfo=None) if device.activated_at else now
     toggles_val = device.total_toggle_count or 0
     crashes_val = device.crash_count or 0
     if toggles_val > 100000 or crashes_val > 50:
