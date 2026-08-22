@@ -244,6 +244,15 @@ export default function DashboardScreen({ navigation }) {
       const response = await apiClient.get("/api/devices", { timeout: 4000 });
       const data = response.data;
       if (Array.isArray(data)) {
+        // Board-level sibling online propagation
+        const onlineBaseNodes = new Set();
+        data.forEach(d => {
+          if (d.is_online === true) {
+            const base = getBaseNodeId(d.node_id);
+            if (base) onlineBaseNodes.add(base);
+          }
+        });
+
         let formattedList = data.map(d => {
           let mobileType = 'outlet';
           const nodeSuffix = d.node_id?.split('_').pop();
@@ -261,7 +270,8 @@ export default function DashboardScreen({ navigation }) {
             val = 4;
           }
 
-          const isOnline = d.is_online === true;
+          const base = getBaseNodeId(d.node_id);
+          const isOnline = d.is_online === true || (base && onlineBaseNodes.has(base));
 
           return {
             id: d.id,

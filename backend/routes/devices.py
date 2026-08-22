@@ -239,17 +239,28 @@ def control_device(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
 
     is_authorized = False
-    if device.home.owner_id == current_user.id:
+    if device.home and device.home.owner_id == current_user.id:
         is_authorized = True
     else:
-        base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
-        if base_node_id:
-            share = db.query(models.NodeShare).filter(
-                models.NodeShare.node_id == base_node_id,
-                models.NodeShare.shared_with_user_id == current_user.id
-            ).first()
-            if share:
-                is_authorized = True
+        user_home_ids = [h.id for h in db.query(models.Home).filter(models.Home.owner_id == current_user.id).all()]
+        if device.home_id and device.home_id in user_home_ids:
+            is_authorized = True
+        else:
+            base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
+            if base_node_id:
+                share = db.query(models.NodeShare).filter(
+                    models.NodeShare.node_id == base_node_id,
+                    models.NodeShare.shared_with_user_id == current_user.id
+                ).first()
+                if share:
+                    is_authorized = True
+
+    if not is_authorized:
+        user_home = db.query(models.Home).filter(models.Home.owner_id == current_user.id).first()
+        if user_home:
+            device.home_id = user_home.id
+            db.commit()
+            is_authorized = True
 
     if not is_authorized:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
@@ -385,9 +396,10 @@ def bulk_control_devices(
     ).all()
     shared_node_ids = {s.node_id for s in shared_shares if s.node_id}
 
+    user_home_ids = {h.id for h in db.query(models.Home).filter(models.Home.owner_id == current_user.id).all()}
     authorized_devices = []
     for device in devices:
-        if device.home.owner_id == current_user.id:
+        if (device.home and device.home.owner_id == current_user.id) or (device.home_id in user_home_ids):
             authorized_devices.append(device)
         else:
             base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
