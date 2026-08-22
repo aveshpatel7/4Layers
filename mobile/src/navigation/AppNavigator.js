@@ -153,22 +153,24 @@ export default function AppNavigator() {
   const [updateModalInfo, setUpdateModalInfo] = useState(null);
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
   const [updateProgress, setUpdateProgress] = useState(0);
+  const CURRENT_JS_APP_VERSION = '2.0.0';
 
   // OTA Version Check on launch
   useEffect(() => {
     const checkAppVersion = async () => {
       try {
-        const currentVersion = Application.nativeApplicationVersion || '1.0.0';
-        console.log(`[OTA Check] Local App Version: ${currentVersion}`);
+        const currentVersion = Application.nativeApplicationVersion || CURRENT_JS_APP_VERSION;
+        console.log(`[OTA Check] Local App Version: ${currentVersion} (JS: ${CURRENT_JS_APP_VERSION})`);
         const res = await apiClient.get('/api/app/version');
         if (res.data && res.data.latest_version) {
           const { latest_version, force_update, apk_url } = res.data;
           console.log(`[OTA Check] Server Version: ${latest_version}, Force: ${force_update}, URL: ${apk_url}`);
-          if (isVersionGreater(latest_version, currentVersion)) {
+          // Loop-proof: Only prompt if server version is strictly greater than BOTH native and JS versions
+          if (isVersionGreater(latest_version, currentVersion) && isVersionGreater(latest_version, CURRENT_JS_APP_VERSION)) {
             setUpdateModalInfo({
               latest_version,
               force_update: !!force_update,
-              apk_url: apk_url || 'https://4layers.in/latest.apk',
+              apk_url: apk_url || 'https://edabtynvpy.ap-south-1.awsapprunner.com/firmware/latest.apk',
             });
           }
         }
