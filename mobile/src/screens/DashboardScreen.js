@@ -199,8 +199,8 @@ export default function DashboardScreen({ navigation }) {
     const roomStatusMap = {};
     devList.forEach(d => {
       if (d.type !== 'master' && !d.node_id?.endsWith('_6') && !d.node_id?.endsWith('_7')) {
-        const lock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || toggleLockRef.current[d.node_id];
-        const effectiveStatus = (lock && (now - lock.time < 1200)) ? lock.status : d.status;
+        const lock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || (d.node_id && toggleLockRef.current[d.node_id]);
+        const effectiveStatus = (lock && (now - lock.time < 3500)) ? lock.status : d.status;
         if (effectiveStatus && d.is_online !== false) {
           roomStatusMap[d.room_id] = true;
         }
@@ -209,8 +209,8 @@ export default function DashboardScreen({ navigation }) {
 
     return devList.map(d => {
       if (d.type === 'master' || d.node_id?.endsWith('_6') || d.node_id?.endsWith('_7')) {
-        const masterLock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || toggleLockRef.current[d.node_id];
-        if (masterLock && (now - masterLock.time < 1200)) {
+        const masterLock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || (d.node_id && toggleLockRef.current[d.node_id]);
+        if (masterLock && (now - masterLock.time < 3500)) {
           return { ...d, status: masterLock.status };
         }
         return { ...d, status: !!roomStatusMap[d.room_id] };
@@ -278,8 +278,8 @@ export default function DashboardScreen({ navigation }) {
         const now = Date.now();
         setDevices((prev) => {
           return uniqueDevicesList.map(newDev => {
-            const lock = toggleLockRef.current[newDev.id];
-            if (lock && (now - lock.time < 1200) && newDev.is_online) {
+            const lock = toggleLockRef.current[newDev.id] || toggleLockRef.current[String(newDev.id)] || (newDev.node_id && toggleLockRef.current[newDev.node_id]);
+            if (lock && (now - lock.time < 3500) && newDev.is_online) {
               return {
                 ...newDev,
                 is_online: true,
@@ -391,9 +391,9 @@ export default function DashboardScreen({ navigation }) {
               }
 
               if (isMatch) {
-                const lock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || toggleLockRef.current[d.node_id];
-                // Enforce optimistic state lock within 1.2 seconds
-                if (lock && (now - lock.time < 1200)) {
+                const lock = toggleLockRef.current[d.id] || toggleLockRef.current[String(d.id)] || (d.node_id && toggleLockRef.current[d.node_id]);
+                // Enforce optimistic state lock within 3.5 seconds
+                if (lock && (now - lock.time < 3500)) {
                   return {
                     ...d,
                     is_online: true,
@@ -585,7 +585,11 @@ export default function DashboardScreen({ navigation }) {
     const speedVal = (channel === 5 || target.type === 'fan') ? ((typeof target.value === 'number' && !isNaN(target.value)) ? target.value : 1) : null;
 
     // 1. Optimistic State Lock
-    toggleLockRef.current[id] = { time: Date.now(), status: nextStatus, value: speedVal || target.value };
+    const lockNow = Date.now();
+    const lockObj = { time: lockNow, status: nextStatus, value: speedVal || target.value };
+    toggleLockRef.current[id] = lockObj;
+    toggleLockRef.current[String(id)] = lockObj;
+    if (target.node_id) toggleLockRef.current[target.node_id] = lockObj;
 
     // 2. Instant Optimistic UI update for individual device + Master Switch
     setDevices((prev) => {
@@ -645,7 +649,11 @@ export default function DashboardScreen({ navigation }) {
     }
 
     // 1. Optimistic State Lock for Fan
-    toggleLockRef.current[id] = { time: Date.now(), status: nextStatus, value: nextVal };
+    const lockNow = Date.now();
+    const lockObj = { time: lockNow, status: nextStatus, value: nextVal };
+    toggleLockRef.current[id] = lockObj;
+    toggleLockRef.current[String(id)] = lockObj;
+    if (target.node_id) toggleLockRef.current[target.node_id] = lockObj;
 
     // 2. Instant Optimistic UI update + Master Switch state update
     setDevices((prev) => {
