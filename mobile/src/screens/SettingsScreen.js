@@ -38,14 +38,6 @@ const GoogleHomeLogo = ({ size = 28 }) => (
   />
 );
 
-const AlexaLogo = ({ size = 28 }) => (
-  <Image
-    source={require('../assets/amazon_alexa.png')}
-    style={{ width: size, height: size }}
-    resizeMode="contain"
-  />
-);
-
 export default function SettingsScreen({ navigation }) {
   const { signOut } = useContext(AuthContext);
   const [user, setUser] = useState(null);

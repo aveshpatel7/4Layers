@@ -39,7 +39,7 @@ export default function SideDrawer({
   userProfile = null
 }) {
   const [activeVoiceModal, setActiveVoiceModal] = useState(null);
-  const [voiceStatus, setVoiceStatus] = useState({ google_linked: false, alexa_linked: false });
+  const [voiceStatus, setVoiceStatus] = useState({ google_linked: false });
   const [isUnlinking, setIsUnlinking] = useState(false);
   const [userProfileData, setUserProfileData] = useState(userProfile);
 
@@ -76,7 +76,7 @@ export default function SideDrawer({
   const fetchVoiceStatus = async () => {
     try {
       const res = await apiClient.get('/api/voice/status');
-      setVoiceStatus(res.data || { google_linked: false, alexa_linked: false });
+      setVoiceStatus(res.data || { google_linked: false });
     } catch (err) {
       console.warn("Failed to fetch voice status:", err);
     }
@@ -88,8 +88,8 @@ export default function SideDrawer({
       if (Array.isArray(res.data)) {
         setPendingInvitesCount(res.data.length);
       }
-    } catch (e) {
-      console.warn("Failed to fetch pending invites count in SideDrawer:", e);
+    } catch (err) {
+      console.warn("Failed to fetch pending invites count in SideDrawer:", err);
     }
   };
 
@@ -115,11 +115,9 @@ export default function SideDrawer({
     { key: 'SchedulesTab', label: 'Schedules', image: require('../assets/schedules.png'), type: 'route' },
     { key: 'RoomsTab', label: 'Room Management', image: require('../assets/room_management.png'), type: 'route' },
     { key: 'FamilyMembersTab', label: 'Add Members', image: require('../assets/add-contact.png'), type: 'route' },
-    { key: 'GoogleHome', label: 'Google Home', image: require('../assets/google_home.png'), type: 'modal' },
-    { key: 'AmazonAlexa', label: 'Amazon Alexa', image: require('../assets/amazon_alexa.png'), type: 'modal' }
+    { key: 'GoogleHome', label: 'Google Home', image: require('../assets/google_home.png'), type: 'modal' }
   ];
 
-  // Hyper-responsive Swipe Left Gesture Responder inside Drawer to close
   const drawerPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -167,8 +165,6 @@ export default function SideDrawer({
     if (item.type === 'modal') {
       if (item.key === 'GoogleHome') {
         openVoiceModal('google');
-      } else if (item.key === 'AmazonAlexa') {
-        openVoiceModal('alexa');
       }
     } else {
       onClose();
@@ -392,37 +388,6 @@ export default function SideDrawer({
                     </ScrollView>
                   </>
                 )}
-              </>
-            )}
-
-            {activeVoiceModal === 'alexa' && (
-              <>
-                <View style={styles.modalHeaderRow}>
-                  <Image
-                    source={require('../assets/amazon_alexa.png')}
-                    style={{ width: 28, height: 28, marginRight: 10 }}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.modalHeaderTitle}>Amazon Alexa Setup</Text>
-                  <TouchableOpacity onPress={() => setActiveVoiceModal(null)}>
-                    <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.statusBadgeRow}>
-                  <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>READY & ACTIVE</Text>
-                  <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Smart Home V3 Skill</Text>
-                </View>
-
-                <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-                  <View style={styles.guideSectionBox}>
-                    <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Amazon Alexa App</Text>.</Text>
-                    <Text style={styles.guideStepText}>2. Go to <Text style={{ fontWeight: '700', color: '#fff' }}>More -> Skills & Games</Text>.</Text>
-                    <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"4Layers Smart Home"</Text>.</Text>
-                    <Text style={styles.guideStepText}>4. Tap Enable to Use and log in with your credentials.</Text>
-                    <Text style={styles.guideStepText}>5. Say: <Text style={{ fontWeight: '700', color: '#00CAFF' }}>"Alexa, set Fan speed to 3"</Text>.</Text>
-                  </View>
-                </ScrollView>
               </>
             )}
 
