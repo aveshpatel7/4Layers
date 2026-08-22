@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StyleSheet, Text, View, TouchableOpacity, Animated, ActivityIndicator, Easing } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Animated,
+  ActivityIndicator,
+  Easing,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const TOKENS = {
   bg: "#141414",
@@ -14,11 +30,17 @@ const TOKENS = {
   textMuted: "#71717A",
 };
 
+// Session-level memory for collapse preference
+let sessionIsCollapsed = false;
+
 export default function HardwareReconnectingCard({ onRefresh, isRefreshing = false }) {
   const [secondsElapsed, setSecondsElapsed] = useState(0);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [collapsed, setCollapsed] = useState(sessionIsCollapsed);
+
   const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  const chevronAnim = useRef(new Animated.Value(sessionIsCollapsed ? 0 : 1)).current;
+  const contentOpacityAnim = useRef(new Animated.Value(sessionIsCollapsed ? 0 : 1)).current;
 
   // Track elapsed boot time when offline
   useEffect(() => {
@@ -28,7 +50,7 @@ export default function HardwareReconnectingCard({ onRefresh, isRefreshing = fal
     return () => clearInterval(timer);
   }, []);
 
-  // Smooth animated progress bar (0 to 100% in 22s loops)
+  // Smooth animated progress bar & pulsing status dot
   useEffect(() => {
     progressAnim.setValue(0);
     Animated.loop(
@@ -56,9 +78,44 @@ export default function HardwareReconnectingCard({ onRefresh, isRefreshing = fal
     ).start();
   }, []);
 
+  const toggleCollapse = () => {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(
+        280,
+        LayoutAnimation.Types.easeInEaseOut,
+        LayoutAnimation.Properties.opacity
+      )
+    );
+
+    const nextCollapsed = !collapsed;
+    setCollapsed(nextCollapsed);
+    sessionIsCollapsed = nextCollapsed;
+
+    Animated.parallel([
+      Animated.timing(chevronAnim, {
+        toValue: nextCollapsed ? 0 : 1,
+        duration: 280,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentOpacityAnim, {
+        toValue: nextCollapsed ? 0 : 1,
+        duration: 280,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const progressPercent = progressAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ["5%", "95%"],
+  });
+
+  // Rotate chevron 180 degrees: 0 (collapsed) -> 0deg (pointing down), 1 (expanded) -> 180deg (pointing up)
+  const chevronRotate = chevronAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
   });
 
   // Calculate current active stage based on seconds elapsed
@@ -78,28 +135,30 @@ export default function HardwareReconnectingCard({ onRefresh, isRefreshing = fal
 
   return (
     <View style={styles.cardContainer}>
-      {/* Header Banner */}
+      {/* Header Banner - Tappable with min 40x40 area */}
       <TouchableOpacity
         style={styles.headerRow}
-        activeOpacity={0.8}
-        onPress={() => setIsExpanded(!isExpanded)}
+        activeOpacity={0.75}
+        onPress={toggleCollapse}
       >
         <View style={styles.headerLeft}>
           <Animated.View style={[styles.glowingDot, { opacity: pulseAnim }]} />
-          <View>
+          <View style={styles.headerTextGroup}>
             <Text style={styles.headerTitle}>Switchboard Reconnecting...</Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
               Establishing secure cloud connection (~15-25s)
             </Text>
           </View>
         </View>
 
-        <View style={styles.headerRight}>
-          <MaterialCommunityIcons
-            name={isExpanded ? "chevron-up" : "chevron-down"}
-            size={20}
-            color={TOKENS.textSecondary}
-          />
+        <View style={styles.chevronButton}>
+          <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+            <MaterialCommunityIcons
+              name="chevron-down"
+              size={22}
+              color={TOKENS.textSecondary}
+            />
+          </Animated.View>
         </View>
       </TouchableOpacity>
 
@@ -108,9 +167,9 @@ export default function HardwareReconnectingCard({ onRefresh, isRefreshing = fal
         <Animated.View style={[styles.progressBar, { width: progressPercent }]} />
       </View>
 
-      {/* Expandable Step-by-Step Stages */}
-      {isExpanded && (
-        <View style={styles.stagesContainer}>
+      {/* Expandable Step-by-Step Stages & Bottom Action */}
+      {!collapsed && (
+        <Animated.View style={[styles.stagesContainer, { opacity: contentOpacityAnim }]}>
           {stages.map((stage, idx) => {
             const status = getStageStatus(idx);
             const isDone = status === "DONE";
@@ -160,11 +219,14 @@ export default function HardwareReconnectingCard({ onRefresh, isRefreshing = fal
             );
           })}
 
-          {/* Action Row */}
+          {/* Hairline Divider & Bottom Tip / Action */}
           <View style={styles.actionRow}>
-            <Text style={styles.hintText}>
-              💡 Just plugged in the board? Switches activate automatically once connected.
-            </Text>
+            <View style={styles.tipGroup}>
+              <MaterialCommunityIcons name="lightbulb-outline" size={13} color={TOKENS.accentAmber} />
+              <Text style={styles.hintText}>
+                Just plugged in the board? Switches activate automatically once connected.
+              </Text>
+            </View>
             {onRefresh && (
               <TouchableOpacity
                 style={styles.refreshBtn}
@@ -176,14 +238,14 @@ export default function HardwareReconnectingCard({ onRefresh, isRefreshing = fal
                   <ActivityIndicator size="small" color="#002112" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="refresh" size={14} color="#002112" />
+                    <MaterialCommunityIcons name="refresh" size={13} color="#002112" />
                     <Text style={styles.refreshBtnText}>Check Live Status</Text>
                   </>
                 )}
               </TouchableOpacity>
             )}
           </View>
-        </View>
+        </Animated.View>
       )}
     </View>
   );
@@ -192,7 +254,7 @@ export default function HardwareReconnectingCard({ onRefresh, isRefreshing = fal
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: TOKENS.cardBg,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(6, 182, 212, 0.3)",
     marginBottom: 16,
@@ -200,15 +262,17 @@ const styles = StyleSheet.create({
     shadowColor: TOKENS.accentCyan,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 3,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingLeft: 14,
+    paddingRight: 6,
+    paddingVertical: 10,
+    minHeight: 48,
   },
   headerLeft: {
     flexDirection: "row",
@@ -216,15 +280,18 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
+  headerTextGroup: {
+    flex: 1,
+  },
   glowingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     backgroundColor: TOKENS.accentCyan,
     shadowColor: TOKENS.accentCyan,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
-    shadowRadius: 6,
+    shadowRadius: 5,
   },
   headerTitle: {
     fontSize: 13,
@@ -237,11 +304,15 @@ const styles = StyleSheet.create({
     color: TOKENS.textSecondary,
     marginTop: 1,
   },
-  headerRight: {
-    padding: 4,
+  chevronButton: {
+    minWidth: 40,
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 6,
   },
   progressTrack: {
-    height: 3,
+    height: 2.5,
     backgroundColor: "rgba(255, 255, 255, 0.06)",
     width: "100%",
   },
@@ -251,25 +322,25 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
   },
   stagesContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
     backgroundColor: "rgba(0, 0, 0, 0.2)",
   },
   stageRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   stageIconCol: {
     alignItems: "center",
-    width: 24,
+    width: 22,
     marginRight: 10,
   },
   stageIconWrapper: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: "#27272A",
     alignItems: "center",
     justifyContent: "center",
@@ -286,16 +357,16 @@ const styles = StyleSheet.create({
   },
   stageConnectorLine: {
     width: 2,
-    height: 14,
+    height: 12,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginVertical: 2,
+    marginVertical: 1,
   },
   stageConnectorLineDone: {
     backgroundColor: TOKENS.accentGreen,
   },
   stageTextCol: {
     flex: 1,
-    paddingTop: 1,
+    paddingTop: 0.5,
   },
   stageTitle: {
     fontSize: 12,
@@ -312,36 +383,43 @@ const styles = StyleSheet.create({
   stageSubtitle: {
     fontSize: 10,
     color: TOKENS.textMuted,
-    marginTop: 1,
+    marginTop: 0.5,
   },
   actionRow: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
     gap: 8,
   },
+  tipGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flex: 1,
+    minWidth: 180,
+  },
   hintText: {
     fontSize: 10,
     color: TOKENS.textMuted,
     flex: 1,
-    lineHeight: 14,
+    lineHeight: 13,
   },
   refreshBtn: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#1fa971",
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: 7,
     gap: 4,
   },
   refreshBtnText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: "700",
     color: "#002112",
   },

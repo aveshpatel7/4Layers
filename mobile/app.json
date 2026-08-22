@@ -3,7 +3,7 @@
     "name": "4Layers",
     "slug": "smartnest-mobile",
     "scheme": "4layers",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "icon": "./assets/4layers_logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.smartnest.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/4layers_logo.png",
