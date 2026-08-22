@@ -460,7 +460,7 @@ void publishTelemetry()
             MQTT_LOCK_GIVE();
         }
     }
-    Serial.printf("📊 [TELEMETRY] Published usage & warranty stats for %s (Boot: %u, Crashes: %u)\n", NODE_ID, board_boot_count, board_crash_count);
+    Serial.printf("📊 [TELEMETRY] Published usage & warranty stats for %s (Boot: %lu, Crashes: %lu)\n", NODE_ID, board_boot_count, board_crash_count);
 }
 
 void pref_save_fan() 
@@ -1084,7 +1084,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
     if (doc.containsKey("action") && doc["action"] == "OTA_UPDATE") 
     {
         const char* target_ver = doc["version"];
-        if (target_ver && strlen(target_ver) > 0 && strcmp(target_ver, "v2.0.5") == 0)
+        if (target_ver && strlen(target_ver) > 0 && strcmp(target_ver, FIRMWARE_VERSION) == 0)
         {
             Serial.printf("ℹ️ [OTA] Firmware is already running version (%s). Skipping update.\n", target_ver);
             return;
@@ -2138,10 +2138,10 @@ void setup()
     {
         board_crash_count++;
         preferences.putUInt("crash_count", board_crash_count);
-        Serial.printf("⚠️ [HARDWARE AUDIT] Abnormal Reset Detected (Reason %d)! Crash Count = %u\n", (int)reset_reason, board_crash_count);
+        Serial.printf("⚠️ [HARDWARE AUDIT] Abnormal Reset Detected (Reason %d)! Crash Count = %lu\n", (int)reset_reason, board_crash_count);
     }
     preferences.end();
-    Serial.printf("📊 [NVS TELEMETRY] Boot Count: %u | Crash Count: %u\n", board_boot_count, board_crash_count);
+    Serial.printf("📊 [NVS TELEMETRY] Boot Count: %lu | Crash Count: %lu\n", board_boot_count, board_crash_count);
 
     Serial.println("\n====================================");
     Serial.printf("📡 Node ID Generated: %s\n", NODE_ID);
