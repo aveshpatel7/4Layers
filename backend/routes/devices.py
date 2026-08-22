@@ -1,4 +1,5 @@
 import datetime
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -6,6 +7,10 @@ from uuid import UUID
 
 from backend.database import get_db
 from backend import models, auth, mqtt, schemas
+
+# Debug logger for tracing individual switch control issues
+ctrl_logger = logging.getLogger("CONTROL_DEBUG")
+ctrl_logger.setLevel(logging.INFO)
 
 router = APIRouter(prefix="/api/devices", tags=["Devices"])
 
@@ -254,18 +259,27 @@ def control_device(
     Logs 'command_sent' to the history log immediately.
     The database state is updated when the physical device responds with status.
     """
+    ctrl_logger.info("=" * 60)
+    ctrl_logger.info("CONTROL HIT: device_id=%s, user_id=%s, payload=%s", device_id, current_user.id, control_data.state)
+
     device = db.query(models.Device).filter(models.Device.id == device_id).first()
 
     if not device:
+        ctrl_logger.error("DEVICE NOT FOUND IN DB: device_id=%s", device_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+
+    ctrl_logger.info("DEVICE FOUND: node_id=%s, name=%s, type=%s, home_id=%s, room_id=%s, is_online=%s",
+                     device.node_id, device.name, device.device_type, device.home_id, device.room_id, device.is_online)
 
     is_authorized = False
     if device.home and device.home.owner_id == current_user.id:
         is_authorized = True
+        ctrl_logger.info("AUTH: Passed via device.home.owner_id match")
     else:
         user_home_ids = [h.id for h in db.query(models.Home).filter(models.Home.owner_id == current_user.id).all()]
         if device.home_id and device.home_id in user_home_ids:
             is_authorized = True
+            ctrl_logger.info("AUTH: Passed via home_id in user_home_ids")
         else:
             base_node_id = device.node_id.split('_')[0] if device.node_id and '_' in device.node_id else device.node_id
             if base_node_id:
@@ -275,15 +289,19 @@ def control_device(
                 ).first()
                 if share:
                     is_authorized = True
+                    ctrl_logger.info("AUTH: Passed via NodeShare")
 
     if not is_authorized:
+        ctrl_logger.warning("AUTH: Primary auth FAILED for device %s (node_id=%s). Attempting home_id auto-fix...", device.id, device.node_id)
         user_home = db.query(models.Home).filter(models.Home.owner_id == current_user.id).first()
         if user_home:
+            ctrl_logger.info("AUTH: Auto-fixed home_id from %s to %s for device %s", device.home_id, user_home.id, device.node_id)
             device.home_id = user_home.id
             db.commit()
             is_authorized = True
 
     if not is_authorized:
+        ctrl_logger.error("AUTH DENIED: device_id=%s, node_id=%s, user_id=%s", device.id, device.node_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     previous_state = device.current_state or {}
@@ -359,6 +377,11 @@ def control_device(
                     payload_to_publish["value"] = speed_val
                     
             node_id_to_publish = base_node_id
+            ctrl_logger.info("MQTT CHANNEL EXTRACTED: base=%s, channel=%d from node_id=%s", base_node_id, channel, device.node_id)
+    else:
+        ctrl_logger.info("MQTT NO CHANNEL SUFFIX: node_id=%s (no underscore found)", device.node_id)
+
+    ctrl_logger.info(">>> MQTT PUBLISH: topic=home/device/%s/control, payload=%s", node_id_to_publish, payload_to_publish)
 
     mqtt.publish_control_message(
         node_id=node_id_to_publish,

@@ -598,11 +598,14 @@ export default function DashboardScreen({ navigation }) {
 
       // 3. Direct AWS Cloud Route
       try {
+        console.log("[DEBUG MASTER] Toggling MASTER:", target.name, "| ID:", id, "| node_id:", target.node_id, "| nextStatus:", nextStatusStr, "| room device IDs:", JSON.stringify(roomDevIds));
         await apiClient.post('/api/devices/bulk-control', {
           device_ids: roomDevIds,
           state: { status: nextStatusStr }
         });
+        console.log("[DEBUG MASTER] SUCCESS: Master bulk-control completed");
       } catch (cloudErr) {
+        console.log("[DEBUG MASTER] FAILED:", cloudErr?.response?.status, cloudErr?.response?.data);
         console.warn("[Dashboard] Cloud master control failed:", cloudErr);
       }
       return;
@@ -632,11 +635,15 @@ export default function DashboardScreen({ navigation }) {
       togglePayload.speed = speedVal;
     }
 
+    console.log("[DEBUG TOGGLE] Switch:", target.name, "| ID:", id, "| node_id:", target.node_id, "| channel:", channel, "| payload:", JSON.stringify(togglePayload));
+
     try {
-      await apiClient.post(`/api/devices/${id}/control`, {
+      const resp = await apiClient.post(`/api/devices/${id}/control`, {
         state: togglePayload
       });
+      console.log("[DEBUG TOGGLE] SUCCESS:", target.name, "| HTTP status:", resp.status, "| response:", JSON.stringify(resp.data));
     } catch (cloudErr) {
+      console.log("[DEBUG TOGGLE] FAILED:", target.name, "| HTTP status:", cloudErr?.response?.status, "| error:", JSON.stringify(cloudErr?.response?.data));
       console.warn(`[Dashboard] Cloud API call failed for ${target.name}:`, cloudErr);
     }
   };
