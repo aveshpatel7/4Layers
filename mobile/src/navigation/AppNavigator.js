@@ -154,8 +154,9 @@ export default function AppNavigator() {
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
   const [updateProgress, setUpdateProgress] = useState(0);
 
-  // Define the current built-in app version
-  const CURRENT_JS_APP_VERSION = '2.0.3';
+  // MANUAL VERSION CONTROL
+  const CURRENT_JS_APP_VERSION = "2.0.4"; // BUMP THIS EXACTLY TO MATCH build.gradle "versionName" ON EACH RELEASE
+  const OTA_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hr
 
   // OTA Version Check on launch
   useEffect(() => {
