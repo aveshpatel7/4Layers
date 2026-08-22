@@ -115,10 +115,13 @@ def get_devices(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve all devices owned by or shared with the authenticated user (max 6 channels per board)."""
-    # 1. Owned devices
-    owned_devices = db.query(models.Device).join(models.Home).filter(
-        models.Home.owner_id == current_user.id
+    """Retrieve all devices owned by or shared with the authenticated user (6 separate channels per board)."""
+    user_home_ids = [h.id for h in db.query(models.Home).filter(models.Home.owner_id == current_user.id).all()]
+
+    # 1. Owned devices (via home_id or direct join)
+    owned_devices = db.query(models.Device).filter(
+        (models.Device.home_id.in_(user_home_ids)) |
+        (models.Device.home.has(models.Home.owner_id == current_user.id))
     ).all()
 
     # 2. Shared nodes for current_user
@@ -141,13 +144,31 @@ def get_devices(
     for d in owned_devices + shared_devices:
         device_map[str(d.id)] = d
 
+    # Board-level online status propagation: if ANY channel or base node is online, mark all channels online
+    online_base_nodes = set()
+    now_utc = datetime.datetime.utcnow()
+    three_min_ago = now_utc - datetime.timedelta(minutes=3)
+
+    for d in device_map.values():
+        is_on = bool(d.is_online)
+        if not is_on and d.last_seen:
+            if d.last_seen > three_min_ago:
+                is_on = True
+        if is_on and d.node_id:
+            base = d.node_id.split('_')[0]
+            online_base_nodes.add(base)
+
     valid_devices_map = {}
     for d in device_map.values():
         if d.node_id and "_" in d.node_id:
             suffix = d.node_id.rsplit('_', 1)[-1]
             if suffix.isdigit() and int(suffix) > 6:
                 continue
-        # Ensure node_id uniqueness across final list
+        # Propagate online flag
+        base = d.node_id.split('_')[0] if d.node_id else ""
+        if base in online_base_nodes:
+            d.is_online = True
+
         if d.node_id not in valid_devices_map:
             valid_devices_map[d.node_id] = d
     
