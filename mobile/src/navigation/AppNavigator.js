@@ -153,7 +153,9 @@ export default function AppNavigator() {
   const [updateModalInfo, setUpdateModalInfo] = useState(null);
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
   const [updateProgress, setUpdateProgress] = useState(0);
-  const CURRENT_JS_APP_VERSION = '2.0.1';
+
+  // Define the current built-in app version
+  const CURRENT_JS_APP_VERSION = '2.0.2';
 
   // OTA Version Check on launch
   useEffect(() => {
