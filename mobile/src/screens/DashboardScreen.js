@@ -915,15 +915,6 @@ export default function DashboardScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           ) : (
-            <View>
-              {/* Interactive Hardware Reconnecting & Boot Status HUD */}
-              {filteredDevices.length > 0 && filteredDevices.every(d => d.is_online === false) && (
-                <HardwareReconnectingCard
-                  onRefresh={handleManualStatusCheck}
-                  isRefreshing={isRefreshingOffline}
-                />
-              )}
-
               <View style={styles.gridContainer}>
                 {[...filteredDevices]
                 .filter((d) => {
@@ -949,10 +940,17 @@ export default function DashboardScreen({ navigation }) {
                   />
                 ))}
               </View>
-            </View>
           )}
 
       </ScrollView>
+
+      {/* Smart Bottom Floating Toast for Hardware Reconnecting Status */}
+      {filteredDevices.length > 0 && filteredDevices.every(d => d.is_online === false) && (
+        <HardwareReconnectingCard
+          onRefresh={handleManualStatusCheck}
+          isRefreshing={isRefreshingOffline}
+        />
+      )}
 
       {/* Standardized Subtle Network Mode Toast Notification */}
       {feedbackToast && (
