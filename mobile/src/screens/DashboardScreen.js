@@ -266,6 +266,11 @@ export default function DashboardScreen({ navigation }) {
             ? d.current_state.value 
             : (d.current_state?.speed !== undefined ? d.current_state.speed : (mobileType === 'fan' ? 4 : 1));
           
+          if (val !== null && val !== undefined) {
+             val = parseInt(val, 10);
+             if (isNaN(val)) val = null;
+          }
+          
           if (mobileType === 'fan' && (val === 0 || val === null || val === undefined) && (d.current_state?.status === 'ON')) {
             val = 4;
           }
@@ -641,6 +646,7 @@ export default function DashboardScreen({ navigation }) {
     };
     if (speedVal !== null) {
       togglePayload.speed = speedVal;
+      togglePayload.value = speedVal;
     }
 
     console.log("[DEBUG TOGGLE] Switch:", target.name, "| ID:", id, "| node_id:", target.node_id, "| channel:", channel, "| payload:", JSON.stringify(togglePayload));
@@ -706,7 +712,8 @@ export default function DashboardScreen({ navigation }) {
     const adjustPayload = {
       channel,
       status: nextStatusStr,
-      speed: nextVal
+      speed: nextVal,
+      value: nextVal
     };
 
     try {
@@ -758,16 +765,13 @@ export default function DashboardScreen({ navigation }) {
   const filteredDevices = useMemo(() => {
     if (!devices || devices.length === 0) return [];
     if (selectedRoom) {
-      const matched = devices.filter((device) => device.room_id === selectedRoom);
-      if (matched.length > 0) return matched;
+      return devices.filter((device) => device.room_id === selectedRoom);
     }
-    // Fallback: If selectedRoom is empty or has no matches, match first room in dbRooms
-    if (dbRooms.length > 0) {
+    // Fallback: If selectedRoom is not set, match first room in dbRooms
+    if (dbRooms && dbRooms.length > 0) {
       const firstRoomId = dbRooms[0].id;
-      const matchedFirst = devices.filter((device) => device.room_id === firstRoomId);
-      if (matchedFirst.length > 0) return matchedFirst;
+      return devices.filter((device) => device.room_id === firstRoomId);
     }
-    // Fallback: show all devices
     return devices;
   }, [devices, selectedRoom, dbRooms]);
 
