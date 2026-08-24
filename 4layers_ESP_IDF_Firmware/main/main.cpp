@@ -1022,11 +1022,14 @@ void performOTAUpdate(const String& firmwareUrl)
     Serial.println("[OTA] Target URL: " + firmwareUrl);
     
     // Temporarily detach from Task Watchdog so large flash writes & MD5 verification won't trigger TWDT reset
-    esp_task_wdt_delete(NULL);
+    // Free MQTT TLS RAM (~35KB) so OTA HTTPS download has maximum free heap
+    client.disconnect();
+    espClient.stop();
+    vTaskDelay(pdMS_TO_TICKS(200));
 
     WiFiClientSecure otaClient;
     otaClient.setInsecure();
-    otaClient.setTimeout(25000); // 25s socket timeout
+    otaClient.setTimeout(30000); // 30s socket timeout
 
     httpUpdate.rebootOnUpdate(true);
     httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
@@ -1048,7 +1051,7 @@ void performOTAUpdate(const String& firmwareUrl)
         }
     });
 
-    Serial.println("⚙️ [SYSTEM] OTA Download starting...");
+    Serial.printf("⚙️ [SYSTEM] Free Heap before OTA: %lu bytes. OTA Download starting...\n", (unsigned long)ESP.getFreeHeap());
     
     t_httpUpdate_return ret = httpUpdate.update(otaClient, firmwareUrl);
 
