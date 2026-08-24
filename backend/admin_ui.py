@@ -1926,6 +1926,15 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
+                // If server status map is empty, clear table rows immediately
+                const activeNodeIds = Object.keys(currentOtaStatusMap);
+                if (activeNodeIds.length === 0 && otaMonitorTableBody) {
+                    const rows = otaMonitorTableBody.querySelectorAll('tr:not(#ota-empty-row)');
+                    rows.forEach(r => r.remove());
+                    const emptyRow = document.getElementById('ota-empty-row');
+                    if (emptyRow) emptyRow.style.display = 'table-row';
+                }
+
                 // Schedule Non-Blocking UI Update for Summary Dashboard Cards using requestAnimationFrame
                 window.requestAnimationFrame(() => {
                     try {

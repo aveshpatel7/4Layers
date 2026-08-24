@@ -125,22 +125,24 @@ def get_ota_status(admin: dict = Depends(get_current_admin)):
     result = {}
     
     for node_id, data in list(OTA_STATUS_CACHE.items()):
-        status = data.get("status", "")
+        status = (data.get("status") or "").lower()
         progress = data.get("progress", 0)
         updated_at = data.get("updated_at")
 
-        # Purge stale terminal entries (>10s old) BEFORE returning so old jobs don't pop up on page load
-        if status.lower() in ["success", "completed", "failed", "error", "timeout"]:
+        # 1. Mutate cache data["status"] if completed (100%) or timed out (>30s)
+        if progress >= 100 and status in ["downloading", "flashing", "rebooting", "pending"]:
+            status = "success"
+            data["status"] = "success"
+        elif status in ["downloading", "pending", "flashing", "rebooting"]:
+            if updated_at and (now - updated_at).total_seconds() > 30:
+                status = "timeout"
+                data["status"] = "timeout"
+
+        # 2. Immediately purge completed/timed-out/failed jobs older than 10 seconds from memory cache
+        if status in ["success", "completed", "failed", "error", "timeout"]:
             if updated_at and (now - updated_at).total_seconds() > 10:
                 OTA_STATUS_CACHE.pop(node_id, None)
                 continue
-
-        # Fix 100% stuck bug
-        if progress >= 100 and status.lower() in ["downloading", "flashing", "rebooting", "pending"]:
-            status = "success"
-        elif status.lower() in ["downloading", "pending", "flashing", "rebooting"]:
-            if updated_at and (now - updated_at).total_seconds() > 30:
-                status = "timeout"
                 
         result[node_id] = {
             "status": status,
