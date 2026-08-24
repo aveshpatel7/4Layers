@@ -90,6 +90,22 @@ def serve_admin_css():
 def serve_admin_js():
     return Response(content=admin_ui.ADMIN_JS, media_type="application/javascript", headers=NO_CACHE_HEADERS)
 
+@app.get("/admin/crypto-js.min.js", include_in_schema=False)
+def serve_admin_cryptojs():
+    js_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crypto-js.min.js")
+    if os.path.exists(js_path):
+        with open(js_path, "r", encoding="utf-8") as f:
+            return Response(content=f.read(), media_type="application/javascript", headers=NO_CACHE_HEADERS)
+    return Response(status_code=404)
+
+@app.get("/admin/esptool.js", include_in_schema=False)
+def serve_admin_esptool():
+    js_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "esptool.js")
+    if os.path.exists(js_path):
+        with open(js_path, "r", encoding="utf-8") as f:
+            return Response(content=f.read(), media_type="application/javascript", headers=NO_CACHE_HEADERS)
+    return Response(status_code=404)
+
 ADMIN_LOGO_BYTES = None
 for candidate in [
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "4layers_logo.png"),

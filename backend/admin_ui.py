@@ -386,35 +386,74 @@ ADMIN_HTML = """<!DOCTYPE html>
                         </div>
                     </div>
 
-                    <!-- WebSerial Browser USB Flasher Card -->
+                    <!-- WebSerial Browser USB Flasher & Live Serial Monitor Card -->
                     <div class="panel-card">
                         <div class="panel-header">
-                            <h3><i class="fa-brands fa-usb"></i> WebSerial Browser USB Flasher</h3>
-                            <span class="badge blue">Direct Browser USB</span>
+                            <h3><i class="fa-brands fa-usb"></i> WebSerial Browser USB Flasher & Live Monitor</h3>
+                            <span class="badge blue" id="webserial-badge"><i class="fa-solid fa-plug"></i> Direct USB</span>
                         </div>
-                        <p class="card-desc">Connect ESP32 via USB cable to Chrome/Edge to flash firmware binary directly!</p>
+                        <p class="card-desc">Connect ESP32 via USB to Chrome/Edge to 1-click flash factory firmware or stream live serial boot logs in real time!</p>
 
                         <div class="webserial-box">
-                            <div class="webserial-status" id="serial-status-text">
-                                <i class="fa-solid fa-plug"></i> USB Cable Disconnected
+                            <!-- Connection Status & Baud Rate Selector -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                                <div class="webserial-status" id="serial-status-text" style="margin-bottom:0;">
+                                    <i class="fa-solid fa-circle-xmark" style="color:var(--text-secondary)"></i> <span>USB Disconnected</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <label style="font-size:11px; color:var(--text-secondary); margin-bottom:0;">Baud:</label>
+                                    <select id="serial-baud-rate" class="form-select" style="padding:4px 8px; font-size:11.5px; width:auto; min-width:110px;">
+                                        <option value="115200" selected>115200 (Standard)</option>
+                                        <option value="9600">9600</option>
+                                        <option value="460800">460800 (Fast Flash)</option>
+                                        <option value="921600">921600 (High Speed)</option>
+                                    </select>
+                                </div>
                             </div>
 
-                            <button class="btn btn-primary full-width" id="btn-connect-usb">
-                                <i class="fa-solid fa-link"></i> Connect ESP32 via USB COM Port
-                            </button>
-
-                            <div class="form-group margin-top-15">
-                                <label>Select Firmware File (.bin)</label>
-                                <input type="file" id="local-bin-file" accept=".bin" class="form-file">
+                            <!-- Connect / Disconnect Buttons -->
+                            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                                <button class="btn btn-primary" id="btn-connect-usb" style="flex:1;">
+                                    <i class="fa-solid fa-link"></i> <span id="btn-connect-usb-text">Connect ESP32 via USB COM Port</span>
+                                </button>
+                                <button class="btn btn-outline" id="btn-reset-esp32" style="display:none;" title="Send Hardware Reset (RST/EN) via DTR/RTS">
+                                    <i class="fa-solid fa-rotate"></i> Reset Chip
+                                </button>
                             </div>
 
-                            <button class="btn btn-green full-width" id="btn-flash-usb" disabled>
-                                <i class="fa-solid fa-bolt"></i> Flash Firmware to ESP32
-                            </button>
-
-                            <div class="progress-bar-container margin-top-15" id="flash-progress-bar" style="display:none;">
-                                <div class="progress-fill" id="flash-progress-fill"></div>
+                            <!-- 1-Click Flash Latest Factory Firmware from Cloud -->
+                            <div style="background:rgba(0, 230, 118, 0.08); border:1px solid rgba(0, 230, 118, 0.3); border-radius:8px; padding:12px; margin-bottom:14px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <strong style="color:var(--accent-green); font-size:12.5px;"><i class="fa-solid fa-bolt"></i> 1-Click Cloud Factory Flash</strong>
+                                    <span class="badge green" style="font-size:10px;">Recommended</span>
+                                </div>
+                                <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Auto-downloads and flashes the latest verified factory firmware (v2.2.5) with full partition layout to offset 0x0.</p>
+                                <button class="btn btn-accent full-width" id="btn-flash-cloud-latest" style="background:#00E676; color:#000; font-weight:700; border-color:#00E676;" disabled>
+                                    <i class="fa-solid fa-cloud-arrow-down"></i> Flash Latest Factory Firmware (v2.2.5)
+                                </button>
                             </div>
+
+                            <!-- Or Custom Local Binary File Upload -->
+                            <div style="border-top:1px solid var(--border-color); padding-top:12px;">
+                                <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:6px;"><i class="fa-solid fa-file-code"></i> Or Flash Custom Binary (.bin):</label>
+                                <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                                    <input type="file" id="local-bin-file" accept=".bin" class="form-file" style="flex:1;">
+                                    <select id="flash-offset-select" class="form-select" style="width:140px; font-size:11.5px; padding:6px 8px;">
+                                        <option value="0x0" selected>Offset: 0x0 (Merged)</option>
+                                        <option value="0x10000">Offset: 0x10000 (App)</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-outline full-width" id="btn-flash-usb" disabled>
+                                    <i class="fa-solid fa-microchip"></i> Flash Selected Custom File
+                                </button>
+                            </div>
+
+                            <!-- Real-Time Flashing Progress Bar -->
+                            <div class="progress-bar-container margin-top-15" id="flash-progress-bar" style="display:none; height:22px;">
+                                <div class="progress-fill" id="flash-progress-fill" style="width: 0%;"></div>
+                                <span class="progress-text" id="flash-progress-text" style="font-size:11px;">0%</span>
+                            </div>
+                            <div id="flash-status-msg" style="font-size:11.5px; color:var(--text-secondary); margin-top:8px; text-align:center; display:none;"></div>
                         </div>
                     </div>
                 </div>
@@ -422,19 +461,20 @@ ADMIN_HTML = """<!DOCTYPE html>
                 <!-- UNIFIED 4LAYERS LIVE DEVICE CONSOLE CARD -->
                 <div class="panel-card margin-top-20">
                     <div class="panel-header">
-                        <h3><i class="fa-solid fa-terminal"></i> Live Device Console</h3>
-                        <div class="header-actions" style="display:flex; gap:10px; align-items:center;">
+                        <h3><i class="fa-solid fa-terminal"></i> Live Device Console & Serial Monitor</h3>
+                        <div class="header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                             <select id="monitor-target-node" class="form-select" style="width: auto; padding: 4px 10px; font-size:12px;">
-                                <option value="ALL">Stream All Node Logs</option>
+                                <option value="USB_SERIAL">🔴 Live USB Serial (COM Port)</option>
+                                <option value="ALL" selected>☁️ Stream All Cloud MQTT Logs</option>
                             </select>
                             <button class="btn btn-outline" id="btn-clear-serial" style="padding:4px 10px; font-size:12px;">
                                 <i class="fa-solid fa-trash-can"></i> Clear Console
                             </button>
                         </div>
                     </div>
-                    <p class="card-desc" style="margin-bottom:10px;">Displays live execution, HTTP status, memory usage, and mandatory error traces for both USB Flashing and Remote MQTT OTA updates.</p>
-                    <div class="terminal-box device-console-terminal" id="device-console-terminal-box" style="height: 320px; font-family: 'JetBrains Mono', monospace; background-color: #000; color: #00E676; padding: 14px; border: 1px solid rgba(0, 230, 118, 0.3);">
-                        <div class="term-line info">[4LAYERS CONSOLE] Monitor Ready. Select target node or trigger OTA / USB flash to stream real-time logs...</div>
+                    <p class="card-desc" style="margin-bottom:10px;">Streams real-time boot logs, WiFi connections, and memory metrics from connected USB COM Port OR remote MQTT cloud devices.</p>
+                    <div class="terminal-box device-console-terminal" id="device-console-terminal-box" style="height: 340px; font-family: 'JetBrains Mono', monospace; background-color: #000; color: #00E676; padding: 14px; border: 1px solid rgba(0, 230, 118, 0.3); overflow-y: auto;">
+                        <div class="term-line info">[4LAYERS CONSOLE] Ready. Connect ESP32 via USB or select target cloud device to stream real-time logs...</div>
                     </div>
                 </div>
             </section>
@@ -624,6 +664,16 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
+    <script src="/admin/crypto-js.min.js?v=2.5.10"></script>
+    <script src="/admin/esptool.js?v=2.5.10"></script>
+    <script>
+        if (typeof CryptoJS === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"><\\/script>');
+        }
+        if (typeof esptooljs === 'undefined') {
+            document.write('<script src="https://unpkg.com/esptool-js@0.5.4/bundle.js"><\\/script>');
+        }
+    </script>
     <script src="/admin/app.js?v=2.5.10"></script>
 </body>
 </html>
@@ -2202,84 +2252,368 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    localBinFile.addEventListener('change', () => {
-        btnFlashUsb.disabled = !(serialPort && localBinFile.files.length > 0);
-    });
+    // ====================================================
+    // WEBSERIAL USB FLASHER & REAL-TIME SERIAL MONITOR (ESPTOOL-JS)
+    // ====================================================
+    const btnConnectUsb = document.getElementById('btn-connect-usb');
+    const btnConnectUsbText = document.getElementById('btn-connect-usb-text');
+    const btnResetEsp32 = document.getElementById('btn-reset-esp32');
+    const btnFlashCloudLatest = document.getElementById('btn-flash-cloud-latest');
+    const btnFlashUsb = document.getElementById('btn-flash-usb');
+    const serialStatusText = document.getElementById('serial-status-text');
+    const serialBaudRate = document.getElementById('serial-baud-rate');
+    const localBinFile = document.getElementById('local-bin-file');
+    const flashOffsetSelect = document.getElementById('flash-offset-select');
+    const flashProgressBar = document.getElementById('flash-progress-bar');
+    const flashProgressFill = document.getElementById('flash-progress-fill');
+    const flashProgressText = document.getElementById('flash-progress-text');
+    const flashStatusMsg = document.getElementById('flash-status-msg');
 
-    btnConnectUsb.addEventListener('click', async () => {
+    let usbSerialPort = null;
+    let isUsbConnected = false;
+    let isUsbFlashing = false;
+    let serialMonitorRunning = false;
+    let serialMonitorReader = null;
+
+    if (localBinFile) {
+        localBinFile.addEventListener('change', () => {
+            if (btnFlashUsb) {
+                btnFlashUsb.disabled = !(isUsbConnected && localBinFile.files && localBinFile.files.length > 0);
+            }
+        });
+    }
+
+    async function connectUsbPort() {
         if (!('serial' in navigator)) {
             alert('WebSerial API is not supported in your browser. Please use Google Chrome or Microsoft Edge.');
-            logDeviceConsole("[USB ERROR] WebSerial API not supported in browser! Use Chrome/Edge.", "error");
+            logDeviceConsole('[USB ERROR] WebSerial API not supported in browser! Use Chrome/Edge.', 'error');
+            return;
+        }
+
+        if (isUsbConnected && usbSerialPort) {
+            await disconnectUsbPort();
             return;
         }
 
         try {
-            logDeviceConsole("[USB SERIAL] Requesting USB COM Port access...", "info");
-            serialPort = await navigator.serial.requestPort();
-            await serialPort.open({ baudRate: 115200 });
-            serialStatusText.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--accent-green)"></i> ESP32 Connected via USB (Baud 115200)`;
+            logDeviceConsole('[USB SERIAL] Requesting USB COM Port access from browser...', 'info');
+            usbSerialPort = await navigator.serial.requestPort();
+            const baudRate = parseInt(serialBaudRate ? serialBaudRate.value : '115200') || 115200;
+
+            await usbSerialPort.open({ baudRate: baudRate });
+            isUsbConnected = true;
+
+            if (serialStatusText) {
+                serialStatusText.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--accent-green)"></i> <strong style="color:#fff;">ESP32 Connected</strong> (Baud ${baudRate})`;
+            }
+            if (btnConnectUsbText) btnConnectUsbText.textContent = "Disconnect USB Port";
+            if (btnConnectUsb) btnConnectUsb.className = "btn btn-outline";
+            if (btnResetEsp32) btnResetEsp32.style.display = "inline-flex";
+            if (btnFlashCloudLatest) btnFlashCloudLatest.disabled = false;
+            if (btnFlashUsb && localBinFile && localBinFile.files && localBinFile.files.length > 0) {
+                btnFlashUsb.disabled = false;
+            }
+
             logTerminal('WebSerial: ESP32 Connected via USB COM Port.', 'success');
-            logDeviceConsole('[USB SERIAL] ESP32 Connected via USB COM Port @ 115200 Baud.', 'success');
-            
-            if (localBinFile.files.length > 0) btnFlashUsb.disabled = false;
+            logDeviceConsole(`[USB SERIAL] Connected to USB COM Port @ ${baudRate} Baud. Starting Live Monitor...`, 'success');
+
+            if (monitorTargetNodeSelect) {
+                monitorTargetNodeSelect.value = "USB_SERIAL";
+            }
+
+            startLiveSerialMonitor();
+
+            usbSerialPort.addEventListener('disconnect', () => {
+                disconnectUsbPort(true);
+            });
+
         } catch (err) {
-            serialStatusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red)"></i> USB Connection Failed`;
-            logTerminal(`WebSerial Error: ${err.message}`, 'warn');
+            console.error("USB Connect Error:", err);
+            if (serialStatusText) {
+                serialStatusText.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> USB Connection Failed`;
+            }
             logDeviceConsole(`[USB ERROR] Failed to connect USB port: ${err.message}`, 'error');
-        }
-    });
-
-    async function hardResetEsp32() {
-        if (!serialPort) return;
-        try {
-            logDeviceConsole("[USB RESET] Hard resetting ESP32 (Toggling EN/RST pin via DTR/RTS)...", "info");
-            
-            // Step 1: Assert EN low to trigger hardware reset (IO0 high, EN low)
-            await serialPort.setSignals({ dataTerminalReady: false, requestToSend: true });
-            await new Promise(r => setTimeout(r, 100));
-
-            // Step 2: Release EN to high while IO0 is high to boot into flashed firmware
-            await serialPort.setSignals({ dataTerminalReady: false, requestToSend: false });
-            await new Promise(r => setTimeout(r, 100));
-
-            logDeviceConsole("[USB RESET SUCCESS] ESP32 exited bootloader and rebooted into new firmware!", "success");
-            logTerminal("WebSerial: ESP32 Hard Reset executed successfully.", "success");
-        } catch (err) {
-            console.error("Hard reset signal error:", err);
-            logDeviceConsole(`[USB RESET WARN] Automatic signal reset failed (${err.message}). Manual RST button may be required.`, "warn");
         }
     }
 
-    btnFlashUsb.addEventListener('click', async () => {
-        if (!serialPort || localBinFile.files.length === 0) {
-            logDeviceConsole("[USB ERROR] Flashing canceled: Serial COM port or .bin file missing!", "error");
+    async function disconnectUsbPort(isForced = false) {
+        stopLiveSerialMonitor();
+        if (usbSerialPort && !isForced) {
+            try {
+                await usbSerialPort.close();
+            } catch (e) {}
+        }
+        usbSerialPort = null;
+        isUsbConnected = false;
+
+        if (serialStatusText) {
+            serialStatusText.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color:var(--text-secondary)"></i> <span>USB Disconnected</span>`;
+        }
+        if (btnConnectUsbText) btnConnectUsbText.textContent = "Connect ESP32 via USB COM Port";
+        if (btnConnectUsb) btnConnectUsb.className = "btn btn-primary";
+        if (btnResetEsp32) btnResetEsp32.style.display = "none";
+        if (btnFlashCloudLatest) btnFlashCloudLatest.disabled = true;
+        if (btnFlashUsb) btnFlashUsb.disabled = true;
+        logDeviceConsole('[USB SERIAL] Disconnected from USB COM Port.', 'info');
+    }
+
+    if (btnConnectUsb) {
+        btnConnectUsb.addEventListener('click', connectUsbPort);
+    }
+
+    async function startLiveSerialMonitor() {
+        if (!usbSerialPort || !usbSerialPort.readable || isUsbFlashing || serialMonitorRunning) return;
+        serialMonitorRunning = true;
+
+        try {
+            const textDecoder = new TextDecoderStream();
+            usbSerialPort.readable.pipeTo(textDecoder.writable).catch(() => {});
+            serialMonitorReader = textDecoder.readable.getReader();
+
+            let lineBuffer = '';
+            while (serialMonitorRunning && isUsbConnected && !isUsbFlashing) {
+                const { value, done } = await serialMonitorReader.read();
+                if (done) break;
+                if (value) {
+                    lineBuffer += value;
+                    const lines = lineBuffer.split('\n');
+                    lineBuffer = lines.pop();
+                    for (const line of lines) {
+                        const cleanLine = line.replace(/\r/g, '').trim();
+                        if (cleanLine) {
+                            const isErr = cleanLine.toLowerCase().includes('error') || cleanLine.toLowerCase().includes('panic') || cleanLine.toLowerCase().includes('abort') || cleanLine.toLowerCase().includes('rst:0x');
+                            const isWarn = cleanLine.toLowerCase().includes('warning') || cleanLine.toLowerCase().includes('reboot');
+                            const isSuccess = cleanLine.toLowerCase().includes('connected') || cleanLine.toLowerCase().includes('success') || cleanLine.toLowerCase().includes('wifi');
+                            logDeviceConsole(`[USB SERIAL] ${cleanLine}`, isErr ? 'error' : (isWarn ? 'warn' : (isSuccess ? 'success' : 'info')));
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            if (serialMonitorRunning && !isUsbFlashing) {
+                console.warn("Serial monitor read stream closed:", err.message);
+            }
+        } finally {
+            serialMonitorRunning = false;
+        }
+    }
+
+    function stopLiveSerialMonitor() {
+        serialMonitorRunning = false;
+        if (serialMonitorReader) {
+            try {
+                serialMonitorReader.cancel().catch(() => {});
+                serialMonitorReader.releaseLock();
+            } catch (e) {}
+            serialMonitorReader = null;
+        }
+    }
+
+    if (btnResetEsp32) {
+        btnResetEsp32.addEventListener('click', async () => {
+            if (!usbSerialPort) return;
+            try {
+                logDeviceConsole("[USB RESET] Sending Hardware Reset pulse (DTR/RTS) to ESP32...", "info");
+                await usbSerialPort.setSignals({ dataTerminalReady: false, requestToSend: true });
+                await new Promise(r => setTimeout(r, 120));
+                await usbSerialPort.setSignals({ dataTerminalReady: false, requestToSend: false });
+                await new Promise(r => setTimeout(r, 120));
+                logDeviceConsole("[USB RESET] ESP32 Hardware Reset pulse sent!", "success");
+            } catch (err) {
+                logDeviceConsole(`[USB RESET WARN] Signal toggle error: ${err.message}`, "warn");
+            }
+        });
+    }
+
+    async function flashEsp32Binary(binaryData, offset = 0x0, filename = "firmware.bin") {
+        if (!usbSerialPort) {
+            alert("Please connect the ESP32 via USB COM Port first!");
             return;
         }
 
-        const file = localBinFile.files[0];
-        logTerminal(`Flashing ${file.name} (${file.size} bytes) to ESP32 over USB...`, 'info');
-        logDeviceConsole(`[USB FLASH] Connecting & flashing '${file.name}' (${file.size} bytes) to ESP32...`, 'info');
-        
-        document.getElementById('flash-progress-bar').style.display = 'block';
-        const progressFill = document.getElementById('flash-progress-fill');
-        progressFill.style.width = '0%';
+        if (typeof esptooljs === 'undefined' && typeof window.esptooljs === 'undefined') {
+            alert("esptool-js flasher library is loading. Please wait 3 seconds and try again.");
+            logDeviceConsole("[ESPTOOL ERROR] esptooljs library is not ready!", "error");
+            return;
+        }
 
-        let progress = 0;
-        const interval = setInterval(async () => {
-            progress += 10;
-            progressFill.style.width = `${progress}%`;
-            logDeviceConsole(`[USB FLASH] Writing at ${progress}%...`, 'info');
+        const esptool = window.esptooljs || esptooljs;
 
-            if (progress >= 100) {
-                clearInterval(interval);
-                logTerminal(`SUCCESS! ${file.name} flashed to ESP32 board successfully. Executing hard reset...`, 'success');
-                logDeviceConsole(`[USB FLASH SUCCESS] Firmware binary written 100%! Initiating hardware reset...`, 'success');
-                
-                // Execute automatic hardware reset sequence
-                await hardResetEsp32();
+        isUsbFlashing = true;
+        stopLiveSerialMonitor();
+
+        if (flashProgressBar) flashProgressBar.style.display = 'block';
+        if (flashProgressFill) flashProgressFill.style.width = '0%';
+        if (flashProgressText) flashProgressText.textContent = '0%';
+        if (flashStatusMsg) {
+            flashStatusMsg.style.display = 'block';
+            flashStatusMsg.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Initializing bootloader connection...`;
+        }
+
+        if (btnFlashCloudLatest) btnFlashCloudLatest.disabled = true;
+        if (btnFlashUsb) btnFlashUsb.disabled = true;
+        if (btnConnectUsb) btnConnectUsb.disabled = true;
+
+        logDeviceConsole(`------------------------------------------------`, 'info');
+        logDeviceConsole(`[ESPTOOL] Starting Hardware Flash for '${filename}' (${binaryData.byteLength || binaryData.length} bytes) at offset 0x${offset.toString(16).toUpperCase()}...`, 'info');
+        logTerminal(`WebSerial: Initiating hardware flash for ${filename}...`, 'info');
+
+        let esploader = null;
+
+        try {
+            // Convert ArrayBuffer to binary string
+            let binaryString = '';
+            if (binaryData instanceof ArrayBuffer) {
+                const bytes = new Uint8Array(binaryData);
+                const chunk = 0x8000;
+                for (let i = 0; i < bytes.length; i += chunk) {
+                    binaryString += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+                }
+            } else if (typeof binaryData === 'string') {
+                binaryString = binaryData;
             }
-        }, 300);
-    });
+
+            // Close existing open port so esptool Transport can take control
+            try {
+                await usbSerialPort.close();
+            } catch (e) {}
+
+            const transport = new esptool.Transport(usbSerialPort);
+            esploader = new esptool.ESPLoader({
+                transport: transport,
+                baudrate: 460800,
+                terminal: {
+                    clean() {},
+                    writeLine(data) { logDeviceConsole(`[ESPTOOL] ${data}`, 'info'); },
+                    write(data) {},
+                    error(data) { logDeviceConsole(`[ESPTOOL ERROR] ${data}`, 'error'); }
+                },
+                romBaudrate: 115200,
+                debugLogging: false
+            });
+
+            if (flashStatusMsg) flashStatusMsg.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Connecting to ESP32 ROM Bootloader...`;
+            logDeviceConsole('[ESPTOOL] Syncing with ESP32 chip bootloader...', 'info');
+
+            const chip = await esploader.main();
+            logDeviceConsole(`[ESPTOOL] ✅ Chip Detected: ${chip} | MAC: ${esploader.macAddr ? esploader.macAddr() : 'N/A'}`, 'success');
+
+            if (flashStatusMsg) flashStatusMsg.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Erasing and writing flash memory...`;
+
+            const fileArray = [
+                { data: binaryString, address: offset }
+            ];
+
+            let lastReportedPercent = -1;
+            await esploader.writeFlash({
+                fileArray: fileArray,
+                flashSize: "keep",
+                eraseAll: false,
+                compress: true,
+                reportProgress: (fileIndex, written, total) => {
+                    const percent = Math.round((written / total) * 100);
+                    if (flashProgressFill) flashProgressFill.style.width = `${percent}%`;
+                    if (flashProgressText) flashProgressText.textContent = `${percent}%`;
+                    if (percent !== lastReportedPercent && (percent % 10 === 0 || percent === 100)) {
+                        lastReportedPercent = percent;
+                        logDeviceConsole(`[ESPTOOL FLASH] Written ${percent}% (${Math.round(written / 1024)} KB / ${Math.round(total / 1024)} KB)...`, 'info');
+                    }
+                },
+                calculateMD5Hash: (image) => {
+                    if (typeof CryptoJS !== 'undefined' && CryptoJS.MD5) {
+                        return CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)).toString();
+                    }
+                    return '';
+                }
+            });
+
+            if (flashProgressFill) flashProgressFill.style.width = '100%';
+            if (flashProgressText) flashProgressText.textContent = '100%';
+            if (flashStatusMsg) {
+                flashStatusMsg.innerHTML = `<span style="color:var(--accent-green); font-weight:700;"><i class="fa-solid fa-circle-check"></i> Flash Succeeded! Hard resetting chip...</span>`;
+            }
+
+            logDeviceConsole(`[ESPTOOL SUCCESS] 🎉 Firmware '${filename}' written 100% successfully! Hard resetting chip...`, 'success');
+            logTerminal(`WebSerial: ESP32 Flashed 100% successfully (${filename}).`, 'success');
+
+            try {
+                await esploader.hardReset();
+            } catch (rErr) {
+                console.warn("Hard reset note:", rErr);
+            }
+
+            logDeviceConsole(`[ESPTOOL RESET] ESP32 exited bootloader and is now running!`, 'success');
+            alert(`🎉 SUCCESS!\n\nFirmware '${filename}' has been flashed to the ESP32 successfully!\nThe board is now running and will connect to WiFi.`);
+
+        } catch (err) {
+            console.error("Flashing Error:", err);
+            if (flashStatusMsg) {
+                flashStatusMsg.innerHTML = `<span style="color:var(--accent-red); font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> Flashing Failed: ${err.message}</span>`;
+            }
+            logDeviceConsole(`[ESPTOOL FAILED] Error during flash: ${err.message}`, 'error');
+            alert(`❌ Flashing Failed: ${err.message}\n\nTips:\n1. If auto-sync fails, hold the 'BOOT' button on your ESP32 board while clicking flash.\n2. Ensure no other application (Arduino IDE, Serial Monitor) is holding the COM Port.`);
+        } finally {
+            isUsbFlashing = false;
+            if (btnFlashCloudLatest) btnFlashCloudLatest.disabled = false;
+            if (btnFlashUsb && localBinFile && localBinFile.files && localBinFile.files.length > 0) {
+                btnFlashUsb.disabled = false;
+            }
+            if (btnConnectUsb) btnConnectUsb.disabled = false;
+
+            // Auto-reconnect serial monitor at 115200 baud
+            try {
+                if (usbSerialPort) {
+                    const baud = parseInt(serialBaudRate ? serialBaudRate.value : '115200') || 115200;
+                    await usbSerialPort.open({ baudRate: baud });
+                    startLiveSerialMonitor();
+                }
+            } catch (reconnectErr) {
+                console.warn("Monitor auto-reconnect note:", reconnectErr);
+            }
+        }
+    }
+
+    if (btnFlashCloudLatest) {
+        btnFlashCloudLatest.addEventListener('click', async () => {
+            if (!usbSerialPort) {
+                alert("Please connect the ESP32 via USB COM Port first!");
+                return;
+            }
+            const confirmed = confirm("Are you ready to flash the latest factory firmware (v2.2.5) to the connected ESP32 board?\n\nThis will write the complete partition table, bootloader, and firmware directly via USB.");
+            if (!confirmed) return;
+
+            logDeviceConsole("[CLOUD DOWNLOAD] Fetching latest factory merged binary from server...", "info");
+            try {
+                const res = await fetch('/firmware/4layers_factory_merged.bin');
+                if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to download /firmware/4layers_factory_merged.bin`);
+                const arrayBuf = await res.arrayBuffer();
+                logDeviceConsole(`[CLOUD DOWNLOAD] Downloaded ${arrayBuf.byteLength} bytes. Ready to flash.`, "success");
+                await flashEsp32Binary(arrayBuf, 0x0, "4layers_factory_merged_v2.2.5.bin");
+            } catch (err) {
+                alert(`Error downloading cloud firmware: ${err.message}`);
+                logDeviceConsole(`[CLOUD DOWNLOAD ERROR] ${err.message}`, "error");
+            }
+        });
+    }
+
+    if (btnFlashUsb) {
+        btnFlashUsb.addEventListener('click', async () => {
+            if (!usbSerialPort || !localBinFile || localBinFile.files.length === 0) {
+                alert("Please select a .bin firmware file first!");
+                return;
+            }
+            const file = localBinFile.files[0];
+            const offsetStr = flashOffsetSelect ? flashOffsetSelect.value : '0x0';
+            const offset = parseInt(offsetStr, 16) || 0x0;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const arrayBuf = e.target.result;
+                await flashEsp32Binary(arrayBuf, offset, file.name);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
 
     /* --- Cost Analytics & PDF Export Controller --- */
     let costCurrentPage = 1;
