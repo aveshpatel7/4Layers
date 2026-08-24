@@ -311,95 +311,113 @@ export default function SideDrawer({
 
     <Modal
       visible={activeVoiceModal !== null}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setActiveVoiceModal(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.guideModalCard}>
-            {activeVoiceModal === 'google' && (
-              <>
-                <View style={styles.modalHeaderRow}>
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setActiveVoiceModal(null)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.guideModalCard}>
+          {activeVoiceModal === 'google' && (
+            <>
+              {/* Header */}
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <Image
                     source={require('../assets/google_home.png')}
-                    style={{ width: 28, height: 28, marginRight: 10 }}
+                    style={{ width: 24, height: 24 }}
                     resizeMode="contain"
                   />
-                  <Text style={styles.modalHeaderTitle}>Google Home Integration</Text>
-                  <TouchableOpacity onPress={() => setActiveVoiceModal(null)}>
-                    <MaterialCommunityIcons name="close" size={22} color={TOKENS.textSecondary} />
-                  </TouchableOpacity>
+                  <Text style={styles.modalHeaderTitle}>Google Assistant</Text>
                 </View>
+                <TouchableOpacity
+                  onPress={() => setActiveVoiceModal(null)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={{ padding: 4 }}
+                >
+                  <MaterialCommunityIcons name="close" size={20} color={TOKENS.textSecondary} />
+                </TouchableOpacity>
+              </View>
 
-                {voiceStatus.google_linked ? (
-                  <>
-                    <View style={styles.statusBadgeRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name="check-decagram" size={14} color="#22C55E" />
-                        <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>CONNECTED & SYNCED</Text>
+              {voiceStatus.google_linked ? (
+                <>
+                  {/* Status Badge */}
+                  <View style={styles.statusBadgePill}>
+                    <MaterialCommunityIcons name="check-decagram" size={13} color="#22C55E" />
+                    <Text style={styles.statusBadgeText}>Linked & Synced</Text>
+                  </View>
+
+                  {/* Compact Info & Voice Commands */}
+                  <View style={styles.guideSectionBox}>
+                    <Text style={styles.linkedSubtitle}>
+                      Your 4Layers smart devices are live and ready for Google Assistant voice commands.
+                    </Text>
+
+                    <View style={styles.voiceCommandsContainer}>
+                      <Text style={styles.voiceCommandsTitle}>EXAMPLE COMMANDS:</Text>
+                      <View style={styles.commandRow}>
+                        <MaterialCommunityIcons name="microphone-outline" size={13} color={TOKENS.accent} />
+                        <Text style={styles.commandText}>"Hey Google, turn on Bedroom Light"</Text>
                       </View>
-                      <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Action.Devices API</Text>
+                      <View style={styles.commandRow}>
+                        <MaterialCommunityIcons name="microphone-outline" size={13} color={TOKENS.accent} />
+                        <Text style={styles.commandText}>"Hey Google, set Fan speed to 3"</Text>
+                      </View>
                     </View>
+                  </View>
 
-                    <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
-                      <View style={[styles.guideSectionBox, { alignItems: 'center', paddingVertical: 18 }]}>
-                        <MaterialCommunityIcons name="check-circle" size={46} color="#22C55E" style={{ marginBottom: 8 }} />
-                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 4 }}>
-                          Account Linked with Google
-                        </Text>
-                        <Text style={{ color: TOKENS.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 17, marginBottom: 14 }}>
-                          Your 4Layers smart devices are actively synced with Google Home & Assistant.
-                        </Text>
-
-                        <View style={{ width: '100%', backgroundColor: 'rgba(34,197,94,0.08)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' }}>
-                          <Text style={{ color: TOKENS.accent, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>TRY SAYING:</Text>
-                          <Text style={{ color: '#E5E2E1', fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>• "Hey Google, turn on Bedroom Light"</Text>
-                          <Text style={{ color: '#E5E2E1', fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>• "Hey Google, set Fan speed to 3"</Text>
-                          <Text style={{ color: '#E5E2E1', fontSize: 12, fontStyle: 'italic' }}>• "Hey Google, turn off all devices"</Text>
-                        </View>
-                      </View>
-                    </ScrollView>
-
+                  {/* Action Buttons Row */}
+                  <View style={styles.modalActionsRow}>
                     <TouchableOpacity
-                      style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#EF4444', borderRadius: 12, paddingVertical: 10, alignItems: 'center', marginTop: 12 }}
+                      style={styles.unlinkBtn}
                       onPress={() => handleUnlink('google')}
                       disabled={isUnlinking}
+                      activeOpacity={0.7}
                     >
-                      <Text style={{ color: '#EF4444', fontWeight: '700', fontSize: 13 }}>
-                        {isUnlinking ? "Unlinking..." : "Unlink Google Account"}
-                      </Text>
+                      {isUnlinking ? (
+                        <ActivityIndicator size="small" color="#EF4444" />
+                      ) : (
+                        <Text style={styles.unlinkBtnText}>Unlink</Text>
+                      )}
                     </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.statusBadgeRow}>
-                      <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>NOT LINKED</Text>
-                      <Text style={{ color: TOKENS.textSecondary, fontSize: 11 }}>Setup Guide</Text>
-                    </View>
 
-                    <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-                      <View style={styles.guideSectionBox}>
-                        <Text style={styles.guideStepText}>1. Open the <Text style={{ fontWeight: '700', color: '#fff' }}>Google Home App</Text>.</Text>
-                        <Text style={styles.guideStepText}>2. Tap <Text style={{ fontWeight: '700', color: '#fff' }}>"+" -> Works with Google</Text>.</Text>
-                        <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"[test] 4Layers"</Text>.</Text>
-                        <Text style={styles.guideStepText}>4. Enter your email & password to link your account.</Text>
-                        <Text style={styles.guideStepText}>5. Say: <Text style={{ fontWeight: '700', color: '#4285F4' }}>"Hey Google, turn on Bedroom Light"</Text>.</Text>
-                      </View>
-                    </ScrollView>
-                  </>
-                )}
-              </>
-            )}
+                    <TouchableOpacity
+                      style={styles.closeGuideBtn}
+                      onPress={() => setActiveVoiceModal(null)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.closeGuideBtnText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  {/* Not Linked Status */}
+                  <View style={[styles.statusBadgePill, styles.statusBadgePillAmber]}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={13} color="#F59E0B" />
+                    <Text style={[styles.statusBadgeText, { color: '#F59E0B' }]}>Not Linked</Text>
+                  </View>
 
-            <TouchableOpacity
-              style={styles.closeGuideBtn}
-              onPress={() => setActiveVoiceModal(null)}
-            >
-              <Text style={styles.closeGuideBtnText}>Got it, Close</Text>
-            </TouchableOpacity>
-          </View>
+                  <View style={styles.guideSectionBox}>
+                    <Text style={styles.guideStepText}>1. Open <Text style={{ fontWeight: '700', color: '#fff' }}>Google Home</Text> app.</Text>
+                    <Text style={styles.guideStepText}>2. Tap <Text style={{ fontWeight: '700', color: '#fff' }}>"+" ➔ Works with Google</Text>.</Text>
+                    <Text style={styles.guideStepText}>3. Search for <Text style={{ fontWeight: '700', color: TOKENS.accent }}>"[test] 4Layers"</Text>.</Text>
+                    <Text style={styles.guideStepText}>4. Sign in to link your devices.</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.closeGuideBtn, { marginTop: 14 }]}
+                    onPress={() => setActiveVoiceModal(null)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.closeGuideBtnText}>Got it</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </>
+          )}
         </View>
-      </Modal>
+      </View>
+    </Modal>
     </>
   );
 }
@@ -414,12 +432,17 @@ const styles = StyleSheet.create({
   },
   guideModalCard: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 360,
     backgroundColor: TOKENS.cardBg,
     borderRadius: 20,
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: TOKENS.border
+    borderColor: TOKENS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10
   },
   modalHeaderRow: {
     flexDirection: 'row',
@@ -428,44 +451,108 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   modalHeaderTitle: {
-    flex: 1,
     color: TOKENS.textPrimary,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700'
   },
-  statusBadgeRow: {
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    marginBottom: 14,
+  statusBadgePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between'
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 12
+  },
+  statusBadgePillAmber: {
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    borderColor: 'rgba(245,158,11,0.25)'
+  },
+  statusBadgeText: {
+    color: '#22C55E',
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  linkedSubtitle: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 10
+  },
+  voiceCommandsContainer: {
+    backgroundColor: 'rgba(34,197,94,0.06)',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.15)'
+  },
+  voiceCommandsTitle: {
+    color: TOKENS.accent,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 6
+  },
+  commandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4
+  },
+  commandText: {
+    color: '#E5E2E1',
+    fontSize: 11.5,
+    fontStyle: 'italic'
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14
+  },
+  unlinkBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  unlinkBtnText: {
+    color: '#EF4444',
+    fontWeight: '700',
+    fontSize: 13
   },
   guideSectionBox: {
     backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: TOKENS.border
   },
   guideStepText: {
     color: TOKENS.textSecondary,
-    fontSize: 13,
-    lineHeight: 22,
-    marginBottom: 8
+    fontSize: 12.5,
+    lineHeight: 20,
+    marginBottom: 6
   },
   closeGuideBtn: {
+    flex: 1.3,
     backgroundColor: TOKENS.accent,
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 11,
     alignItems: 'center',
-    marginTop: 16
+    justifyContent: 'center'
   },
   closeGuideBtnText: {
     color: '#000',
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800'
   },
   overlay: {
