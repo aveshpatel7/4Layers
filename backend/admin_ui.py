@@ -20,12 +20,17 @@ ADMIN_HTML = """<!DOCTYPE html>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
-            <div class="brand-header">
-                <img src="/admin/logo.png?v=2.5.11" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
-                <div class="brand-info">
-                    <h2>4Layers</h2>
-                    <span class="brand-sub">Smart Admin Console v2.5.8</span>
+            <div class="brand-header" style="position: relative; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden;">
+                    <img src="/admin/logo.png?v=2.5.11" alt="4Layers Logo" class="brand-logo-img" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; border-radius: 8px;" />
+                    <div class="brand-info">
+                        <h2>4Layers</h2>
+                        <span class="brand-sub">Smart Admin Console v2.5.8</span>
+                    </div>
                 </div>
+                <button type="button" class="btn-sidebar-toggle" id="btn-sidebar-toggle" title="Toggle Sidebar Collapse">
+                    <i class="fa-solid fa-angles-left" id="sidebar-toggle-icon"></i>
+                </button>
             </div>
 
             <nav class="sidebar-nav">
@@ -50,17 +55,6 @@ ADMIN_HTML = """<!DOCTYPE html>
                     <span>Cost Analytics</span>
                 </button>
             </nav>
-
-            <div class="sidebar-footer">
-                <div class="status-indicator">
-                    <span class="status-dot green"></span>
-                    <span class="status-text">AWS Live Operational</span>
-                </div>
-                <div class="credit-badge">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <span>$120 Credits Active</span>
-                </div>
-            </div>
         </aside>
 
         <!-- Main Content Area -->
@@ -823,7 +817,16 @@ ADMIN_CSS = """/* 4Layers Admin Console - Glassmorphic Dark Theme System */
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
 body { background-color: var(--bg-dark); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
 .admin-layout { display: flex; flex-direction: row; min-height: 100vh; width: 100%; }
-.sidebar { width: 260px; min-width: 260px; max-width: 260px; flex-shrink: 0; background: rgba(15, 23, 42, 0.95); border-right: 1px solid var(--border-color); padding: 24px 16px; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(10px); min-height: 100vh; }
+.sidebar { width: 260px; min-width: 260px; max-width: 260px; flex-shrink: 0; background: rgba(15, 23, 42, 0.95); border-right: 1px solid var(--border-color); padding: 24px 16px; display: flex; flex-direction: column; justify-content: flex-start; backdrop-filter: blur(10px); min-height: 100vh; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease, min-width 0.3s ease, max-width 0.3s ease; }
+.btn-sidebar-toggle { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-secondary); width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0; }
+.btn-sidebar-toggle:hover { background: rgba(0, 230, 118, 0.15); color: var(--accent-green); border-color: rgba(0, 230, 118, 0.3); }
+.sidebar.collapsed { width: 72px; min-width: 72px; max-width: 72px; padding: 24px 10px; }
+.sidebar.collapsed .brand-info, .sidebar.collapsed .nav-item span { display: none !important; }
+.sidebar.collapsed .brand-header { justify-content: center; padding-bottom: 16px; }
+.sidebar.collapsed .brand-logo-img { margin-right: 0; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 12px 0; gap: 0; }
+.sidebar.collapsed .nav-item i { font-size: 18px; width: auto; margin: 0; }
+.main-content.sidebar-collapsed { width: calc(100% - 72px); }
 .brand-header { display: flex; align-items: center; gap: 14px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
 .brand-logo-img { width: 40px; height: 40px; min-width: 40px; min-height: 40px; flex-shrink: 0; border-radius: 10px; object-fit: cover; box-shadow: 0 0 14px rgba(34, 197, 94, 0.4); border: 1px solid rgba(34, 197, 94, 0.3); }
 .brand-info { display: flex; flex-direction: column; gap: 2px; }
@@ -834,12 +837,7 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .nav-item i { font-size: 16px; width: 20px; }
 .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
 .nav-item.active { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.3); }
-.sidebar-footer { padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px; }
-.status-indicator { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; }
-.status-dot.green { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
-.credit-badge { display: flex; align-items: center; gap: 8px; background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; }
-.main-content { flex: 1; flex-grow: 1; width: calc(100% - 260px); min-width: 0; padding: 32px; background: radial-gradient(circle at top right, rgba(34, 197, 94, 0.05), transparent 40%); overflow-y: auto; }
+.main-content { flex: 1; flex-grow: 1; width: calc(100% - 260px); min-width: 0; padding: 32px; background: radial-gradient(circle at top right, rgba(34, 197, 94, 0.05), transparent 40%); overflow-y: auto; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .top-navbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 20px; flex-wrap: wrap; }
 .page-title-group { flex: 1; min-width: 200px; }
 .page-title-group h1 { font-size: 24px; font-weight: 800; }
@@ -914,8 +912,54 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 .card-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
 .admin-form .form-group { margin-bottom: 16px; }
 .admin-form label { display: block; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; }
-.form-input, .form-select, .form-textarea, .search-input { width: 100%; padding: 10px 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; }
-.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent-green); }
+.form-input, .form-textarea, .search-input { width: 100%; padding: 10px 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; }
+.form-input:focus, .form-textarea:focus { border-color: var(--accent-green); }
+
+/* --- Ultra-Modern Custom Dropdown (<select>) Styling Across Admin Panel --- */
+select.form-select, .form-select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-color: #0F172A !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2300E676' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 14px !important;
+    padding: 10px 38px 10px 14px !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 10px !important;
+    color: #F8FAFC !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    outline: none !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+
+select.form-select:hover, .form-select:hover {
+    border-color: rgba(0, 230, 118, 0.4) !important;
+    background-color: #1E293B !important;
+}
+
+select.form-select:focus, .form-select:focus {
+    border-color: #00E676 !important;
+    box-shadow: 0 0 0 3px rgba(0, 230, 118, 0.2) !important;
+    background-color: #1E293B !important;
+}
+
+select.form-select option, .form-select option {
+    background-color: #0F172A !important;
+    color: #F8FAFC !important;
+    padding: 12px 14px !important;
+    font-size: 13px !important;
+}
+
+select.form-select option:checked {
+    background-color: rgba(0, 230, 118, 0.25) !important;
+    color: #00E676 !important;
+    font-weight: 700 !important;
+}
 .webserial-box { background: rgba(15, 23, 42, 0.4); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 16px; }
 .webserial-status { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .progress-bar-container { background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; height: 16px; overflow: hidden; width: 100%; max-width: 100%; position: relative; box-sizing: border-border-box; }
@@ -2313,6 +2357,39 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             toggleDeviceConsole();
         });
+    }
+
+    // ----------------------------------------------------
+    // Collapsible Left Navigation Sidebar Handler
+    // ----------------------------------------------------
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+    const sidebarToggleBtn = document.getElementById('btn-sidebar-toggle');
+    const sidebarToggleIcon = document.getElementById('sidebar-toggle-icon');
+
+    if (sidebarToggleBtn && sidebar) {
+        sidebarToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('collapsed');
+            if (mainContent) mainContent.classList.toggle('sidebar-collapsed');
+            
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            if (sidebarToggleIcon) {
+                sidebarToggleIcon.className = isCollapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+            }
+            try {
+                localStorage.setItem('admin_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+            } catch (err) {}
+        });
+
+        // Restore saved preference on load
+        try {
+            if (localStorage.getItem('admin_sidebar_collapsed') === 'true') {
+                sidebar.classList.add('collapsed');
+                if (mainContent) mainContent.classList.add('sidebar-collapsed');
+                if (sidebarToggleIcon) sidebarToggleIcon.className = 'fa-solid fa-angles-right';
+            }
+        } catch (err) {}
     }
 
     // ====================================================
