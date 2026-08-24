@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from backend.database import get_db
 from backend import models, auth, mqtt, schemas
 from backend.rate_limit import auth_rate_limiter
 
+logger = logging.getLogger("VOICE_ASSISTANT")
 router = APIRouter(tags=["Voice Assistant Integration"])
 
 # ----------------------------------------------------------------------
@@ -174,6 +176,7 @@ def get_voice_integration_status(current_user: models.User = Depends(auth.get_cu
 @router.post("/api/voice/unlink")
 def unlink_voice_integration(payload: dict, current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     """Unlink Google Home integration for current user."""
+    provider = payload.get("provider", "google")
     db.query(models.Alert).filter(
         models.Alert.user_id == current_user.id,
         models.Alert.type == "google_home_linked"
