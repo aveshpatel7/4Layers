@@ -1028,7 +1028,7 @@ void performOTAUpdate(const String& firmwareUrl)
     otaClient.setInsecure();
     otaClient.setTimeout(25000); // 25s socket timeout
 
-    httpUpdate.rebootOnUpdate(false);
+    httpUpdate.rebootOnUpdate(true);
     httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     httpUpdate.onProgress([](int cur, int total) 
@@ -1055,8 +1055,8 @@ void performOTAUpdate(const String& firmwareUrl)
     if (ret == HTTP_UPDATE_OK) 
     {
         Serial.println("🎉 [OTA SUCCESS] Flashing complete! Rebooting into new firmware...");
-        vTaskDelay(pdMS_TO_TICKS(1500));
-        ESP.restart();
+        vTaskDelay(pdMS_TO_TICKS(500));
+        esp_restart();
     } 
     else 
     {
