@@ -665,13 +665,9 @@ ADMIN_HTML = """<!DOCTYPE html>
     </div>
 
     <script src="/admin/crypto-js.min.js?v=2.5.10"></script>
-    <script src="/admin/esptool.js?v=2.5.10"></script>
     <script>
         if (typeof CryptoJS === 'undefined') {
             document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"><\\/script>');
-        }
-        if (typeof esptooljs === 'undefined') {
-            document.write('<script src="https://unpkg.com/esptool-js@0.5.4/bundle.js"><\\/script>');
         }
     </script>
     <script src="/admin/app.js?v=2.5.10"></script>
@@ -1127,7 +1123,6 @@ body { background-color: var(--bg-dark); color: var(--text-primary); min-height:
 ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     let allUsers = [];
     let allDevices = [];
-    let serialPort = null;
 
     const ADMIN_TOKEN_KEY = '4layers_admin_token';
     const ADMIN_USER_KEY = '4layers_admin_user';
@@ -1306,11 +1301,6 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     const btnCloseMqttModal = document.getElementById('btn-close-mqtt-modal');
     const btnCancelMqttModal = document.getElementById('btn-cancel-mqtt-modal');
     const btnSendMqttPayload = document.getElementById('btn-send-mqtt-payload');
-
-    const btnConnectUsb = document.getElementById('btn-connect-usb');
-    const btnFlashUsb = document.getElementById('btn-flash-usb');
-    const serialStatusText = document.getElementById('serial-status-text');
-    const localBinFile = document.getElementById('local-bin-file');
 
     const tabMeta = {
         overview: { title: "Dashboard Overview", subtitle: "Real-time system operational stats and server metrics" },
@@ -2431,14 +2421,6 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (typeof esptooljs === 'undefined' && typeof window.esptooljs === 'undefined') {
-            alert("esptool-js flasher library is loading. Please wait 3 seconds and try again.");
-            logDeviceConsole("[ESPTOOL ERROR] esptooljs library is not ready!", "error");
-            return;
-        }
-
-        const esptool = window.esptooljs || esptooljs;
-
         isUsbFlashing = true;
         stopLiveSerialMonitor();
 
@@ -2447,7 +2429,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         if (flashProgressText) flashProgressText.textContent = '0%';
         if (flashStatusMsg) {
             flashStatusMsg.style.display = 'block';
-            flashStatusMsg.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Initializing bootloader connection...`;
+            flashStatusMsg.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Loading esptool-js flasher engine...`;
         }
 
         if (btnFlashCloudLatest) btnFlashCloudLatest.disabled = true;
@@ -2461,6 +2443,11 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         let esploader = null;
 
         try {
+            // Dynamic ES Module import of esptool-js
+            logDeviceConsole('[ESPTOOL] Loading esptool-js engine from CDN...', 'info');
+            const esptool = await import('https://unpkg.com/esptool-js@0.4.5/bundle.js');
+            logDeviceConsole('[ESPTOOL] ✅ esptool-js engine loaded successfully!', 'success');
+
             // Convert ArrayBuffer to binary string
             let binaryString = '';
             if (binaryData instanceof ArrayBuffer) {
@@ -2472,6 +2459,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             } else if (typeof binaryData === 'string') {
                 binaryString = binaryData;
             }
+
+            if (flashStatusMsg) flashStatusMsg.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Initializing bootloader connection...`;
 
             // Close existing open port so esptool Transport can take control
             try {
