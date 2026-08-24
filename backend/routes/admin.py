@@ -679,11 +679,7 @@ async def upload_firmware_file(file: UploadFile = File(...), admin: dict = Depen
         raise HTTPException(status_code=400, detail="Invalid filename path traversal attempt")
 
     contents = await file.read()
-    dest_file = open(target_path, "wb")
-    try:
-        dest_file.write(contents)
-    finally:
-        dest_file.close()
+    target_path.write_bytes(contents)
 
     if filename.endswith(".bin"):
         shutil.copyfile(target_path, os.path.join(FIRMWARE_DIR, "latest.bin"))
