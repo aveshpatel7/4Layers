@@ -470,23 +470,31 @@ ADMIN_HTML = """<!DOCTYPE html>
                     </div>
                 </div>
 
-                <!-- UNIFIED 4LAYERS LIVE DEVICE CONSOLE CARD -->
-                <div class="panel-card margin-top-20">
-                    <div class="panel-header">
-                        <h3><i class="fa-solid fa-terminal"></i> Live Device Console & Serial Monitor</h3>
-                        <div class="header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <!-- UNIFIED 4LAYERS LIVE DEVICE CONSOLE CARD (COLLAPSIBLE WITH AUTO-EXPAND) -->
+                <div class="panel-card margin-top-20" id="device-console-card">
+                    <div class="panel-header" id="console-header-toggle" style="cursor: pointer; user-select: none;">
+                        <h3>
+                            <i class="fa-solid fa-chevron-down" id="console-toggle-icon" style="font-size: 14px; margin-right: 8px; transition: transform 0.2s ease;"></i>
+                            <i class="fa-solid fa-terminal"></i> Live Device Console & Serial Monitor
+                        </h3>
+                        <div class="header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;" onclick="event.stopPropagation();">
                             <select id="monitor-target-node" class="form-select" style="width: auto; padding: 4px 10px; font-size:12px;">
                                 <option value="USB_SERIAL">🔴 Live USB Serial (COM Port)</option>
                                 <option value="ALL" selected>☁️ Stream All Cloud MQTT Logs</option>
                             </select>
+                            <button class="btn btn-outline" id="btn-toggle-console" style="padding:4px 10px; font-size:12px;">
+                                <i class="fa-solid fa-chevron-up" id="btn-console-icon"></i> <span id="btn-console-text">Collapse Console</span>
+                            </button>
                             <button class="btn btn-outline" id="btn-clear-serial" style="padding:4px 10px; font-size:12px;">
                                 <i class="fa-solid fa-trash-can"></i> Clear Console
                             </button>
                         </div>
                     </div>
-                    <p class="card-desc" style="margin-bottom:10px;">Streams real-time boot logs, WiFi connections, and memory metrics from connected USB COM Port OR remote MQTT cloud devices.</p>
-                    <div class="terminal-box device-console-terminal" id="device-console-terminal-box" style="height: 340px; font-family: 'JetBrains Mono', monospace; background-color: #000; color: #00E676; padding: 14px; border: 1px solid rgba(0, 230, 118, 0.3); overflow-y: auto;">
-                        <div class="term-line info">[4LAYERS CONSOLE] Ready. Connect ESP32 via USB or select target cloud device to stream real-time logs...</div>
+                    <div id="console-collapsible-body" style="transition: all 0.3s ease;">
+                        <p class="card-desc" style="margin-bottom:10px;">Streams real-time boot logs, WiFi connections, and memory metrics from connected USB COM Port OR remote MQTT cloud devices.</p>
+                        <div class="terminal-box device-console-terminal" id="device-console-terminal-box" style="height: 340px; font-family: 'JetBrains Mono', monospace; background-color: #000; color: #00E676; padding: 14px; border: 1px solid rgba(0, 230, 118, 0.3); overflow-y: auto;">
+                            <div class="term-line info">[4LAYERS CONSOLE] Ready. Connect ESP32 via USB or select target cloud device to stream real-time logs...</div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1732,6 +1740,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         if (e) e.preventDefault();
         console.log("Trigger OTA button clicked!");
 
+        expandDeviceConsole();
+
         const target = otaTargetDevice ? otaTargetDevice.value : '';
         const version = document.getElementById('ota-firmware-version') ? document.getElementById('ota-firmware-version').value : 'v2.2.5';
         const url = otaFirmwareUrlInput ? otaFirmwareUrlInput.value.trim() : '';
@@ -2254,6 +2264,57 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ----------------------------------------------------
+    // Collapsible Live Device Console & Serial Monitor Helper
+    // ----------------------------------------------------
+    let isConsoleCollapsed = false;
+
+    function expandDeviceConsole() {
+        const body = document.getElementById('console-collapsible-body');
+        const icon = document.getElementById('console-toggle-icon');
+        const btnIcon = document.getElementById('btn-console-icon');
+        const btnText = document.getElementById('btn-console-text');
+
+        if (body) body.style.display = 'block';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+        if (btnIcon) btnIcon.className = 'fa-solid fa-chevron-up';
+        if (btnText) btnText.textContent = 'Collapse Console';
+        isConsoleCollapsed = false;
+    }
+
+    function collapseDeviceConsole() {
+        const body = document.getElementById('console-collapsible-body');
+        const icon = document.getElementById('console-toggle-icon');
+        const btnIcon = document.getElementById('btn-console-icon');
+        const btnText = document.getElementById('btn-console-text');
+
+        if (body) body.style.display = 'none';
+        if (icon) icon.style.transform = 'rotate(-90deg)';
+        if (btnIcon) btnIcon.className = 'fa-solid fa-chevron-down';
+        if (btnText) btnText.textContent = 'Expand Console';
+        isConsoleCollapsed = true;
+    }
+
+    function toggleDeviceConsole() {
+        if (isConsoleCollapsed) {
+            expandDeviceConsole();
+        } else {
+            collapseDeviceConsole();
+        }
+    }
+
+    const consoleHeaderToggle = document.getElementById('console-header-toggle');
+    const btnToggleConsole = document.getElementById('btn-toggle-console');
+    if (consoleHeaderToggle) {
+        consoleHeaderToggle.addEventListener('click', toggleDeviceConsole);
+    }
+    if (btnToggleConsole) {
+        btnToggleConsole.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleDeviceConsole();
+        });
+    }
+
     // ====================================================
     // WEBSERIAL USB FLASHER & REAL-TIME SERIAL MONITOR (ESPTOOL-JS)
     // ====================================================
@@ -2432,6 +2493,8 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             alert("Please connect the ESP32 via USB COM Port first!");
             return;
         }
+
+        expandDeviceConsole();
 
         isUsbFlashing = true;
         stopLiveSerialMonitor();
