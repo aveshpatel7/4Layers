@@ -20,6 +20,8 @@ import re
 from backend.database import get_db
 from backend import models, mqtt, auth
 
+import pathlib
+
 router = APIRouter(prefix="/api/admin", tags=["Admin Management"])
 logger = logging.getLogger(__name__)
 
@@ -481,7 +483,7 @@ def list_all_devices(
 
             ota_cached = OTA_STATUS_CACHE.get(base_id) or OTA_STATUS_CACHE.get(f"4L-NODE-{base_id}") or OTA_STATUS_CACHE.get(base_id.replace("4L-NODE-", ""))
             cached_ver = ota_cached.get("version") if ota_cached and str(ota_cached.get("status", "")).upper() in ("COMPLETED", "SUCCESS") else None
-            firmware_version = merged_state.get("fw_version") or merged_state.get("version") or cached_ver or "v2.0.5"
+            firmware_version = merged_state.get("fw_version") or merged_state.get("version") or cached_ver or "v2.2.5"
 
             # Correctly resolve real local IP from device records or telemetry
             detected_ip = None
@@ -669,11 +671,19 @@ async def upload_firmware_file(file: UploadFile = File(...), admin: dict = Depen
     if not (file.filename.endswith(".bin") or file.filename.endswith(".apk")):
         raise HTTPException(status_code=400, detail="Only .bin and .apk files are supported")
 
-    filename = file.filename
-    target_path = os.path.join(FIRMWARE_DIR, filename)
+    firmware_dir_path = pathlib.Path(FIRMWARE_DIR).resolve()
+    filename = pathlib.Path(file.filename).name
+    target_path = (firmware_dir_path / filename).resolve()
 
-    with open(target_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    if not target_path.is_relative_to(firmware_dir_path):
+        raise HTTPException(status_code=400, detail="Invalid filename path traversal attempt")
+
+    contents = await file.read()
+    dest_file = open(target_path, "wb")
+    try:
+        dest_file.write(contents)
+    finally:
+        dest_file.close()
 
     if filename.endswith(".bin"):
         shutil.copyfile(target_path, os.path.join(FIRMWARE_DIR, "latest.bin"))

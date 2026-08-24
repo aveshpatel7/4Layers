@@ -148,6 +148,11 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
     
     # Exchange auth code for tokens
     try:
+        token_url = "https://oauth2.googleapis.com/token"
+        parsed_token = urllib.parse.urlparse(token_url)
+        if parsed_token.scheme not in ("http", "https") or parsed_token.hostname in ("localhost", "127.0.0.1", "0.0.0.0") or parsed_token.hostname.startswith("10.") or parsed_token.hostname.startswith("192.168."):
+            raise ValueError("Invalid target host for OAuth token request")
+
         token_data = urllib.parse.urlencode({
             "code": code,
             "client_id": GOOGLE_CLIENT_ID,
@@ -157,7 +162,7 @@ def google_oauth_callback(request: Request, code: str = None, error: str = None,
         }).encode("utf-8")
         
         token_req = urllib.request.Request(
-            "https://oauth2.googleapis.com/token",
+            token_url,
             data=token_data,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )

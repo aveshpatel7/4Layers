@@ -23,9 +23,14 @@ def send_expo_push_notification(push_token: str, title: str, body: str, data: di
             "data": data or {}
         }
 
+        target_url = "https://exp.host/--/api/v2/push/send"
+        parsed = urllib.parse.urlparse(target_url)
+        if parsed.scheme not in ("http", "https") or parsed.hostname in ("localhost", "127.0.0.1", "0.0.0.0") or parsed.hostname.startswith("10.") or parsed.hostname.startswith("192.168."):
+            raise ValueError("Invalid target host for push notification")
+
         req_data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
-            "https://exp.host/--/api/v2/push/send",
+            target_url,
             data=req_data,
             headers={
                 "Content-Type": "application/json",

@@ -268,34 +268,46 @@ ADMIN_HTML = """<!DOCTYPE html>
                         <div class="panel-header">
                             <h3><i class="fa-solid fa-cloud-arrow-up"></i> Remote MQTT OTA Firmware Updater</h3>
                         </div>
-                        <p class="card-desc">Push over-the-air firmware updates to registered ESP32 boards remotely.</p>
+                        <p class="card-desc">Push over-the-air firmware updates to registered ESP32 boards remotely via AWS Cloud.</p>
                         
                         <form id="ota-form" class="admin-form">
                             <div class="form-group">
-                                <label>Target Node / Device ID</label>
+                                <label><i class="fa-solid fa-microchip"></i> Target Node / Device ID</label>
                                 <select id="ota-target-device" class="form-select">
-                                    <option value="">Broadcast to All Online Devices</option>
+                                    <option value="">Broadcast to All Online Boards</option>
                                 </select>
                             </div>
 
-                            <div class="form-group">
-                                <label>Firmware Version Tag</label>
-                                <input type="text" id="ota-firmware-version" class="form-input" value="v2.0.5" required>
+                            <!-- 1-Click Remote Cloud OTA Box -->
+                            <div style="background: rgba(0, 230, 118, 0.05); border: 1px solid rgba(0, 230, 118, 0.25); border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:12px; font-weight:700; color:#00E676;"><i class="fa-solid fa-bolt"></i> 1-Click Cloud Remote OTA</span>
+                                    <span class="badge green" style="font-size:10px;">Recommended</span>
+                                </div>
+                                <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Pushes latest audited production firmware (v2.2.5) over-the-air to target ESP32 board(s) via AWS Cloud.</p>
+                                <button type="submit" id="ota-trigger-btn" class="btn btn-accent full-width" style="background:#00E676; color:#000; font-weight:700; border-color:#00E676;">
+                                    <i class="fa-solid fa-paper-plane"></i> 1-Click Push Cloud OTA Update (v2.2.5)
+                                </button>
                             </div>
 
-                             <div class="form-group">
-                                <label>Upload New Firmware Binary (.bin)</label>
-                                <input type="file" id="ota-file-input" class="form-input" accept=".bin">
-                            </div>
-
-                            <div class="form-group">
-                                <label>Firmware File URL (.bin)</label>
-                                <input type="url" id="ota-firmware-url" class="form-input" value="https://edabtynvpy.ap-south-1.awsapprunner.com/firmware/latest.bin" required>
-                            </div>
-
-                            <button type="submit" id="ota-trigger-btn" class="btn btn-accent full-width">
-                                <i class="fa-solid fa-paper-plane"></i> Trigger OTA Remote Update
-                            </button>
+                            <!-- Or Custom Advanced OTA URL / File -->
+                            <details style="border-top:1px solid var(--border-color); padding-top:10px; margin-top:10px;">
+                                <summary style="font-size:12px; color:var(--text-secondary); cursor:pointer; font-weight:600;"><i class="fa-solid fa-sliders"></i> Advanced Custom OTA Options (Optional)</summary>
+                                <div style="margin-top: 10px;">
+                                    <div class="form-group" style="margin-bottom: 10px;">
+                                        <label style="font-size:11.5px;">Firmware Version Tag</label>
+                                        <input type="text" id="ota-firmware-version" class="form-input" value="v2.2.5" required style="font-size:12px;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 10px;">
+                                        <label style="font-size:11.5px;">Upload Custom Binary (.bin)</label>
+                                        <input type="file" id="ota-file-input" class="form-input" accept=".bin" style="font-size:12px;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label style="font-size:11.5px;">Firmware Binary URL (.bin)</label>
+                                        <input type="url" id="ota-firmware-url" class="form-input" value="https://edabtynvpy.ap-south-1.awsapprunner.com/firmware/latest.bin" required style="font-size:12px;">
+                                    </div>
+                                </div>
+                            </details>
                         </form>
 
                         <div class="ota-monitor-container margin-top-20">
@@ -1721,7 +1733,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         console.log("Trigger OTA button clicked!");
 
         const target = otaTargetDevice ? otaTargetDevice.value : '';
-        const version = document.getElementById('ota-firmware-version') ? document.getElementById('ota-firmware-version').value : 'v2.0.5';
+        const version = document.getElementById('ota-firmware-version') ? document.getElementById('ota-firmware-version').value : 'v2.2.5';
         const url = otaFirmwareUrlInput ? otaFirmwareUrlInput.value.trim() : '';
 
         if (!url) {
@@ -1778,7 +1790,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         } finally {
             if (otaTriggerBtn) {
                 otaTriggerBtn.disabled = false;
-                otaTriggerBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Trigger OTA Remote Update';
+                otaTriggerBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> 1-Click Push Cloud OTA Update (v2.2.5)';
                 updateOtaButtonState();
             }
         }
