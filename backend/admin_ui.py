@@ -14,14 +14,14 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.5.10">
+    <link rel="stylesheet" href="/admin/style.css?v=2.5.11">
 </head>
 <body>
     <div class="admin-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-header">
-                <img src="/admin/logo.png?v=2.5.10" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
+                <img src="/admin/logo.png?v=2.5.11" alt="4Layers Logo" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; margin-right: 12px; border-radius: 8px;" />
                 <div class="brand-info">
                     <h2>4Layers</h2>
                     <span class="brand-sub">Smart Admin Console v2.5.8</span>
@@ -635,7 +635,7 @@ ADMIN_HTML = """<!DOCTYPE html>
     <div id="admin-login-overlay" class="login-overlay">
         <div class="login-card">
             <div class="login-header">
-                <img src="/admin/logo.png?v=2.5.10" alt="4Layers Logo" class="login-logo" />
+                <img src="/admin/logo.png?v=2.5.11" alt="4Layers Logo" class="login-logo" />
                 <h2>4Layers Admin Console</h2>
                 <p>Secure Administrator Access</p>
             </div>
@@ -664,13 +664,13 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/crypto-js.min.js?v=2.5.10"></script>
+    <script src="/admin/crypto-js.min.js?v=2.5.11"></script>
     <script>
         if (typeof CryptoJS === 'undefined') {
             document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"><\\/script>');
         }
     </script>
-    <script src="/admin/app.js?v=2.5.10"></script>
+    <script src="/admin/app.js?v=2.5.11"></script>
 </body>
 </html>
 """
@@ -2366,10 +2366,10 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 if (done) break;
                 if (value) {
                     lineBuffer += value;
-                    const lines = lineBuffer.split('\n');
+                    const lines = lineBuffer.split(String.fromCharCode(10));
                     lineBuffer = lines.pop();
                     for (const line of lines) {
-                        const cleanLine = line.replace(/\r/g, '').trim();
+                        const cleanLine = line.trim();
                         if (cleanLine) {
                             const isErr = cleanLine.toLowerCase().includes('error') || cleanLine.toLowerCase().includes('panic') || cleanLine.toLowerCase().includes('abort') || cleanLine.toLowerCase().includes('rst:0x');
                             const isWarn = cleanLine.toLowerCase().includes('warning') || cleanLine.toLowerCase().includes('reboot');
@@ -2532,7 +2532,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
             }
 
             logDeviceConsole(`[ESPTOOL RESET] ESP32 exited bootloader and is now running!`, 'success');
-            alert(`🎉 SUCCESS!\n\nFirmware '${filename}' has been flashed to the ESP32 successfully!\nThe board is now running and will connect to WiFi.`);
+            alert('SUCCESS! Firmware ' + filename + ' has been flashed to the ESP32 successfully! The board is now running.');
 
         } catch (err) {
             console.error("Flashing Error:", err);
@@ -2540,7 +2540,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 flashStatusMsg.innerHTML = `<span style="color:var(--accent-red); font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> Flashing Failed: ${err.message}</span>`;
             }
             logDeviceConsole(`[ESPTOOL FAILED] Error during flash: ${err.message}`, 'error');
-            alert(`❌ Flashing Failed: ${err.message}\n\nTips:\n1. If auto-sync fails, hold the 'BOOT' button on your ESP32 board while clicking flash.\n2. Ensure no other application (Arduino IDE, Serial Monitor) is holding the COM Port.`);
+            alert('Flashing Failed: ' + err.message + ' (Tip: Hold BOOT button on ESP32 while flashing, and close other Serial Monitors)');
         } finally {
             isUsbFlashing = false;
             if (btnFlashCloudLatest) btnFlashCloudLatest.disabled = false;
@@ -2568,7 +2568,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 alert("Please connect the ESP32 via USB COM Port first!");
                 return;
             }
-            const confirmed = confirm("Are you ready to flash the latest factory firmware (v2.2.5) to the connected ESP32 board?\n\nThis will write the complete partition table, bootloader, and firmware directly via USB.");
+            const confirmed = confirm("Flash the latest factory firmware (v2.2.5) to the connected ESP32 board? This will write the full image directly over USB.");
             if (!confirmed) return;
 
             logDeviceConsole("[CLOUD DOWNLOAD] Fetching latest factory merged binary from server...", "info");
