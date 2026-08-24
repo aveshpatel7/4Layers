@@ -120,16 +120,21 @@ def admin_login(req: AdminLoginRequest):
 
 @router.get("/ota/status")
 def get_ota_status(admin: dict = Depends(get_current_admin)):
-    """Returns current in-memory dict of OTA progress per node with 30s timeout check and 5s auto-clear for completed/failed jobs."""
+    """Returns current in-memory dict of OTA progress per node with 30s timeout check and immediate purge for stale completed jobs (>10s old)."""
     now = datetime.datetime.utcnow()
     result = {}
-    nodes_to_remove = []
     
-    for node_id, data in OTA_STATUS_CACHE.items():
+    for node_id, data in list(OTA_STATUS_CACHE.items()):
         status = data.get("status", "")
         progress = data.get("progress", 0)
         updated_at = data.get("updated_at")
-        
+
+        # Purge stale terminal entries (>10s old) BEFORE returning so old jobs don't pop up on page load
+        if status.lower() in ["success", "completed", "failed", "error", "timeout"]:
+            if updated_at and (now - updated_at).total_seconds() > 10:
+                OTA_STATUS_CACHE.pop(node_id, None)
+                continue
+
         # Fix 100% stuck bug
         if progress >= 100 and status.lower() in ["downloading", "flashing", "rebooting", "pending"]:
             status = "success"
@@ -142,15 +147,6 @@ def get_ota_status(admin: dict = Depends(get_current_admin)):
             "progress": progress,
             "updated_at": data.get("timestamp")
         }
-        
-        # If status is terminal (success, failed, timeout, error, completed), mark for deletion after 5 seconds
-        if status.lower() in ["success", "completed", "failed", "error", "timeout"]:
-            if updated_at and (now - updated_at).total_seconds() > 5:
-                nodes_to_remove.append(node_id)
-                
-    # Purge old completed/failed status entries from memory cache
-    for nid in nodes_to_remove:
-        OTA_STATUS_CACHE.pop(nid, None)
         
     return result
 
