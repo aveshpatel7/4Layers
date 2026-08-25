@@ -296,10 +296,15 @@ ADMIN_HTML = """<!DOCTYPE html>
                                         <label style="font-size:11.5px;">Upload Custom Binary (.bin)</label>
                                         <input type="file" id="ota-file-input" class="form-input" accept=".bin" style="font-size:12px;">
                                     </div>
-                                    <div class="form-group" style="margin-bottom: 0;">
+                                    <div class="form-group" style="margin-bottom: 10px;">
                                         <label style="font-size:11.5px;">Firmware Binary URL (.bin)</label>
                                         <input type="url" id="ota-firmware-url" class="form-input" value="https://edabtynvpy.ap-south-1.awsapprunner.com/firmware/latest.bin" required style="font-size:12px;">
                                     </div>
+                                    <!-- Upload & Push Custom Firmware Button -->
+                                    <button type="button" id="btn-upload-push-custom-ota" class="btn btn-outline full-width" style="border-color:#f59e0b; color:#f59e0b; font-weight:700; font-size:13px; padding:10px; width:100%; display:flex; align-items:center; justify-content:center; gap:8px;">
+                                        <i class="fa-solid fa-upload"></i> Upload &amp; Push Custom Firmware OTA
+                                    </button>
+                                    <p id="custom-ota-status-msg" style="display:none; font-size:11.5px; margin-top:8px; padding:8px 12px; border-radius:8px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#f59e0b;"></p>
                                 </div>
                             </details>
                         </form>
@@ -2157,29 +2162,106 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
     startOtaPolling();
 
     const otaFileInput = document.getElementById('ota-file-input');
+    const btnUploadPushCustomOta = document.getElementById('btn-upload-push-custom-ota');
+    const customOtaStatusMsg = document.getElementById('custom-ota-status-msg');
+
+    // When file is selected, just preview the filename — don't auto-upload
     if (otaFileInput) {
-        otaFileInput.addEventListener('change', async (e) => {
+        otaFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (!file) return;
-            const formData = new FormData();
-            formData.append('file', file);
+            if (file && customOtaStatusMsg) {
+                customOtaStatusMsg.style.display = 'block';
+                customOtaStatusMsg.innerHTML = `<i class="fa-solid fa-file-binary"></i> File selected: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(1)} KB). Click "Upload & Push" to flash.`;
+            }
+        });
+    }
+
+    // Upload & Push Custom Firmware button: upload file -> update URL -> trigger OTA
+    if (btnUploadPushCustomOta) {
+        btnUploadPushCustomOta.addEventListener('click', async () => {
+            if (!otaFileInput || otaFileInput.files.length === 0) {
+                alert('Please select a .bin firmware file first!');
+                return;
+            }
+
+            const file = otaFileInput.files[0];
+            const target = otaTargetDevice ? otaTargetDevice.value : '';
+            const version = document.getElementById('ota-firmware-version') ? document.getElementById('ota-firmware-version').value.trim() : 'custom';
+
+            // Step 1: Upload file to server
+            btnUploadPushCustomOta.disabled = true;
+            btnUploadPushCustomOta.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading firmware...';
+            if (customOtaStatusMsg) {
+                customOtaStatusMsg.style.display = 'block';
+                customOtaStatusMsg.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading ' + file.name + ' to server...';
+            }
+
             try {
-                const res = await authFetch('/api/admin/firmware/upload', {
+                const formData = new FormData();
+                formData.append('file', file);
+                const uploadRes = await authFetch('/api/admin/firmware/upload', {
                     method: 'POST',
                     body: formData
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    const fullUrl = window.location.origin + data.latest_url;
-                    document.getElementById('ota-firmware-url').value = fullUrl;
-                    updateOtaButtonState();
-                    logTerminal(`Firmware binary uploaded! URL: ${fullUrl}`, 'success');
-                    alert(`Firmware binary '${file.name}' uploaded successfully!\nURL updated to: ${fullUrl}`);
-                } else {
-                    alert('Failed to upload firmware binary file.');
+
+                if (!uploadRes.ok) {
+                    throw new Error('Upload failed: ' + uploadRes.statusText);
                 }
+
+                const uploadData = await uploadRes.json();
+                const firmwareUrl = window.location.origin + uploadData.latest_url;
+                if (otaFirmwareUrlInput) otaFirmwareUrlInput.value = firmwareUrl;
+
+                logTerminal('Custom firmware uploaded: ' + file.name + ' -> ' + firmwareUrl, 'success');
+                if (customOtaStatusMsg) {
+                    customOtaStatusMsg.innerHTML = '<i class="fa-solid fa-check"></i> Upload complete! Triggering OTA on ' + (target || 'All Online Boards') + '...';
+                }
+
+                // Step 2: Immediately trigger OTA push with the new URL
+                btnUploadPushCustomOta.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Pushing OTA...';
+                expandDeviceConsole();
+
+                const otaRes = await authFetch('/api/admin/ota/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: target || null,
+                        firmware_version: version,
+                        firmware_url: firmwareUrl
+                    })
+                });
+
+                if (otaRes.ok) {
+                    const otaData = await otaRes.json();
+                    logTerminal('Custom OTA triggered! Topic: ' + otaData.target_topic + ' | File: ' + file.name, 'success');
+                    logDeviceConsole('------------------------------------------------', 'info');
+                    logDeviceConsole('[CUSTOM OTA] Uploaded & pushed ' + file.name + ' to ' + (target || 'ALL_ONLINE_BOARDS') + '. Listening for live progress...', 'success');
+                    if (customOtaStatusMsg) {
+                        customOtaStatusMsg.style.background = 'rgba(0,230,118,0.1)';
+                        customOtaStatusMsg.style.borderColor = 'rgba(0,230,118,0.3)';
+                        customOtaStatusMsg.style.color = '#00E676';
+                        customOtaStatusMsg.innerHTML = '<i class="fa-solid fa-circle-check"></i> OTA command sent to ' + (target || 'All Online Boards') + '! Check Live Monitor below.';
+                    }
+                    if (target) {
+                        updateOtaMonitorRow({ node_id: target, status: 'downloading', progress: 0 });
+                    }
+                } else {
+                    const errData = await otaRes.json();
+                    throw new Error(errData.detail || otaRes.statusText);
+                }
+
             } catch (err) {
-                alert(`Upload error: ${err.message}`);
+                alert('Custom OTA Error: ' + err.message);
+                logTerminal('Custom OTA Error: ' + err.message, 'warn');
+                if (customOtaStatusMsg) {
+                    customOtaStatusMsg.style.background = 'rgba(239,68,68,0.1)';
+                    customOtaStatusMsg.style.borderColor = 'rgba(239,68,68,0.3)';
+                    customOtaStatusMsg.style.color = 'var(--accent-red)';
+                    customOtaStatusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error: ' + err.message;
+                }
+            } finally {
+                btnUploadPushCustomOta.disabled = false;
+                btnUploadPushCustomOta.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Push Custom Firmware OTA';
             }
         });
     }
