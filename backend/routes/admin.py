@@ -679,7 +679,10 @@ async def upload_firmware_file(file: UploadFile = File(...), admin: dict = Depen
     contents = await file.read()
     target_path.write_bytes(contents)
 
-    if filename.endswith(".bin"):
+    # Only update latest.bin if this is an official production firmware file.
+    # Custom named uploads stay isolated — do NOT overwrite latest.bin with test firmware!
+    OFFICIAL_FILENAMES = {"latest.bin", "4layers_factory_merged.bin", "4layers_firmware.bin"}
+    if filename.endswith(".bin") and filename in OFFICIAL_FILENAMES:
         shutil.copyfile(target_path, os.path.join(FIRMWARE_DIR, "latest.bin"))
     elif filename.endswith(".apk"):
         shutil.copyfile(target_path, os.path.join(FIRMWARE_DIR, "latest.apk"))
@@ -687,7 +690,8 @@ async def upload_firmware_file(file: UploadFile = File(...), admin: dict = Depen
     return {
         "status": "SUCCESS",
         "filename": filename,
-        "latest_url": f"/firmware/{'latest.apk' if filename.endswith('.apk') else 'latest.bin'}",
+        # Return the named URL (not latest.bin) so custom OTA uses the specific file
+        "latest_url": f"/firmware/{filename}",
         "named_url": f"/firmware/{filename}"
     }
 
