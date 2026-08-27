@@ -12,7 +12,8 @@ import {
   PanResponder,
   TextInput,
   ActivityIndicator,
-  Alert
+  Alert,
+  AppState
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import apiClient from "../api/client";
@@ -21,7 +22,7 @@ import HardwareReconnectingCard from "../components/HardwareReconnectingCard";
 import EnergyChart from "../components/EnergyChart";
 import BrandLogo from "../components/BrandLogo";
 import SideDrawer from "../components/SideDrawer";
-import { connectMqtt, disconnectMqtt, registerMqttListener } from "../services/mqttClient";
+import { connectMqtt, disconnectMqtt, registerMqttListener, forceReconnectMqtt } from "../services/mqttClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getBaseNodeId } from "../services/localControl";
 const TOKENS = {
@@ -77,6 +78,7 @@ export default function DashboardScreen({ navigation }) {
       setIsRefreshingOffline(true);
       await Promise.all([
         fetchDevices(false),
+        forceReconnectMqtt().catch(() => {}),
         initMqttConnection(),
       ]);
       showFeedbackToast("Checked live switchboard status", "cloud");
@@ -548,6 +550,25 @@ export default function DashboardScreen({ navigation }) {
 
     return unsubscribe;
   }, [navigation]);
+
+  // Handle phone background -> foreground transition (recovers from sleep / screen lock)
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log('[Dashboard] App active in foreground -> refreshing devices & MQTT');
+        fetchDevices(false);
+        forceReconnectMqtt().catch(() => {});
+        initMqttConnection();
+        fetchRoomsMapping();
+        fetchUnreadAlertsCount();
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      if (sub?.remove) sub.remove();
+    };
+  }, []);
 
   const handleToggleDevice = async (id) => {
     const target = devices.find((d) => d.id === id);

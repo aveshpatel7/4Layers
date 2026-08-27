@@ -71,6 +71,8 @@ export const connectMqtt = (credentials = null) => {
       useSSL: true,
       userName: config.username,
       password: config.password,
+      keepAliveInterval: 20,
+      timeout: 8,
       onSuccess: () => {
         isConnected = true;
         connectingPromise = null;
@@ -85,6 +87,7 @@ export const connectMqtt = (credentials = null) => {
       },
       onFailure: (err) => {
         connectingPromise = null;
+        isConnected = false;
         console.error('[MQTT Client] Connection failed:', err);
         reject(err);
       }
@@ -92,6 +95,20 @@ export const connectMqtt = (credentials = null) => {
   });
 
   return connectingPromise;
+};
+
+export const forceReconnectMqtt = async () => {
+  try {
+    if (pahoClient) {
+      try {
+        pahoClient.disconnect();
+      } catch (_) {}
+    }
+  } finally {
+    isConnected = false;
+    connectingPromise = null;
+  }
+  return connectMqtt();
 };
 
 export const disconnectMqtt = () => {

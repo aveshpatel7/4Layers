@@ -13,6 +13,7 @@
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <esp_task_wdt.h> 
+#include <esp_wifi.h>
 #include <lwip/dns.h>
 #include <lwip/ip_addr.h>
 
@@ -63,13 +64,13 @@ MrY=
 -----END CERTIFICATE-----
 )EOF";
 
-const char* FIRMWARE_VERSION = "v2.0.6";
+const char* FIRMWARE_VERSION = "v2.2.6";
 char NODE_ID[32];
 char command_topic[100]; 
 char status_topic[100];  
 
-WiFiClientSecure espClient;
-PubSubClient client(espClient);
+WiFiClientSecure* espClient;
+PubSubClient client;
 Preferences preferences;
 WebServer server(80);
 
@@ -1012,38 +1013,49 @@ void publishOTAStatus(const char* status, int progress)
     logRemote("[OTA MQTT] Status: " + String(buffer));
 }
 
+bool ota_in_progress = false;
+String ota_target_url = "";
+
 void performOTAUpdate(const String& firmwareUrl) 
 {
-    int jitterMs = random(1000, 4000);
-    Serial.println("================================================");
-    Serial.printf("[OTA] Starting Update in %dms Jitter Delay...\n", jitterMs);
-    vTaskDelay(pdMS_TO_TICKS(jitterMs));
-
-    Serial.println("[OTA] Target URL: " + firmwareUrl);
+    Serial.println("\n================================================");
+    Serial.println("🚀 [OTA] Target URL: " + firmwareUrl);
     
-    // Temporarily detach from Task Watchdog so large flash writes & MD5 verification won't trigger TWDT reset
-    // Free MQTT TLS RAM (~35KB) so OTA HTTPS download has maximum free heap
-    client.disconnect();
-    espClient.stop();
-    vTaskDelay(pdMS_TO_TICKS(200));
+    // 1. Set global OTA lock so all other background tasks pause
+    ota_in_progress = true;
 
+    // 2. Gracefully disconnect MQTT
+    if (MQTT_LOCK_TAKE(pdMS_TO_TICKS(1000))) {
+        if (client.connected()) {
+            client.disconnect();
+        }
+        MQTT_LOCK_GIVE();
+    }
+    vTaskDelay(pdMS_TO_TICKS(300));
+    
+    // 3. Free MQTT TLS Heap (~35KB RAM)
+    if (espClient) {
+        espClient->stop();
+        delete espClient;
+        espClient = nullptr;
+    }
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    Serial.printf("⚙️ [SYSTEM] Free Heap before OTA: %lu bytes. Starting HTTPS Download...\n", (unsigned long)ESP.getFreeHeap());
+
+    // 4. Create isolated HTTPS OTA Client
     WiFiClientSecure otaClient;
     otaClient.setInsecure();
-    otaClient.setTimeout(30000); // 30s socket timeout
+    otaClient.setTimeout(45000); // 45s timeout for slow network
 
-    httpUpdate.rebootOnUpdate(true);
+    httpUpdate.rebootOnUpdate(false); // Manual reboot for clean serial log flush
     httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     httpUpdate.onProgress([](int cur, int total) 
     {
-        if (total <= 0) 
-        {
-            return;
-        }
-        
+        if (total <= 0) return;
         int percent = (cur * 100) / total;
         static int lastPercent = -1;
-        
         if (percent != lastPercent && (percent % 10 == 0 || percent == 100)) 
         {
             lastPercent = percent;
@@ -1051,23 +1063,37 @@ void performOTAUpdate(const String& firmwareUrl)
         }
     });
 
-    Serial.printf("⚙️ [SYSTEM] Free Heap before OTA: %lu bytes. OTA Download starting...\n", (unsigned long)ESP.getFreeHeap());
-    
     t_httpUpdate_return ret = httpUpdate.update(otaClient, firmwareUrl);
 
     if (ret == HTTP_UPDATE_OK) 
     {
-        Serial.println("🎉 [OTA SUCCESS] Flashing complete! Rebooting into new firmware...");
-        vTaskDelay(pdMS_TO_TICKS(500));
+        Serial.println("🎉 [OTA SUCCESS] Flashing complete! Rebooting into new firmware in 1 second...");
+        vTaskDelay(pdMS_TO_TICKS(1000));
         esp_restart();
     } 
     else 
     {
         Serial.printf("❌ [OTA ERROR] Failed! Code: %d (%s)\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
-        // Re-attach task to watchdog on failure
-        esp_task_wdt_add(NULL);
-        esp_task_wdt_reset();
+        
+        // Recover MQTT client so board stays operational if download failed
+        espClient = new WiFiClientSecure();
+        espClient->setInsecure();
+        espClient->setHandshakeTimeout(30);
+        client.setClient(*espClient);
+        
+        ota_in_progress = false;
     }
+}
+
+void ota_task(void *pvParameters) 
+{
+    // Ensure task is completely exempt from Task Watchdog
+    esp_task_wdt_delete(NULL);
+    
+    performOTAUpdate(ota_target_url);
+    
+    ota_in_progress = false;
+    vTaskDelete(NULL);
 }
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length) 
@@ -1086,6 +1112,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
 
     if (doc.containsKey("action") && doc["action"] == "OTA_UPDATE") 
     {
+        if (ota_in_progress) {
+            Serial.println("⚠️ [OTA] Update already in progress, ignoring duplicate command.");
+            return;
+        }
+
         const char* target_ver = doc["version"];
         if (target_ver && strlen(target_ver) > 0 && strcmp(target_ver, FIRMWARE_VERSION) == 0)
         {
@@ -1097,15 +1128,12 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
         
         if (url_ptr && strlen(url_ptr) > 0) 
         {
-            // Deep copy before leaving the callback: url_ptr points into
-            // PubSubClient's receive buffer, and performOTAUpdate() sleeps for a
-            // 1-5s jitter delay during which client.loop() on another task can
-            // overwrite that buffer.
-            String fw_url = String(url_ptr);
+            ota_target_url = String(url_ptr);
             
             Serial.println("📱 [APP/CLOUD] OTA Update Command Received!");
             logRemote("[MQTT] OTA Update Command Received!");
-            performOTAUpdate(fw_url);
+            ota_in_progress = true;
+            xTaskCreatePinnedToCore(ota_task, "ota_task", 16384, NULL, 1, NULL, 1);
         }
         else 
         {
@@ -1878,12 +1906,12 @@ void webserver_task(void *pvParameters)
     {
         esp_task_wdt_reset(); 
         
-        if (WiFi.status() == WL_CONNECTED || inSetupMode) 
+        if (!ota_in_progress && (WiFi.status() == WL_CONNECTED || inSetupMode)) 
         {
             server.handleClient();
         }
         
-        vTaskDelay(pdMS_TO_TICKS(2));
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
@@ -1891,11 +1919,17 @@ void mqtt_task(void *pvParameters)
 {
     esp_task_wdt_add(NULL);
     unsigned long last_heartbeat_ms = 0;
+    unsigned long last_mqtt_activity_ms = millis();
     
     while (true) 
     {
         esp_task_wdt_reset();
         
+        if (ota_in_progress) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            continue;
+        }
+
         if (WiFi.status() == WL_CONNECTED && !inSetupMode) 
         {
             bool link_up;
@@ -1919,7 +1953,9 @@ void mqtt_task(void *pvParameters)
                 Serial.println("☁️ Connecting to EMQX Cloud...");
                 
                 // Explicitly stop previous client session to clear stale buffers and prevent TLS -29184 error
-                espClient.stop();
+                if (espClient) {
+                    espClient->stop();
+                }
                 
                 // Ensure DNS servers are active on lwIP
                 ip_addr_t d1, d2;
@@ -1931,18 +1967,8 @@ void mqtt_task(void *pvParameters)
                 dns_setserver(1, &d2);
                 
                 char clientId[50];
-                // Unique per attempt: MQTT brokers evict an existing session when a
-                // second connection presents the same client ID. A fixed ID means a
-                // lingering server-side session (or any other client reusing it) kicks
-                // us in a loop, which looks like a silent disconnect every few seconds.
                 snprintf(clientId, sizeof(clientId), "4L-Client-%s-%04X", NODE_ID, (unsigned)(esp_random() & 0xFFFF));
                 
-                // client.connect() blocks for the whole TLS handshake, which is
-                // allowed up to setHandshakeTimeout(30) seconds. The task WDT fires
-                // at 5s, so this task must leave the WDT's watch list for the
-                // duration of the call or the handshake itself trips the watchdog.
-                // The mutex is held across connect + subscribe so no other task can
-                // publish into a half-established session.
                 if (!MQTT_LOCK_TAKE(pdMS_TO_TICKS(2000)))
                 {
                     vTaskDelay(pdMS_TO_TICKS(100));
@@ -1950,7 +1976,7 @@ void mqtt_task(void *pvParameters)
                 }
                 
                 esp_task_wdt_delete(NULL);
-                bool mqtt_connected = client.connect(clientId, mqtt_user, mqtt_pass, status_topic, 1, false, "{\"status\":\"OFFLINE\",\"is_online\":false}");
+                bool mqtt_connected = (espClient != nullptr) && client.connect(clientId, mqtt_user, mqtt_pass, status_topic, 1, false, "{\"status\":\"OFFLINE\",\"is_online\":false}");
                 esp_task_wdt_add(NULL);
                 esp_task_wdt_reset();
                 
@@ -1982,8 +2008,6 @@ void mqtt_task(void *pvParameters)
                         Serial.println("❌ [ERROR] Failed to publish Local IP to Cloud!");
                     }
                     
-                    // Release before sendChannelState() — the mutex is not recursive
-                    // and that helper acquires it for each publish.
                     MQTT_LOCK_GIVE();
                     
                     sendChannelState(1, switch_state_ch1); 
@@ -1996,16 +2020,18 @@ void mqtt_task(void *pvParameters)
                     sendChannelState(6, master_state);
                     
                     last_heartbeat_ms = millis();
+                    last_mqtt_activity_ms = millis();
                 } 
                 else 
                 { 
-                    Serial.printf("❌ [ERROR] Cloud connection failed, rc=%d. Free Heap: %lu bytes. Next retry in 15s...\n", 
+                    Serial.printf("❌ [ERROR] Cloud connection failed, rc=%d. Free Heap: %lu bytes. Next retry in 10s...\n", 
                                   client.state(), (unsigned long)ESP.getFreeHeap());
-                    espClient.stop();
+                    if (espClient) {
+                        espClient->stop();
+                    }
                     MQTT_LOCK_GIVE();
                     
-                    // Non-blocking 15-second delay on Core 1 so CPU 0 and Local WebServer remain 100% responsive
-                    for (int i = 0; i < 15; i++) 
+                    for (int i = 0; i < 10; i++) 
                     {
                         esp_task_wdt_reset();
                         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -2022,7 +2048,8 @@ void mqtt_task(void *pvParameters)
                 }
 
                 unsigned long now_ms = millis();
-                if (now_ms - last_heartbeat_ms >= 60000 || last_heartbeat_ms == 0) 
+                // Active 15-second Router Heartbeat
+                if (now_ms - last_heartbeat_ms >= 15000 || last_heartbeat_ms == 0) 
                 {
                     last_heartbeat_ms = now_ms;
                     StaticJsonDocument<192> hbDoc;
@@ -2033,11 +2060,29 @@ void mqtt_task(void *pvParameters)
                     char hbBuffer[192];
                     serializeJson(hbDoc, hbBuffer);
                     
+                    bool pub_ok = false;
                     if (MQTT_LOCK_TAKE(pdMS_TO_TICKS(500)))
                     {
-                        client.publish(status_topic, hbBuffer, false);
+                        pub_ok = client.publish(status_topic, hbBuffer, false);
                         MQTT_LOCK_GIVE();
                     }
+                    if (pub_ok) {
+                        last_mqtt_activity_ms = now_ms;
+                    }
+                }
+
+                // 45-Second Silent TCP Drop Watchdog (Recovers from Router NAT table timeout)
+                if (last_mqtt_activity_ms > 0 && (now_ms - last_mqtt_activity_ms > 45000)) 
+                {
+                    Serial.println("⚠️ [MQTT WATCHDOG] Socket silence detected > 45s! Force-reconnecting TLS...");
+                    if (MQTT_LOCK_TAKE(pdMS_TO_TICKS(500)))
+                    {
+                        client.disconnect();
+                        if (espClient) espClient->stop();
+                        MQTT_LOCK_GIVE();
+                    }
+                    mqtt_link_up = false;
+                    last_mqtt_activity_ms = now_ms;
                 }
             }
         }
@@ -2189,6 +2234,7 @@ void setup()
         delay(100);
         
         WiFi.setSleep(false); 
+        esp_wifi_set_ps(WIFI_PS_NONE);
         WiFi.setAutoReconnect(true); 
         
         // Configure DNS via lwIP directly
@@ -2252,30 +2298,22 @@ void setup()
             if (now > 1700000000) { timeOk = true; break; }
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
+        espClient = new WiFiClientSecure();
         if (timeOk) {
             Serial.println("🕒 [NTP] System time synced; TLS will verify EMQX cert.");
-            espClient.setCACert(EMQX_ROOT_CA);
+            espClient->setCACert(EMQX_ROOT_CA);
         } else {
             Serial.println("⚠️ [NTP] Time sync failed! Falling back to insecure TLS for MQTT.");
-            espClient.setInsecure();
+            espClient->setInsecure();
         }
-        // Do NOT shorten the socket timeout here. setTimeout() drives SO_RCVTIMEO
-        // for every read, and PubSubClient's loop() polls available() constantly.
-        // With a 2s recv timeout mbedtls_ssl_read() returns NET_RECV_FAILED (-76)
-        // on an idle socket, which NetworkClientSecure treats as fatal and closes
-        // the connection — causing a reconnect every ~15-30s. The 30s library
-        // default lets idle reads block harmlessly.
-        espClient.setHandshakeTimeout(30);      // EMQX TLS handshake can take 10-25s on weak RSSI
+        espClient->setHandshakeTimeout(30);      // EMQX TLS handshake can take 10-25s on weak RSSI
         
+        client.setClient(*espClient);
         client.setServer(mqtt_server, mqtt_port); 
         client.setCallback(mqtt_callback);
-        client.setKeepAlive(120); 
+        client.setKeepAlive(15); 
         client.setBufferSize(1024);
-        // PubSubClient's default 15s socket timeout applies to readByte() while a
-        // packet is mid-flight. Keep it well under the 60s keepalive so a stalled
-        // read is detected, but long enough that a slow link is not mistaken for
-        // a dead connection.
-        client.setSocketTimeout(30);
+        client.setSocketTimeout(10);
 
         setupLocalWebServer(); 
         
@@ -2343,11 +2381,11 @@ void loop()
         digitalWrite(wifiLed, (now_ms / 1000) % 2);
     }
 
-    // Periodic IoT Usage & Warranty Telemetry publishing every 60 seconds
-    if (now_ms - last_telemetry_publish_time >= 60000)
+    // Periodic IoT Usage & Warranty Telemetry publishing every 20 seconds (router keepalive)
+    if (now_ms - last_telemetry_publish_time >= 20000)
     {
         last_telemetry_publish_time = now_ms;
-        if (mqtt_link_up)
+        if (!ota_in_progress && mqtt_link_up)
         {
             publishTelemetry();
         }

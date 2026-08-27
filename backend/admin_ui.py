@@ -14,7 +14,7 @@ ADMIN_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/admin/style.css?v=2.5.11">
+    <link rel="stylesheet" href="/admin/style.css?v=2.5.12">
 </head>
 <body>
     <div class="admin-layout">
@@ -22,7 +22,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         <aside class="sidebar">
             <div class="brand-header" style="position: relative; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden;">
-                    <img src="/admin/logo.png?v=2.5.11" alt="4Layers Logo" class="brand-logo-img" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; border-radius: 8px;" />
+                    <img src="/admin/logo.png?v=2.5.12" alt="4Layers Logo" class="brand-logo-img" style="height: 36px; width: 36px; min-width: 36px; min-height: 36px; object-fit: contain; border-radius: 8px;" />
                     <div class="brand-info">
                         <h2>4Layers</h2>
                         <span class="brand-sub">Smart Admin Console v2.5.8</span>
@@ -278,9 +278,9 @@ ADMIN_HTML = """<!DOCTYPE html>
                                     <span style="font-size:12px; font-weight:700; color:#00E676;"><i class="fa-solid fa-bolt"></i> 1-Click Cloud Remote OTA</span>
                                     <span class="badge green" style="font-size:10px;">Recommended</span>
                                 </div>
-                                <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Pushes latest audited production firmware (v2.2.5) over-the-air to target ESP32 board(s) via AWS Cloud.</p>
+                                <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Pushes latest audited production firmware (v2.2.6) over-the-air to target ESP32 board(s) via AWS Cloud.</p>
                                 <button type="submit" id="ota-trigger-btn" class="btn btn-accent full-width" style="background:#00E676; color:#000; font-weight:700; border-color:#00E676;">
-                                    <i class="fa-solid fa-paper-plane"></i> 1-Click Push Cloud OTA Update (v2.2.5)
+                                    <i class="fa-solid fa-paper-plane"></i> 1-Click Push Cloud OTA Update (v2.2.6)
                                 </button>
                             </div>
 
@@ -290,7 +290,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                                 <div style="margin-top: 10px;">
                                     <div class="form-group" style="margin-bottom: 10px;">
                                         <label style="font-size:11.5px;">Firmware Version Tag</label>
-                                        <input type="text" id="ota-firmware-version" class="form-input" value="v2.2.5" required style="font-size:12px;">
+                                        <input type="text" id="ota-firmware-version" class="form-input" value="v2.2.6" required style="font-size:12px;">
                                     </div>
                                     <div class="form-group" style="margin-bottom: 10px;">
                                         <label style="font-size:11.5px;">Upload Custom Binary (.bin)</label>
@@ -438,9 +438,9 @@ ADMIN_HTML = """<!DOCTYPE html>
                                     <strong style="color:var(--accent-green); font-size:12.5px;"><i class="fa-solid fa-bolt"></i> 1-Click Cloud Factory Flash</strong>
                                     <span class="badge green" style="font-size:10px;">Recommended</span>
                                 </div>
-                                <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Auto-downloads and flashes the latest verified factory firmware (v2.2.5) with full partition layout to offset 0x0.</p>
+                                <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Auto-downloads and flashes the latest verified factory firmware (v2.2.6) with full partition layout to offset 0x0.</p>
                                 <button class="btn btn-accent full-width" id="btn-flash-cloud-latest" style="background:#00E676; color:#000; font-weight:700; border-color:#00E676;" disabled>
-                                    <i class="fa-solid fa-cloud-arrow-down"></i> Flash Latest Factory Firmware (v2.2.5)
+                                    <i class="fa-solid fa-cloud-arrow-down"></i> Flash Latest Factory Firmware (v2.2.6)
                                 </button>
                             </div>
 
@@ -654,7 +654,7 @@ ADMIN_HTML = """<!DOCTYPE html>
     <div id="admin-login-overlay" class="login-overlay">
         <div class="login-card">
             <div class="login-header">
-                <img src="/admin/logo.png?v=2.5.11" alt="4Layers Logo" class="login-logo" />
+                <img src="/admin/logo.png?v=2.5.12" alt="4Layers Logo" class="login-logo" />
                 <h2>4Layers Admin Console</h2>
                 <p>Secure Administrator Access</p>
             </div>
@@ -683,13 +683,13 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script src="/admin/crypto-js.min.js?v=2.5.11"></script>
+    <script src="/admin/crypto-js.min.js?v=2.5.12"></script>
     <script>
         if (typeof CryptoJS === 'undefined') {
             document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"><\\/script>');
         }
     </script>
-    <script src="/admin/app.js?v=2.5.11"></script>
+    <script src="/admin/app.js?v=2.5.12"></script>
 </body>
 </html>
 """
@@ -1793,7 +1793,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         expandDeviceConsole();
 
         const target = otaTargetDevice ? otaTargetDevice.value : '';
-        const version = document.getElementById('ota-firmware-version') ? document.getElementById('ota-firmware-version').value : 'v2.2.5';
+        const version = document.getElementById('ota-firmware-version') ? document.getElementById('ota-firmware-version').value : 'v2.2.6';
         const url = otaFirmwareUrlInput ? otaFirmwareUrlInput.value.trim() : '';
 
         if (!url) {
@@ -1850,7 +1850,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
         } finally {
             if (otaTriggerBtn) {
                 otaTriggerBtn.disabled = false;
-                otaTriggerBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> 1-Click Push Cloud OTA Update (v2.2.5)';
+                otaTriggerBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> 1-Click Push Cloud OTA Update (v2.2.6)';
                 updateOtaButtonState();
             }
         }
@@ -2812,7 +2812,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 alert("Please connect the ESP32 via USB COM Port first!");
                 return;
             }
-            const confirmed = confirm("Flash the latest factory firmware (v2.2.5) to the connected ESP32 board? This will write the full image directly over USB.");
+            const confirmed = confirm("Flash the latest factory firmware (v2.2.6) to the connected ESP32 board? This will write the full image directly over USB.");
             if (!confirmed) return;
 
             logDeviceConsole("[CLOUD DOWNLOAD] Fetching latest factory merged binary from server...", "info");
@@ -2821,7 +2821,7 @@ ADMIN_JS = """document.addEventListener('DOMContentLoaded', () => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to download /firmware/4layers_factory_merged.bin`);
                 const arrayBuf = await res.arrayBuffer();
                 logDeviceConsole(`[CLOUD DOWNLOAD] Downloaded ${arrayBuf.byteLength} bytes. Ready to flash.`, "success");
-                await flashEsp32Binary(arrayBuf, 0x0, "4layers_factory_merged_v2.2.5.bin");
+                await flashEsp32Binary(arrayBuf, 0x0, "4layers_factory_merged_v2.2.6.bin");
             } catch (err) {
                 alert(`Error downloading cloud firmware: ${err.message}`);
                 logDeviceConsole(`[CLOUD DOWNLOAD ERROR] ${err.message}`, "error");
