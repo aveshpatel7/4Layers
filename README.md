@@ -129,6 +129,3 @@ When connecting custom hardware (like an ESP32), follow these rules:
 3. **Last Will and Testament (LWT):** Configure LWT message `{"is_online": false}` on topic `smartnest/devices/{NodeID}/status` so the backend knows when power is disconnected.
 
 ---
-
-## 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
