@@ -1,4 +1,4 @@
-# 🏠 4Layers SmartNest: Enterprise IoT Home Automation
+# 🏠 4Layers: Enterprise IoT Home Automation
 
 **FastAPI | PostgreSQL (Supabase) | React Native (Expo) | MQTT (EMQX) | ESP32**
 
