@@ -14,6 +14,7 @@
 #include <WebServer.h>
 #include <esp_task_wdt.h> 
 #include <esp_wifi.h>
+#include <esp_ota_ops.h>
 #include <lwip/dns.h>
 #include <lwip/ip_addr.h>
 
@@ -2105,8 +2106,11 @@ void setup()
     esp_task_wdt_reconfigure(&twdt_config);
     esp_task_wdt_add(NULL); 
 
+    // Cancel OTA rollback: marks newly flashed firmware partition as verified & valid
+    esp_ota_mark_app_valid_cancel_rollback();
+
     Serial.println("\n\n===========================================");
-    Serial.println("🚀 Go Smart Firmware V12.5 (PRO-OPTIMIZED)");
+    Serial.println("🚀 4Layers Production Firmware v2.2.6");
     Serial.println("🔍 LOGGING: ALL SENSORS & EVENTS ACTIVATED!");
     Serial.println("===========================================\n");
 
