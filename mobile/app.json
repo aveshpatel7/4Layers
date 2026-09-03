@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "4Layers",
-    "slug": "smartnest-mobile",
-    "scheme": "4layers",
-    "version": "2.0.7",
+    "name": "GO SMART",
+    "slug": "go-smart-mobile",
+    "scheme": "gosmart",
+    "version": "2.1.0",
     "icon": "./assets/4layers_logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -18,13 +18,13 @@
     },
     "android": {
       "package": "com.smartnest.app",
-      "versionCode": 13,
+      "versionCode": 25,
       "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/4layers_logo.png",
         "backgroundColor": "#000000"
       },
-      "usesCleartextTraffic": true,
+      "usesCleartextTraffic": false,
       "permissions": [
         "CAMERA",
         "ACCESS_FINE_LOCATION",
@@ -46,18 +46,15 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow 4Layers to access the camera to scan device QR codes."
+          "cameraPermission": "Allow GO SMART to access the camera to scan device QR codes."
         }
       ],
       [
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": false,
-          "modes": [
-            "peripheral",
-            "central"
-          ],
-          "bluetoothAlwaysPermission": "Allow 4Layers to connect to your smart switchboard devices."
+          "modes": ["peripheral", "central"],
+          "bluetoothAlwaysPermission": "Allow GO SMART to find and provision your smart switchboard."
         }
       ]
     ],
