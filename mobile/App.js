@@ -3,21 +3,10 @@ import React, { Component } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MD3DarkTheme, PaperProvider } from 'react-native-paper';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import AppNavigator from './src/navigation/AppNavigator';
-
-// Polyfill global window and localStorage for paho-mqtt and native runtime stability
-if (typeof window === 'undefined') {
-  global.window = global;
-}
-if (!global.window.localStorage) {
-  global.window.localStorage = {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-  };
-}
+import GlobalAlertModal from './src/components/GlobalAlertModal';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -30,14 +19,14 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('GLOBAL APP CRASH:', error, errorInfo);
+    console.error('GO SMART APP CRASH:', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Application Error</Text>
+          <Text style={styles.errorTitle}>GO SMART</Text>
           <Text style={styles.errorText}>
             {this.state.error ? this.state.error.toString() : 'An unexpected error occurred.'}
           </Text>
@@ -50,7 +39,6 @@ class ErrorBoundary extends Component {
 
 import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 
-// Set global font family defaults for all Text and TextInput components across the entire app
 if (RNText.defaultProps) {
   RNText.defaultProps.style = [{ fontFamily: 'GoogleSansFlex-Regular' }, RNText.defaultProps.style];
 } else {
@@ -63,8 +51,8 @@ if (RNTextInput.defaultProps) {
   RNTextInput.defaultProps = { style: { fontFamily: 'GoogleSansFlex-Regular' } };
 }
 
-// Custom Material Design 3 Dark Theme for a premium modern Black + Green aesthetic with Google Sans Flex
-const theme = {
+// GO SMART visual system: monochrome only. No green/blue/red brand accents.
+export const GO_SMART_THEME = {
   ...MD3DarkTheme,
   fonts: {
     ...MD3DarkTheme.fonts,
@@ -86,26 +74,38 @@ const theme = {
   },
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#1fa971',          // Tech Emerald Green (#1fa971)
-    secondary: '#15803D',        // Secondary Darker Green
-    background: '#0E0E0E',       // Pure OLED Obsidian Black (#0E0E0E)
-    surface: '#1C1B1B',          // Dark Card Surface (#1C1B1B)
-    onSurface: '#E5E2E1',        // Warm Off-White text
-    onSurfaceVariant: '#9CA3AF',   // Muted gray text
-    outline: 'rgba(255, 255, 255, 0.08)', // Muted border
-    outlineVariant: '#333333',    // Dark border
-    error: '#EF4444',            // Error Red
-    errorContainer: '#7F1D1D',   // Dark red container
-    onErrorContainer: '#FCA5A5', // Soft red text
+    primary: '#FFFFFF',
+    onPrimary: '#000000',
+    primaryContainer: '#FFFFFF',
+    onPrimaryContainer: '#000000',
+    secondary: '#FFFFFF',
+    onSecondary: '#000000',
+    secondaryContainer: '#1A1A1A',
+    onSecondaryContainer: '#FFFFFF',
+    tertiary: '#FFFFFF',
+    background: '#000000',
+    surface: '#0A0A0A',
+    surfaceVariant: '#141414',
+    onBackground: '#FFFFFF',
+    onSurface: '#FFFFFF',
+    onSurfaceVariant: '#BDBDBD',
+    outline: '#3A3A3A',
+    outlineVariant: '#222222',
+    error: '#FFFFFF',
+    onError: '#000000',
+    errorContainer: '#1A1A1A',
+    onErrorContainer: '#FFFFFF',
     elevation: {
       ...MD3DarkTheme.colors.elevation,
-      level1: '#1C1B1B',         // Card level 1
-      level2: '#262626',         // Active state card overlay
-    }
+      level0: '#000000',
+      level1: '#0A0A0A',
+      level2: '#111111',
+      level3: '#161616',
+      level4: '#1A1A1A',
+      level5: '#1F1F1F',
+    },
   },
 };
-
-import GlobalAlertModal from './src/components/GlobalAlertModal';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -117,8 +117,8 @@ export default function App() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0E0E0E', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#22C55E" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
       </View>
     );
   }
@@ -126,10 +126,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <PaperProvider theme={theme}>
-          {/* Edge-to-edge transparent status bar matching ChatGPT & modern apps */}
-          <StatusBar style="light" backgroundColor="transparent" translucent={true} />
-          <View style={{ flex: 1, backgroundColor: '#0E0E0E' }}>
+        <PaperProvider theme={GO_SMART_THEME}>
+          <StatusBar style="light" backgroundColor="#000000" translucent={false} />
+          <View style={styles.appRoot}>
             <AppNavigator />
             <GlobalAlertModal />
           </View>
@@ -140,21 +139,28 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  appRoot: { flex: 1, backgroundColor: '#000000' },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   errorContainer: {
     flex: 1,
-    backgroundColor: '#0E0E0E',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   errorTitle: {
-    color: '#EF4444',
+    color: '#FFFFFF',
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 12,
   },
   errorText: {
-    color: '#E5E2E1',
+    color: '#D0D0D0',
     fontSize: 14,
     textAlign: 'center',
   },
