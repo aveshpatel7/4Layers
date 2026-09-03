@@ -1,57 +1,35 @@
 import 'react-native-gesture-handler';
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput as RNTextInput, Text as RNText, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MD3DarkTheme, PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import AppNavigator from './src/navigation/AppNavigator';
-import GlobalAlertModal from './src/components/GlobalAlertModal';
 
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error('GO SMART APP CRASH:', error, errorInfo);
-  }
-
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error('GO SMART APP CRASH:', error, info); }
   render() {
-    if (this.state.hasError) {
-      return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>GO SMART</Text>
-          <Text style={styles.errorText}>
-            {this.state.error ? this.state.error.toString() : 'An unexpected error occurred.'}
-          </Text>
-        </View>
-      );
-    }
-    return this.props.children;
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>GO SMART</Text>
+        <Text style={styles.errorText}>{this.state.error?.toString() || 'An unexpected error occurred.'}</Text>
+      </View>
+    );
   }
 }
 
-import { Text as RNText, TextInput as RNTextInput } from 'react-native';
+RNText.defaultProps = RNText.defaultProps || {};
+RNText.defaultProps.style = [{ fontFamily: 'GoogleSansFlex-Regular' }, RNText.defaultProps.style];
+RNTextInput.defaultProps = RNTextInput.defaultProps || {};
+RNTextInput.defaultProps.style = [{ fontFamily: 'GoogleSansFlex-Regular' }, RNTextInput.defaultProps.style];
 
-if (RNText.defaultProps) {
-  RNText.defaultProps.style = [{ fontFamily: 'GoogleSansFlex-Regular' }, RNText.defaultProps.style];
-} else {
-  RNText.defaultProps = { style: { fontFamily: 'GoogleSansFlex-Regular' } };
-}
-
-if (RNTextInput.defaultProps) {
-  RNTextInput.defaultProps.style = [{ fontFamily: 'GoogleSansFlex-Regular' }, RNTextInput.defaultProps.style];
-} else {
-  RNTextInput.defaultProps = { style: { fontFamily: 'GoogleSansFlex-Regular' } };
-}
-
-// GO SMART visual system: monochrome only. No green/blue/red brand accents.
 export const GO_SMART_THEME = {
   ...MD3DarkTheme,
   fonts: {
@@ -74,36 +52,13 @@ export const GO_SMART_THEME = {
   },
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#FFFFFF',
-    onPrimary: '#000000',
-    primaryContainer: '#FFFFFF',
-    onPrimaryContainer: '#000000',
-    secondary: '#FFFFFF',
-    onSecondary: '#000000',
-    secondaryContainer: '#1A1A1A',
-    onSecondaryContainer: '#FFFFFF',
-    tertiary: '#FFFFFF',
-    background: '#000000',
-    surface: '#0A0A0A',
-    surfaceVariant: '#141414',
-    onBackground: '#FFFFFF',
-    onSurface: '#FFFFFF',
-    onSurfaceVariant: '#BDBDBD',
-    outline: '#3A3A3A',
-    outlineVariant: '#222222',
-    error: '#FFFFFF',
-    onError: '#000000',
-    errorContainer: '#1A1A1A',
-    onErrorContainer: '#FFFFFF',
-    elevation: {
-      ...MD3DarkTheme.colors.elevation,
-      level0: '#000000',
-      level1: '#0A0A0A',
-      level2: '#111111',
-      level3: '#161616',
-      level4: '#1A1A1A',
-      level5: '#1F1F1F',
-    },
+    primary: '#FFFFFF', onPrimary: '#000000', primaryContainer: '#FFFFFF', onPrimaryContainer: '#000000',
+    secondary: '#FFFFFF', onSecondary: '#000000', secondaryContainer: '#111111', onSecondaryContainer: '#FFFFFF',
+    tertiary: '#FFFFFF', background: '#000000', surface: '#070707', surfaceVariant: '#111111',
+    onBackground: '#FFFFFF', onSurface: '#FFFFFF', onSurfaceVariant: '#A0A0A0',
+    outline: '#333333', outlineVariant: '#202020', error: '#FFFFFF', onError: '#000000',
+    errorContainer: '#151515', onErrorContainer: '#FFFFFF',
+    elevation: { ...MD3DarkTheme.colors.elevation, level0: '#000000', level1: '#070707', level2: '#0D0D0D', level3: '#111111', level4: '#161616', level5: '#1A1A1A' },
   },
 };
 
@@ -116,11 +71,7 @@ export default function App() {
   });
 
   if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-      </View>
-    );
+    return <View style={styles.loading}><ActivityIndicator size="large" color="#FFFFFF" /></View>;
   }
 
   return (
@@ -128,10 +79,7 @@ export default function App() {
       <SafeAreaProvider>
         <PaperProvider theme={GO_SMART_THEME}>
           <StatusBar style="light" backgroundColor="#000000" translucent={false} />
-          <View style={styles.appRoot}>
-            <AppNavigator />
-            <GlobalAlertModal />
-          </View>
+          <View style={styles.root}><AppNavigator /></View>
         </PaperProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
@@ -139,29 +87,9 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  appRoot: { flex: 1, backgroundColor: '#000000' },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorTitle: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  errorText: {
-    color: '#D0D0D0',
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  root: { flex: 1, backgroundColor: '#000000' },
+  loading: { flex: 1, backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' },
+  errorContainer: { flex: 1, backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  errorTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', letterSpacing: 2, marginBottom: 12 },
+  errorText: { color: '#B0B0B0', textAlign: 'center' },
 });
