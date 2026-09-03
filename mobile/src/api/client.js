@@ -1,103 +1,104 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 
-const USE_LOCAL_BACKEND = false; // Set to false for production cloud Render backend
-
-let baseURL = USE_LOCAL_BACKEND
-  ? (Platform.OS === 'web' ? 'http://localhost:8000' : 'http://10.0.2.2:8000')
-  : 'https://edabtynvpy.ap-south-1.awsapprunner.com';
-
-console.log(`[4Layers API Client] Initialized. Base URL: ${baseURL}`);
+// GO SMART production backend. The mobile app talks ONLY to this API.
+// MQTT credentials stay server-side; the app never connects to the broker directly.
+export const GO_SMART_BACKEND_URL = 'https://gosmartbackend-production.up.railway.app';
 
 const apiClient = axios.create({
-  baseURL,
-  timeout: 10000,
+  baseURL: GO_SMART_BACKEND_URL,
+  timeout: 12000,
 });
 
 let onUnauthorized = () => {};
-let onBlocked = (reason) => {};
+let onBlocked = () => {};
 
 export const registerUnauthorizedHandler = (handler) => {
-  onUnauthorized = handler;
+  onUnauthorized = typeof handler === 'function' ? handler : () => {};
 };
 
 export const registerBlockedHandler = (handler) => {
-  onBlocked = handler;
+  onBlocked = typeof handler === 'function' ? handler : () => {};
 };
 
-// Add an interceptor to inject the JWT token from AsyncStorage into every outgoing request
 apiClient.interceptors.request.use(
   async (config) => {
     try {
       const token = await AsyncStorage.getItem('user_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+      if (token) config.headers.Authorization = `Bearer ${token}`;
     } catch (e) {
-      console.error('[API Client] Error reading auth token:', e);
+      console.warn('[GO SMART API] Could not read auth token:', e?.message || e);
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle auto-logout on 401 and custom lock modal on 403
 apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   async (error) => {
-    if (error.response && error.response.status === 403) {
-      const reason = error.response.data?.reason || 
-                     (typeof error.response.data?.detail === 'object' ? error.response.data?.detail?.reason : null) || 
-                     'Account suspended by administrator';
-      console.log('[API Client] 403 Forbidden detected. Account blocked! Reason:', reason);
+    const status = error?.response?.status;
+    if (status === 401 || status === 403) {
       try {
         await AsyncStorage.removeItem('user_token');
         await AsyncStorage.removeItem('userData_cache');
-      } catch (e) {
-        console.error('[API Client] Error clearing token on 403:', e);
+      } catch (_) {}
+      if (status === 403) {
+        const reason = error?.response?.data?.detail || 'Access denied';
+        onBlocked(typeof reason === 'string' ? reason : 'Access denied');
+      } else {
+        onUnauthorized();
       }
-      onBlocked(reason);
-    } else if (error.response && error.response.status === 401) {
-      console.log('[API Client] 401 Unauthorized detected. Clearing token and forcing logout.');
-      try {
-        await AsyncStorage.removeItem('user_token');
-        await AsyncStorage.removeItem('userData_cache');
-      } catch (e) {
-        console.error('[API Client] Error removing token on 401:', e);
-      }
-      onUnauthorized();
     }
     return Promise.reject(error);
   }
 );
 
-export const provisionDevice = async (macAddress, type, boardName = null, roomId = null, newRoomName = null, newRoomType = 'living_room') => {
+export const getGoSmartDevices = async () => {
+  const response = await apiClient.get('/api/devices');
+  return response.data?.devices || [];
+};
+
+export const getGoSmartMqttStatus = async () => {
+  const response = await apiClient.get('/api/mqtt/status');
+  return response.data?.mqtt || {};
+};
+
+export const sendGoSmartDeviceCommand = async (deviceId, command) => {
+  const response = await apiClient.post(`/api/devices/${deviceId}/control`, command);
+  return response.data;
+};
+
+// Compatibility helper used by older provisioning screens. New BLE onboarding should
+// claim/provision a factory-created board instead of creating broker credentials in-app.
+export const provisionDevice = async (
+  nodeId,
+  type,
+  boardName = null,
+  roomId = null,
+  _newRoomName = null,
+  _newRoomType = 'living_room'
+) => {
+  const normalizedNode = String(nodeId || '').trim().toUpperCase();
+  const payload = {
+    node_id: normalizedNode,
+    name: (boardName && boardName.trim()) || 'GO SMART Switchboard',
+    model: 'GO-SMART-4L-FAN',
+    firmware_version: 'V2.0',
+    room_id: roomId || null,
+  };
+
   try {
-    const payload = {
-      mac_address: macAddress,
-      type: type.toUpperCase()
-    };
-    if (boardName && boardName.trim()) {
-      payload.name = boardName.trim();
-    }
-    if (roomId) {
-      payload.room_id = roomId;
-    }
-    if (newRoomName && newRoomName.trim()) {
-      payload.new_room_name = newRoomName.trim();
-      payload.new_room_type = newRoomType;
-    }
-    
-    const response = await apiClient.post('/api/devices/provision', payload);
-    return response.data; // Returns {"id": device_id}
+    const response = await apiClient.post('/api/devices', payload);
+    return response.data;
   } catch (error) {
-    console.error('[API Client] provisionDevice error:', error);
+    // A factory-registered board may already exist. Return it instead of trying to
+    // create a second identity/device key from the phone.
+    if (error?.response?.status === 409) {
+      const devices = await getGoSmartDevices();
+      const found = devices.find((d) => String(d.node_id || '').toUpperCase() === normalizedNode);
+      if (found) return { device: found, already_registered: true };
+    }
     throw error;
   }
 };
