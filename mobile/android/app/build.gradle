@@ -91,6 +91,19 @@ android {
     }
 }
 
+// Espressif provisioning 2.4.4 currently pulls CameraX 1.5.x, which requires
+// compileSdk 35 / AGP 8.6. GO SMART only uses BLE provisioning, not the QR
+// camera path, so keep the compatible CameraX runtime line for this Expo 51 app.
+configurations.all {
+    resolutionStrategy {
+        force "androidx.camera:camera-core:1.3.4"
+        force "androidx.camera:camera-camera2:1.3.4"
+        force "androidx.camera:camera-lifecycle:1.3.4"
+        force "androidx.camera:camera-view:1.3.4"
+        force "androidx.camera:camera-video:1.3.4"
+    }
+}
+
 dependencies {
     implementation("com.facebook.react:react-android")
 
