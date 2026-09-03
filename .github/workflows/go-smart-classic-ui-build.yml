@@ -51,7 +51,13 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p dist
-          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk dist/GO_SMART_CLASSIC.apk
+          APK="$(find mobile/android/app/build/outputs/apk/debug -type f -name '*universal*.apk' | head -n 1)"
+          if [ -z "$APK" ]; then
+            APK="$(find mobile/android/app/build/outputs/apk/debug -type f -name '*.apk' | head -n 1)"
+          fi
+          test -n "$APK"
+          echo "Using APK: $APK"
+          cp "$APK" dist/GO_SMART_CLASSIC.apk
 
       - name: Prepare full source ZIP
         run: |
