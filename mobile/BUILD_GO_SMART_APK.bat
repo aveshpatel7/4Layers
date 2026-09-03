@@ -32,6 +32,10 @@ if not exist node_modules (
   if errorlevel 1 goto :FAILED
 )
 
+echo Preparing classic GO SMART UI connectivity...
+node tools\prepare_go_smart_classic.js
+if errorlevel 1 goto :FAILED
+
 if not exist "%ANDROID_HOME%\platforms\android-34\android.jar" (
   echo Android API 34 is missing.
   if exist "%ANDROID_HOME%\cmdline-tools\latest\bin\sdkmanager.bat" (
