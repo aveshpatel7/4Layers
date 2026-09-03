@@ -144,7 +144,6 @@ apiClient.interceptors.request.use(async (config) => {
   const method = String(config.method || 'get').toLowerCase();
   const url = String(config.url || '');
 
-  // Old login screen -> new GO SMART auth API, without changing the screen/layout.
   if (method === 'post' && url === '/api/users/login') {
     const legacy = typeof config.data === 'string' ? parseForm(config.data) : (config.data || {});
     config.url = '/api/auth/login';
@@ -156,7 +155,6 @@ apiClient.interceptors.request.use(async (config) => {
     config.__goSmartLegacyLogin = true;
   }
 
-  // Old registration screen -> new GO SMART auth API.
   if (method === 'post' && url === '/api/users/register') {
     const legacy = config.data || {};
     config.url = '/api/auth/register';
@@ -173,8 +171,6 @@ apiClient.interceptors.request.use(async (config) => {
     config.__goSmartLegacyMe = true;
   }
 
-  // Old per-channel control URL uses a synthetic channel ID. Convert it back to
-  // the physical GO SMART device UUID and the new command schema.
   const controlMatch = url.match(/^\/api\/devices\/([^/]+)\/control$/);
   if (method === 'post' && controlMatch) {
     const parsed = parseSyntheticId(controlMatch[1]);
@@ -209,7 +205,6 @@ apiClient.interceptors.request.use(async (config) => {
 apiClient.interceptors.response.use((response) => {
   const originalUrl = String(response.config?.url || '');
 
-  // New backend returns {devices:[physical boards]}; classic UI expects one row per channel.
   if (response.config?.method?.toLowerCase() === 'get' && originalUrl === '/api/devices') {
     const physical = response.data?.devices || [];
     response.data = expandPhysicalDevicesForClassicUi(physical);
@@ -228,8 +223,6 @@ apiClient.interceptors.response.use((response) => {
   return response;
 }, handleAuthError);
 
-// Raw helpers are used by the private-MQTT compatibility transport and must see
-// the real physical device objects rather than classic UI virtual channels.
 export const getGoSmartDevices = async () => {
   const response = await rawClient.get('/api/devices');
   return response.data?.devices || [];
@@ -250,21 +243,37 @@ export const provisionDevice = async (
   type,
   boardName = null,
   roomId = null,
-  _newRoomName = null,
-  _newRoomType = 'living_room'
+  newRoomName = null,
+  newRoomType = 'living_room'
 ) => {
   const normalizedNode = String(nodeId || '').trim().toUpperCase();
+  let resolvedRoomId = roomId || null;
+
+  if (!resolvedRoomId && newRoomName && String(newRoomName).trim()) {
+    const roomResponse = await rawClient.post('/api/rooms', {
+      name: String(newRoomName).trim(),
+      room_type: String(newRoomType || 'living_room').trim().toLowerCase(),
+    });
+    resolvedRoomId = roomResponse.data?.id || null;
+  }
+
   const payload = {
     node_id: normalizedNode,
     name: (boardName && boardName.trim()) || 'GO SMART Switchboard',
     model: 'GO-SMART-4L-FAN',
     firmware_version: 'V2.3',
-    room_id: roomId || null,
+    room_id: resolvedRoomId,
   };
 
   try {
     const response = await rawClient.post('/api/devices', payload);
-    return response.data;
+    const device = response.data?.device || response.data;
+    return {
+      id: device?.id,
+      device,
+      device_key: response.data?.device_key,
+      already_registered: false,
+    };
   } catch (error) {
     if (error?.response?.status === 409) {
       const devices = await getGoSmartDevices();
