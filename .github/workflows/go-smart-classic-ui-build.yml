@@ -1,0 +1,67 @@
+name: Build GO SMART Classic UI
+
+on:
+  push:
+    branches: [go-smart-classic-ui]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout classic UI branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 34
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Build debug APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Prepare APK
+        run: |
+          mkdir -p dist
+          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk dist/GO_SMART_CLASSIC.apk
+
+      - name: Prepare full source ZIP
+        run: |
+          mkdir -p source_stage/GO_SMART_CLASSIC_APP
+          rsync -a --exclude node_modules --exclude android/.gradle --exclude android/app/build --exclude .expo mobile/ source_stage/GO_SMART_CLASSIC_APP/
+          cd source_stage
+          zip -r ../dist/GO_SMART_CLASSIC_APP_SOURCE.zip GO_SMART_CLASSIC_APP >/dev/null
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GO_SMART_CLASSIC_APK
+          path: dist/GO_SMART_CLASSIC.apk
+          if-no-files-found: error
+
+      - name: Upload full source
+        uses: actions/upload-artifact@v4
+        with:
+          name: GO_SMART_CLASSIC_SOURCE
+          path: dist/GO_SMART_CLASSIC_APP_SOURCE.zip
+          if-no-files-found: error
