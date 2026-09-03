@@ -3,7 +3,7 @@
     "name": "GO SMART",
     "slug": "go-smart-mobile",
     "scheme": "gosmart",
-    "version": "2.1.0",
+    "version": "3.0.0",
     "icon": "./assets/4layers_logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.smartnest.app",
-      "versionCode": 25,
+      "versionCode": 30,
       "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/4layers_logo.png",
@@ -26,47 +26,26 @@
       },
       "usesCleartextTraffic": false,
       "permissions": [
-        "CAMERA",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "BLUETOOTH",
         "BLUETOOTH_ADMIN",
         "BLUETOOTH_SCAN",
-        "BLUETOOTH_CONNECT",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.BLUETOOTH",
-        "android.permission.BLUETOOTH_ADMIN",
-        "android.permission.BLUETOOTH_CONNECT",
-        "REQUEST_INSTALL_PACKAGES",
-        "android.permission.REQUEST_INSTALL_PACKAGES"
+        "BLUETOOTH_CONNECT"
       ]
     },
     "plugins": [
       [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow GO SMART to access the camera to scan device QR codes."
-        }
-      ],
-      [
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": false,
-          "modes": ["peripheral", "central"],
+          "modes": ["central"],
           "bluetoothAlwaysPermission": "Allow GO SMART to find and provision your smart switchboard."
         }
       ]
     ],
     "web": {
       "bundler": "metro"
-    },
-    "owner": "mohammad-777s",
-    "extra": {
-      "googleClientId": "972753923440-npkju4948rt72csvuivqnulavv98t9i6.apps.googleusercontent.com",
-      "eas": {
-        "projectId": "91b9d718-8b1e-4ae8-b691-d43f37c0ed32"
-      }
     }
   }
 }
