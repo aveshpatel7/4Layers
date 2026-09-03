@@ -26,15 +26,12 @@
       },
       "usesCleartextTraffic": false,
       "permissions": [
-        "CAMERA",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "BLUETOOTH",
         "BLUETOOTH_ADMIN",
         "BLUETOOTH_SCAN",
         "BLUETOOTH_CONNECT",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_CONNECT",
@@ -43,12 +40,6 @@
       ]
     },
     "plugins": [
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow GO SMART to access the camera to scan device QR codes."
-        }
-      ],
       [
         "react-native-ble-plx",
         {
