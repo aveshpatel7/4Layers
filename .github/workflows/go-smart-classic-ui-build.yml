@@ -36,6 +36,10 @@ jobs:
         working-directory: mobile
         run: npm ci
 
+      - name: Prepare classic UI connectivity
+        working-directory: mobile
+        run: node tools/prepare_go_smart_classic.js
+
       - name: Build debug APK
         working-directory: mobile/android
         run: ./gradlew assembleDebug --stacktrace
