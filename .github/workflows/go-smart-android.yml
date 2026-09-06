@@ -33,7 +33,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android packages
-        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125'
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;26.1.10909125'
 
       - name: Install JavaScript dependencies
         working-directory: mobile
@@ -41,6 +41,8 @@ jobs:
 
       - name: Build release APK
         working-directory: mobile/android
+        env:
+          NODE_ENV: production
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
