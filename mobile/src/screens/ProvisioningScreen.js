@@ -3,11 +3,13 @@ import { NativeModules, ScrollView, StyleSheet, TouchableOpacity, View } from 'r
 import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { requestAddDevicePermissions } from '../utils/permissions';
-import { provisionDevice } from '../api/client';
+import { checkCloudReadiness, provisionDevice } from '../api/client';
 
 const { GoSmartProvisioning } = NativeModules;
 
-export default function ProvisioningScreen({ navigation }) {
+export default function ProvisioningScreen({ navigation, route }) {
+  const roomId = route?.params?.roomId || null;
+  const boardName = route?.params?.boardName || null;
   const [stage, setStage] = useState('SCAN');
   const [scanning, setScanning] = useState(false);
   const [devices, setDevices] = useState([]);
@@ -20,6 +22,20 @@ export default function ProvisioningScreen({ navigation }) {
 
   const scan = async () => {
     setError('');
+    try {
+      setStatus('Checking GO SMART Cloud...');
+      const readiness = await checkCloudReadiness();
+      if (!readiness.databaseConfigured || !readiness.databaseOnline) {
+        setError('GO SMART Cloud database is unavailable. Please try again shortly.');
+        setStatus('Cloud setup is not ready.');
+        return;
+      }
+    } catch (e) {
+      setError('GO SMART Cloud is unreachable. Check internet and try again.');
+      setStatus('Cloud connection failed.');
+      return;
+    }
+
     const ok = await requestAddDevicePermissions();
     if (!ok) return;
     if (!GoSmartProvisioning?.scanGoSmartDevices) {
@@ -55,17 +71,28 @@ export default function ProvisioningScreen({ navigation }) {
     }
     setError('');
     setStage('PROVISION');
-    setStatus('Connecting securely over BLE...');
+    setStatus('Preparing your switchboard in GO SMART Cloud...');
     try {
-      const result = await GoSmartProvisioning.provisionWifi(selected.id, selected.nodeId, ssid.trim(), password);
+      const enrollment = await provisionDevice(selected.nodeId, boardName, roomId);
+      if (!enrollment?.device_key) throw new Error('GO SMART Cloud did not return a device credential.');
+
+      setStatus('Connecting securely over Bluetooth...');
+      const result = await GoSmartProvisioning.provisionWifi(
+        selected.id,
+        selected.nodeId,
+        ssid.trim(),
+        password,
+        enrollment.device_key,
+      );
       if (!result?.ok) throw new Error('Provisioning failed.');
-      setStatus('Wi-Fi connected. Checking your GO SMART backend...');
-      await new Promise(r => setTimeout(r, 2500));
-      await provisionDevice(selected.nodeId);
+
+      setStatus('Wi-Fi accepted. Waiting for GO SMART Cloud connection...');
+      await new Promise(r => setTimeout(r, 3500));
       setStatus('Setup complete.');
       setStage('DONE');
     } catch (e) {
-      setError(e?.message || 'Could not complete device setup.');
+      const detail = e?.response?.data?.detail || e?.message || 'Could not complete device setup.';
+      setError(detail);
       setStatus('Setup not completed.');
       setStage('WIFI');
     }
@@ -103,7 +130,7 @@ export default function ProvisioningScreen({ navigation }) {
         {stage === 'WIFI' && (
           <View style={styles.card}>
             <Text style={styles.title}>Connect GO SMART</Text>
-            <Text style={styles.body}>The app already identified the board internally. No Node ID entry is required.</Text>
+            <Text style={styles.body}>The app identified the switchboard automatically. Your Wi-Fi and device credential are transferred through the secure Bluetooth session.</Text>
             <TextInput label="2.4 GHz Wi-Fi SSID" value={ssid} onChangeText={setSsid} mode="outlined" textColor="#FFFFFF" style={styles.input} outlineColor="#333333" activeOutlineColor="#FFFFFF" />
             <TextInput label="Wi-Fi Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} mode="outlined" textColor="#FFFFFF" style={styles.input} outlineColor="#333333" activeOutlineColor="#FFFFFF" right={<TextInput.Icon icon={showPassword ? 'eye-off-outline' : 'eye-outline'} color="#FFFFFF" onPress={() => setShowPassword(v => !v)} />} />
             <TouchableOpacity onPress={provision} style={styles.primary}><Text style={styles.primaryText}>CONNECT</Text></TouchableOpacity>
@@ -125,7 +152,7 @@ export default function ProvisioningScreen({ navigation }) {
             <Text style={[styles.title, { marginTop: 16 }]}>Connected</Text>
             <Text style={styles.nodeLabel}>NODE ID</Text>
             <Text style={styles.nodeValue}>{selected?.nodeId}</Text>
-            <Text style={[styles.body, { textAlign: 'center' }]}>This Node ID was created automatically from the switchboard identity and is now shown inside your GO SMART app.</Text>
+            <Text style={[styles.body, { textAlign: 'center' }]}>Your switchboard is linked to GO SMART Cloud and ready for app control.</Text>
             <TouchableOpacity style={styles.primary} onPress={() => navigation.navigate('Home')}><Text style={styles.primaryText}>GO TO HOME</Text></TouchableOpacity>
           </View>
         )}
