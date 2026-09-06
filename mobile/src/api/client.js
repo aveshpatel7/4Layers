@@ -29,6 +29,18 @@ apiClient.interceptors.response.use(
   }
 );
 
+export const checkCloudReadiness = async () => {
+  const response = await axios.get(`${GO_SMART_BACKEND_URL}/health`, { timeout: 6000 });
+  const db = response.data?.database || {};
+  return {
+    apiOnline: response.status >= 200 && response.status < 500,
+    databaseOnline: db.connected === true,
+    databaseConfigured: db.configured === true,
+    databaseMessage: db.message || null,
+    raw: response.data,
+  };
+};
+
 export const getGoSmartDevices = async () => {
   const response = await apiClient.get('/api/devices');
   return Array.isArray(response.data?.devices) ? response.data.devices : [];
@@ -44,18 +56,32 @@ export const sendGoSmartDeviceCommand = async (deviceId, command) => {
   return response.data;
 };
 
-// Customer onboarding never creates or exposes MQTT/device secrets on the phone.
-// After BLE Wi-Fi provisioning, confirm that the automatic Node ID belongs to this account.
-export const provisionDevice = async (nodeId) => {
+// Production onboarding: cloud securely creates/rotates the per-board credential,
+// then the app transfers it to the ESP32 only over the encrypted BLE session.
+export const provisionDevice = async (nodeId, boardName = null, roomId = null) => {
   const normalizedNode = String(nodeId || '').trim().toUpperCase();
-  const devices = await getGoSmartDevices();
-  const found = devices.find((d) => String(d.node_id || '').trim().toUpperCase() === normalizedNode);
-  if (!found) {
-    const error = new Error('This GO SMART board is not registered to your account yet.');
-    error.code = 'DEVICE_NOT_REGISTERED';
+  if (!normalizedNode) throw new Error('GO SMART Node ID is missing.');
+
+  const readiness = await checkCloudReadiness();
+  if (!readiness.apiOnline) throw new Error('GO SMART Cloud is unreachable.');
+  if (!readiness.databaseConfigured || !readiness.databaseOnline) {
+    const error = new Error('GO SMART Cloud database is unavailable.');
+    error.code = 'DATABASE_UNAVAILABLE';
     throw error;
   }
-  return { device: found, already_registered: true };
+
+  const payload = {
+    node_id: normalizedNode,
+    name: boardName?.trim() || 'GO SMART Switchboard',
+    model: 'GO-SMART-SW4-FAN4',
+    firmware_version: 'gs-idf-3.1.0-phone-wifi-state-sync',
+    room_id: roomId || null,
+  };
+  const response = await apiClient.post('/api/v3/devices/enroll', payload);
+  if (!response.data?.device?.id || !response.data?.device_key) {
+    throw new Error('GO SMART Cloud did not return a complete device credential.');
+  }
+  return response.data;
 };
 
 export default apiClient;
