@@ -9,7 +9,7 @@ import com.espressif.provisioning.ESPConstants
 import com.espressif.provisioning.ESPDevice
 import com.espressif.provisioning.ESPProvisionManager
 import com.espressif.provisioning.listeners.BleScanListener
-import com.espressif.provisioning.listeners.ProvisionListener
+import com.espressif.provisioning.listeners.ResponseListener
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -18,6 +18,8 @@ import com.facebook.react.bridge.ReactMethod
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
+import org.json.JSONObject
+import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -39,6 +41,7 @@ class GoSmartProvisioningModule(
         val ssid: String,
         val password: String,
         val nodeId: String,
+        val deviceKey: String,
         val started: AtomicBoolean = AtomicBoolean(false),
         val finished: AtomicBoolean = AtomicBoolean(false)
     )
@@ -79,7 +82,6 @@ class GoSmartProvisioningModule(
             foundDevices.values.sortedByDescending { it.rssi }.forEach { item ->
                 val map = Arguments.createMap()
                 map.putString("id", item.device.address)
-                // Customer UI must show only this name; raw suffix stays hidden.
                 map.putString("displayName", "GO SMART Find")
                 map.putString("nodeId", item.nodeId)
                 map.putInt("rssi", item.rssi)
@@ -132,7 +134,7 @@ class GoSmartProvisioningModule(
     }
 
     @ReactMethod
-    fun provisionWifi(deviceId: String, nodeId: String, ssid: String, password: String, promise: Promise) {
+    fun provisionWifi(deviceId: String, nodeId: String, ssid: String, password: String, deviceKey: String, promise: Promise) {
         val found = foundDevices[deviceId]
         if (found == null) {
             promise.reject("DEVICE_NOT_FOUND", "Run GO SMART Find again and select the switchboard.")
@@ -140,6 +142,10 @@ class GoSmartProvisioningModule(
         }
         if (ssid.isBlank()) {
             promise.reject("SSID_REQUIRED", "Wi-Fi SSID is required.")
+            return
+        }
+        if (deviceKey.length < 16) {
+            promise.reject("DEVICE_KEY_REQUIRED", "GO SMART Cloud device credential is missing.")
             return
         }
         if (pendingProvision != null) {
@@ -161,9 +167,16 @@ class GoSmartProvisioningModule(
                 promise = promise,
                 ssid = ssid.trim(),
                 password = password,
-                nodeId = normalizedNode
+                nodeId = normalizedNode,
+                deviceKey = deviceKey
             )
             esp.connectBLEDevice(found.device, found.serviceUuid)
+            handler.postDelayed({
+                val pending = pendingProvision
+                if (pending != null && !pending.finished.get()) {
+                    failPending("TIMEOUT", "Secure GO SMART setup timed out. Keep the phone close and try again.", null)
+                }
+            }, 65000)
         } catch (e: Exception) {
             pendingProvision = null
             espDevice = null
@@ -177,26 +190,54 @@ class GoSmartProvisioningModule(
         when (event.eventType) {
             ESPConstants.EVENT_DEVICE_CONNECTED -> {
                 if (!pending.started.compareAndSet(false, true)) return
-                val esp = espDevice
-                if (esp == null) {
-                    failPending("BLE_CONNECT_FAILED", "GO SMART BLE session was not created.", null)
-                    return
-                }
-                esp.provision(pending.ssid, pending.password, object : ProvisionListener {
-                    override fun createSessionFailed(e: Exception) = failPending("SESSION_FAILED", "Secure GO SMART BLE session failed.", e)
-                    override fun wifiConfigSent() {}
-                    override fun wifiConfigFailed(e: Exception) = failPending("WIFI_SEND_FAILED", "Could not send Wi-Fi credentials to the switchboard.", e)
-                    override fun wifiConfigApplied() {}
-                    override fun wifiConfigApplyFailed(e: Exception) = failPending("WIFI_APPLY_FAILED", "The switchboard rejected the Wi-Fi configuration.", e)
-                    override fun provisioningFailedFromDevice(reason: ESPConstants.ProvisionFailureReason) = failPending("WIFI_FAILED", "Wi-Fi provisioning failed: ${reason.name}", null)
-                    override fun deviceProvisioningSuccess() = completePendingSuccess()
-                    override fun onProvisioningFailed(e: Exception) = failPending("PROVISION_FAILED", e.message ?: "GO SMART provisioning failed.", e)
-                })
+                sendIdentity()
             }
             ESPConstants.EVENT_DEVICE_CONNECTION_FAILED -> failPending("BLE_CONNECT_FAILED", "Could not connect to GO SMART Find.", null)
             ESPConstants.EVENT_DEVICE_DISCONNECTED -> {
-                // ESP32 can reboot/disconnect after applying Wi-Fi; ProvisionListener decides success.
+                // ESP32 may intentionally reboot after accepting Wi-Fi.
             }
+        }
+    }
+
+    private fun sendIdentity() {
+        val pending = pendingProvision ?: return
+        val esp = espDevice ?: run {
+            failPending("BLE_CONNECT_FAILED", "GO SMART BLE session was not created.", null)
+            return
+        }
+        try {
+            val payload = JSONObject()
+                .put("node_id", pending.nodeId)
+                .put("device_key", pending.deviceKey)
+                .toString()
+                .toByteArray(StandardCharsets.UTF_8)
+            esp.sendDataToCustomEndPoint("gosmart-identity", payload, object : ResponseListener {
+                override fun onSuccess(data: ByteArray?) = sendWifi()
+                override fun onFailure(e: Exception) = failPending("IDENTITY", "GO SMART identity could not be installed.", e)
+            })
+        } catch (e: Exception) {
+            failPending("IDENTITY", e.message ?: "GO SMART identity could not be installed.", e)
+        }
+    }
+
+    private fun sendWifi() {
+        val pending = pendingProvision ?: return
+        val esp = espDevice ?: run {
+            failPending("BLE_CONNECT_FAILED", "GO SMART BLE session was not created.", null)
+            return
+        }
+        try {
+            val payload = JSONObject()
+                .put("ssid", pending.ssid)
+                .put("password", pending.password)
+                .toString()
+                .toByteArray(StandardCharsets.UTF_8)
+            esp.sendDataToCustomEndPoint("gosmart-wifi", payload, object : ResponseListener {
+                override fun onSuccess(data: ByteArray?) = completePendingSuccess()
+                override fun onFailure(e: Exception) = failPending("WIFI", "Wi-Fi details were not accepted by the switchboard.", e)
+            })
+        } catch (e: Exception) {
+            failPending("WIFI", e.message ?: "Wi-Fi details were not accepted by the switchboard.", e)
         }
     }
 
@@ -208,6 +249,7 @@ class GoSmartProvisioningModule(
         result.putString("nodeId", pending.nodeId)
         pending.promise.resolve(result)
         pendingProvision = null
+        try { espDevice?.disconnectDevice() } catch (_: Exception) {}
         espDevice = null
     }
 
@@ -216,6 +258,7 @@ class GoSmartProvisioningModule(
         if (!pending.finished.compareAndSet(false, true)) return
         if (error != null) pending.promise.reject(code, message, error) else pending.promise.reject(code, message)
         pendingProvision = null
+        try { espDevice?.disconnectDevice() } catch (_: Exception) {}
         espDevice = null
     }
 
@@ -228,7 +271,6 @@ class GoSmartProvisioningModule(
         return "E-${compact.takeLast(6).uppercase(Locale.US).padStart(6, '0')}"
     }
 
-    // Matches GO SMART ESP-IDF V2.2 automatic Security-1 PoP derivation.
     private fun autoPop(nodeId: String): String {
         val material = "GO_SMART_AUTO_POP_V1|$nodeId".toByteArray(Charsets.UTF_8)
         val digest = MessageDigest.getInstance("SHA-256").digest(material)
