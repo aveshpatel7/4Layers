@@ -39,6 +39,22 @@ jobs:
         working-directory: mobile
         run: npm ci
 
+      - name: Patch Expo SDK 51 for Android 15
+        working-directory: mobile
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/permissions/PermissionsService.kt')
+          s = p.read_text()
+          old = 'return requestedPermissions.contains(permission)'
+          new = 'return requestedPermissions?.contains(permission) == true'
+          if old not in s and new not in s:
+              raise SystemExit('Expected Expo permissions line not found')
+          if old in s:
+              p.write_text(s.replace(old, new))
+          print('Expo Android 15 permissions compatibility patch applied')
+          PY
+
       - name: Build release APK
         working-directory: mobile/android
         env:
