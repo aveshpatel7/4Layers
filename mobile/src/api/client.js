@@ -46,13 +46,62 @@ export const getGoSmartDevices = async () => {
   return Array.isArray(response.data?.devices) ? response.data.devices : [];
 };
 
+const legacyFourLightFanProfile = {
+  schema_version: 1,
+  profile_id: 'go.smart.legacy.4light.1fan',
+  product_type: 'fan_light',
+  name: 'GO SMART 4 Light + Fan',
+  components: [
+    ...[1, 2, 3, 4].map((channel) => ({
+      id: `light${channel}`,
+      name: `Light ${channel}`,
+      type: 'light',
+      icon: 'lightbulb-outline',
+      capabilities: [{
+        id: 'power',
+        data_type: 'boolean',
+        writable: true,
+        state_key: `switch${channel}`,
+        ui: { control: 'toggle' },
+      }],
+    })),
+    {
+      id: 'fan1',
+      name: 'Fan',
+      type: 'fan',
+      icon: 'fan',
+      capabilities: [
+        { id: 'power', data_type: 'boolean', writable: true, state_key: 'fan_power', ui: { control: 'toggle' } },
+        { id: 'speed', data_type: 'number', writable: true, state_key: 'fan_speed', min: 1, max: 4, step: 1, ui: { control: 'steps' } },
+      ],
+    },
+    {
+      id: 'master',
+      name: 'Master',
+      type: 'scene_controller',
+      icon: 'power',
+      capabilities: [
+        { id: 'all_on', data_type: 'action', writable: true, ui: { control: 'button', label: 'ALL ON' } },
+        { id: 'all_off', data_type: 'action', writable: true, ui: { control: 'button', label: 'ALL OFF' } },
+      ],
+    },
+  ],
+};
+
+const adaptLegacyDevice = (device) => ({
+  ...device,
+  profile: legacyFourLightFanProfile,
+  detected: ['4 lights', '1 fan'],
+});
+
 export const getUniversalDevices = async () => {
   try {
     const response = await apiClient.get('/api/universal/devices');
     return Array.isArray(response.data?.devices) ? response.data.devices : [];
   } catch (error) {
     if (error?.response?.status !== 404) throw error;
-    return getGoSmartDevices();
+    const legacy = await getGoSmartDevices();
+    return legacy.map(adaptLegacyDevice);
   }
 };
 
@@ -61,13 +110,39 @@ export const getUniversalCatalog = async () => {
   return response.data || {};
 };
 
+const sendLegacyUniversalCommand = async (deviceId, componentId, capabilityId, value) => {
+  const lightMatch = /^light([1-4])$/.exec(String(componentId || ''));
+  if (lightMatch && capabilityId === 'power') {
+    return sendGoSmartDeviceCommand(deviceId, {
+      action: 'set_channel',
+      channel: Number(lightMatch[1]),
+      state: !!value,
+    });
+  }
+  if (componentId === 'fan1' && capabilityId === 'power') {
+    return sendGoSmartDeviceCommand(deviceId, { action: 'set_fan', power: !!value });
+  }
+  if (componentId === 'fan1' && capabilityId === 'speed') {
+    return sendGoSmartDeviceCommand(deviceId, { action: 'set_fan', power: true, speed: Number(value) });
+  }
+  if (componentId === 'master' && (capabilityId === 'all_on' || capabilityId === 'all_off')) {
+    return sendGoSmartDeviceCommand(deviceId, { action: 'master', state: capabilityId === 'all_on' });
+  }
+  throw new Error('This control requires the Universal GO SMART backend.');
+};
+
 export const sendUniversalCapabilityCommand = async (deviceId, componentId, capabilityId, value) => {
-  const response = await apiClient.post(`/api/universal/devices/${deviceId}/command`, {
-    component_id: componentId,
-    capability_id: capabilityId,
-    value,
-  });
-  return response.data;
+  try {
+    const response = await apiClient.post(`/api/universal/devices/${deviceId}/command`, {
+      component_id: componentId,
+      capability_id: capabilityId,
+      value,
+    });
+    return response.data;
+  } catch (error) {
+    if (error?.response?.status !== 404) throw error;
+    return sendLegacyUniversalCommand(deviceId, componentId, capabilityId, value);
+  }
 };
 
 export const getGoSmartMqttStatus = async () => {
