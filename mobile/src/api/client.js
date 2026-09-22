@@ -1,7 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const GO_SMART_BACKEND_URL = 'https://gosmartbackend-production.up.railway.app';
+export const GO_SMART_BACKEND_URL = 'https://api.35-154-9-176.sslip.io';
 
 const apiClient = axios.create({ baseURL: GO_SMART_BACKEND_URL, timeout: 15000 });
 let onUnauthorized = () => {};
