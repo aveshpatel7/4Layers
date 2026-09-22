@@ -46,6 +46,30 @@ export const getGoSmartDevices = async () => {
   return Array.isArray(response.data?.devices) ? response.data.devices : [];
 };
 
+export const getUniversalDevices = async () => {
+  try {
+    const response = await apiClient.get('/api/universal/devices');
+    return Array.isArray(response.data?.devices) ? response.data.devices : [];
+  } catch (error) {
+    if (error?.response?.status !== 404) throw error;
+    return getGoSmartDevices();
+  }
+};
+
+export const getUniversalCatalog = async () => {
+  const response = await apiClient.get('/api/universal/catalog');
+  return response.data || {};
+};
+
+export const sendUniversalCapabilityCommand = async (deviceId, componentId, capabilityId, value) => {
+  const response = await apiClient.post(`/api/universal/devices/${deviceId}/command`, {
+    component_id: componentId,
+    capability_id: capabilityId,
+    value,
+  });
+  return response.data;
+};
+
 export const getGoSmartMqttStatus = async () => {
   const response = await apiClient.get('/api/mqtt/status');
   return response.data?.mqtt || {};
