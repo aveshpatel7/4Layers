@@ -76,6 +76,8 @@ export default function DashboardScreen() {
           {devices.map((d) => {
             const online = !!d?.presence?.online;
             const s = d?.state || {};
+            const sevenRelayTest = String(d?.firmware_version || '').includes('seven-relay-test');
+            const auxMask = Number(s?.aux_relay_mask ?? s?.fan_speed ?? 0) || 0;
             return (
               <View key={d.id} style={styles.card}>
                 <View style={styles.cardHead}>
@@ -88,19 +90,44 @@ export default function DashboardScreen() {
                 </View>
 
                 <View style={styles.divider} />
-                <Text style={styles.section}>LIGHTS</Text>
-                <View style={styles.rowWrap}>
-                  {[1,2,3,4].map((ch) => {
-                    const active = !!s[`switch${ch}`];
-                    return <Pill key={ch} active={active} label={`L${ch} ${active ? 'ON' : 'OFF'}`} disabled={!online || busy[`${d.id}:s${ch}`]} onPress={() => command(d, `s${ch}`, { action: 'set_channel', channel: ch, state: !active })} />;
-                  })}
-                </View>
+                {sevenRelayTest ? (
+                  <>
+                    <Text style={styles.section}>RELAYS</Text>
+                    <View style={styles.rowWrap}>
+                      {[1,2,3,4,5,6,7].map((ch) => {
+                        const active = ch <= 4
+                          ? !!s[`switch${ch}`]
+                          : !!(auxMask & (1 << (ch - 5)));
+                        return (
+                          <Pill
+                            key={ch}
+                            active={active}
+                            label={`R${ch} ${active ? 'ON' : 'OFF'}`}
+                            disabled={!online || busy[`${d.id}:s${ch}`]}
+                            onPress={() => command(d, `s${ch}`, { action: 'set_channel', channel: ch, state: !active })}
+                          />
+                        );
+                      })}
+                    </View>
+                    <Text style={styles.testModeText}>7-RELAY TEST MODE · R5/R6/R7 are independent outputs</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.section}>LIGHTS</Text>
+                    <View style={styles.rowWrap}>
+                      {[1,2,3,4].map((ch) => {
+                        const active = !!s[`switch${ch}`];
+                        return <Pill key={ch} active={active} label={`L${ch} ${active ? 'ON' : 'OFF'}`} disabled={!online || busy[`${d.id}:s${ch}`]} onPress={() => command(d, `s${ch}`, { action: 'set_channel', channel: ch, state: !active })} />;
+                      })}
+                    </View>
 
-                <Text style={styles.section}>FAN</Text>
-                <View style={styles.rowWrap}>
-                  <Pill active={!!s.fan_power} label={s.fan_power ? 'FAN ON' : 'FAN OFF'} disabled={!online || busy[`${d.id}:fan`]} onPress={() => command(d, 'fan', { action: 'set_fan', power: !s.fan_power, speed: s.fan_speed || 1 })} />
-                  {[1,2,3,4].map((speed) => <Pill key={speed} active={s.fan_power && s.fan_speed === speed} label={`${speed}`} disabled={!online || busy[`${d.id}:speed${speed}`]} onPress={() => command(d, `speed${speed}`, { action: 'set_fan', power: true, speed })} />)}
-                </View>
+                    <Text style={styles.section}>FAN</Text>
+                    <View style={styles.rowWrap}>
+                      <Pill active={!!s.fan_power} label={s.fan_power ? 'FAN ON' : 'FAN OFF'} disabled={!online || busy[`${d.id}:fan`]} onPress={() => command(d, 'fan', { action: 'set_fan', power: !s.fan_power, speed: s.fan_speed || 1 })} />
+                      {[1,2,3,4].map((speed) => <Pill key={speed} active={s.fan_power && s.fan_speed === speed} label={`${speed}`} disabled={!online || busy[`${d.id}:speed${speed}`]} onPress={() => command(d, `speed${speed}`, { action: 'set_fan', power: true, speed })} />)}
+                    </View>
+                  </>
+                )}
 
                 <View style={styles.masterRow}>
                   <TouchableOpacity disabled={!online} style={[styles.masterBtn, !online && { opacity: 0.35 }]} onPress={() => command(d, 'masteron', { action: 'master', state: true })}><Text style={styles.masterText}>MASTER ON</Text></TouchableOpacity>
@@ -137,6 +164,7 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#1C1C1C', marginVertical: 14 },
   section: { color: '#777777', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 8, marginTop: 4 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  testModeText: { color: '#686868', fontSize: 9, fontWeight: '800', letterSpacing: 0.7, marginBottom: 8 },
   pill: { minWidth: 66, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#333333', borderRadius: 12, alignItems: 'center' },
   pillActive: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
   pillText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
