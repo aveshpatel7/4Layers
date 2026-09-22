@@ -51,7 +51,7 @@ function CapabilityControl({ device, component, capability, state, busy, onComma
   const key = `${device.id}:${component.id}:${capability.id}`;
   const disabled = !device?.presence?.online || busy[key];
   const send = (next) => onCommand(device, component, capability, next);
-  const label = capability.label || capability.name || capability.id.replaceAll('_', ' ');
+  const label = capability.label || capability.name || capability.id.replace(/_/g, ' ');
 
   if (dataType === 'action') {
     return <View style={styles.capRow}><ControlButton disabled={disabled} label={ui.label || label.toUpperCase()} onPress={() => send(true)} /></View>;
@@ -196,8 +196,11 @@ export default function UniversalDeviceCard({ device, busy, onCommand }) {
             <View style={styles.componentHead}>
               <View style={styles.componentIcon}><MaterialCommunityIcons name={icon} size={20} color="#FFFFFF" /></View>
               <View style={styles.componentTitleWrap}>
-                <Text style={styles.componentName}>{component.name || component.id}</Text>
-                <Text style={styles.componentType}>{String(component.type || 'device').replaceAll('_', ' ').toUpperCase()}</Text>
+                <View style={styles.componentNameRow}>
+                  <Text style={styles.componentName}>{component.name || component.id}</Text>
+                  {component.simulated === true && <Text style={styles.simulatedBadge}>SIMULATED</Text>}
+                </View>
+                <Text style={styles.componentType}>{String(component.type || 'device').replace(/_/g, ' ').toUpperCase()}</Text>
               </View>
             </View>
             <View style={styles.divider} />
@@ -225,7 +228,9 @@ const styles = StyleSheet.create({
   componentCard: { marginTop: 12, borderRadius: 17, borderWidth: 1, borderColor: '#202020', padding: 13, backgroundColor: '#0B0B0B' },
   componentHead: { flexDirection: 'row', alignItems: 'center' },
   componentIcon: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: '#2E2E2E', alignItems: 'center', justifyContent: 'center' },
-  componentTitleWrap: { marginLeft: 10, flex: 1 }, componentName: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  componentTitleWrap: { marginLeft: 10, flex: 1 }, componentNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  componentName: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  simulatedBadge: { color: '#9A9A9A', borderWidth: 1, borderColor: '#333333', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, fontSize: 7, fontWeight: '900', letterSpacing: 0.8 },
   componentType: { color: '#666666', marginTop: 2, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   divider: { height: 1, backgroundColor: '#1E1E1E', marginVertical: 12 },
   capRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
